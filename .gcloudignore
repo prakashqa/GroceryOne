@@ -1,0 +1,24 @@
+# GroceryOne — Cloud Build Ignore
+# Only backend/ and packages/shared/ are needed for Docker build
+
+.git
+**/node_modules
+**/node_modules_old
+**/dist
+mobile/
+admin/
+.expo/
+**/coverage
+*.log
+**/*.log
+.env*
+.claude/
+GroceryOne/
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store
+nul
+**/nul

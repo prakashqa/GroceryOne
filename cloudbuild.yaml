@@ -5,9 +5,9 @@
 # Builds the NestJS backend Docker image and deploys to Cloud Run.
 #
 # Prerequisites:
-# 1. Artifact Registry repo created: groceryone (us-central1)
-# 2. Cloud Run service created: groceryone-backend
-# 3. Secrets configured in GCP Secret Manager
+# 1. Artifact Registry repo created: groceryone (asia-south1)
+# 2. Secrets configured in GCP Secret Manager (DB_PASSWORD, JWT_SECRET, REDIS_PASSWORD)
+# 3. IAM permissions: Cloud Build → run.admin, compute SA → secretmanager.secretAccessor
 
 steps:
   # Step 1: Build the Docker image
@@ -15,9 +15,9 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:$COMMIT_SHA'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:$COMMIT_SHA'
       - '-t'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:latest'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:latest'
       - '-f'
       - 'backend/Dockerfile'
       - '.'
@@ -27,7 +27,7 @@ steps:
     args:
       - 'push'
       - '--all-tags'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/groceryone/backend'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/groceryone/backend'
 
   # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -36,12 +36,19 @@ steps:
       - 'run'
       - 'deploy'
       - 'groceryone-backend'
-      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:$COMMIT_SHA'
-      - '--region=us-central1'
+      - '--image=asia-south1-docker.pkg.dev/$PROJECT_ID/groceryone/backend:$COMMIT_SHA'
+      - '--region=asia-south1'
       - '--platform=managed'
+      - '--port=3000'
+      - '--memory=512Mi'
+      - '--min-instances=0'
+      - '--max-instances=3'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=NODE_ENV=production,DB_HOST=ep-billowing-bush-a11deizd-pooler.ap-southeast-1.aws.neon.tech,DB_PORT=5432,DB_USERNAME=neondb_owner,DB_NAME=neondb,DB_SSL=true,REDIS_HOST=destined-snake-47010.upstash.io,REDIS_PORT=6379,REDIS_TLS=true,CORS_ORIGIN=*,API_PREFIX=api/v1,RATE_LIMIT_TTL=60,RATE_LIMIT_MAX=100,JWT_EXPIRES_IN=1h,JWT_REFRESH_EXPIRES_IN=7d'
+      - '--set-secrets=DB_PASSWORD=DB_PASSWORD:latest,JWT_SECRET=JWT_SECRET:latest,REDIS_PASSWORD=REDIS_PASSWORD:latest'
 
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/groceryone/backend'
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/groceryone/backend'
 
 options:
   logging: CLOUD_LOGGING_ONLY
