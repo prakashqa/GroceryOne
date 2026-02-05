@@ -15,10 +15,13 @@ import { TokenBlacklistService } from './token-blacklist.service';
     {
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
+        const redisPassword = configService.get<string>('redis.password');
+        const redisTls = configService.get<boolean>('redis.tls');
         return new Redis({
           host: configService.get<string>('redis.host'),
           port: configService.get<number>('redis.port'),
-          password: configService.get<string>('redis.password') || undefined,
+          password: redisPassword || undefined,
+          tls: redisTls ? {} : undefined,
           lazyConnect: true,
         });
       },

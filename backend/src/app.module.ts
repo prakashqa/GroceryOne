@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CoreModule } from './core/core.module';
 import { RedisModule } from './core/redis';
+import { FirebaseAdminModule } from './core/firebase/firebase-admin.module';
 import { TenantModule } from './tenant/tenant.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -44,6 +45,9 @@ import configuration from './core/config/configuration';
         autoLoadEntities: true,
         synchronize: configService.get<string>('NODE_ENV') === 'development',
         logging: configService.get<string>('NODE_ENV') === 'development',
+        ssl: configService.get<boolean>('database.ssl')
+          ? { rejectUnauthorized: false }
+          : false,
       }),
     }),
 
@@ -52,6 +56,9 @@ import configuration from './core/config/configuration';
 
     // Redis module (global — provides REDIS_CLIENT and TokenBlacklistService)
     RedisModule,
+
+    // Firebase Admin module (global — provides FirebaseAdminService for FCM)
+    FirebaseAdminModule,
 
     // Tenant module
     TenantModule,

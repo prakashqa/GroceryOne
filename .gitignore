@@ -81,3 +81,7 @@ nul
 
 # Expo
 .expo/
+
+# Firebase (downloaded per-environment, contain project credentials)
+**/google-services.json
+**/GoogleService-Info.plist

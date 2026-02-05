@@ -12,12 +12,14 @@ export default () => ({
     username: process.env.DB_USERNAME || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     name: process.env.DB_NAME || 'groceryone',
+    ssl: process.env.DB_SSL === 'true',
   },
 
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD,
+    tls: process.env.REDIS_TLS === 'true',
   },
 
   jwt: {
