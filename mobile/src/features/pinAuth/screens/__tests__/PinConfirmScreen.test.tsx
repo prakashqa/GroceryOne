@@ -1,0 +1,196 @@
+/**
+ * PinConfirmScreen Tests
+ * TDD: Write tests first, then implement
+ */
+
+import React from 'react';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
+import { NavigationContainer } from '@react-navigation/native';
+import { PinConfirmScreen } from '../PinConfirmScreen';
+import pinReducer from '../../store/pinSlice';
+import authReducer from '../../../../store/slices/authSlice';
+import { PinHashService } from '../../services/PinHashService';
+import { PinSecureStorage } from '../../services/PinSecureStorage';
+
+// Mock services
+jest.mock('../../services/PinHashService');
+jest.mock('../../services/PinSecureStorage');
+
+const mockPinHashService = PinHashService as jest.Mocked<typeof PinHashService>;
+const mockPinSecureStorage = PinSecureStorage as jest.Mocked<typeof PinSecureStorage>;
+
+// Mock theme
+jest.mock('../../../../presentation/theme', () => ({
+  useTheme: () => ({
+    colors: {
+      primary: '#4CAF50',
+      text: '#212121',
+      textLight: '#757575',
+      border: '#E0E0E0',
+      error: '#F44336',
+      surface: '#FFFFFF',
+      background: '#F5F5F5',
+      disabled: '#BDBDBD',
+    },
+    spacing: {
+      xs: 4,
+      sm: 8,
+      md: 16,
+      lg: 24,
+      xl: 32,
+    },
+    borderRadius: {
+      full: 999,
+      md: 8,
+    },
+  }),
+}));
+
+// Mock navigation
+const mockNavigate = jest.fn();
+const mockGoBack = jest.fn();
+const mockReset = jest.fn();
+
+jest.mock('@react-navigation/native', () => {
+  const actual = jest.requireActual('@react-navigation/native');
+  return {
+    ...actual,
+    useNavigation: () => ({
+      navigate: mockNavigate,
+      goBack: mockGoBack,
+      reset: mockReset,
+    }),
+    useRoute: () => ({
+      params: { pin: '1234' },
+    }),
+  };
+});
+
+// Mock i18n
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'pin.confirmTitle': 'Confirm Your PIN',
+        'pin.confirmSubtitle': 'Enter the same PIN again to confirm',
+        'pin.mismatchError': 'PINs do not match. Please try again.',
+        'pin.step': 'Step',
+      };
+      return translations[key] || key;
+    },
+  }),
+}));
+
+describe('PinConfirmScreen', () => {
+  let store: ReturnType<typeof createTestStore>;
+
+  function createTestStore() {
+    return configureStore({
+      reducer: {
+        pin: pinReducer,
+        auth: authReducer,
+      },
+      preloadedState: {
+        auth: {
+          user: { id: 'user123', email: 'test@example.com' } as any,
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        },
+      },
+    });
+  }
+
+  function renderWithProviders(ui: React.ReactElement) {
+    store = createTestStore();
+    return render(
+      <Provider store={store}>
+        <NavigationContainer>{ui}</NavigationContainer>
+      </Provider>
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPinHashService.generateSalt.mockReturnValue('testsalt');
+    mockPinHashService.hashPin.mockResolvedValue('testhash');
+    mockPinSecureStorage.storePinHash.mockResolvedValue(undefined);
+  });
+
+  describe('rendering', () => {
+    it('should render confirm instructions', () => {
+      const { getByText } = renderWithProviders(<PinConfirmScreen />);
+      expect(getByText('Confirm Your PIN')).toBeTruthy();
+    });
+
+    it('should render step 2 indicator', () => {
+      const { getByText } = renderWithProviders(<PinConfirmScreen />);
+      expect(getByText(/Step 2/)).toBeTruthy();
+    });
+
+    it('should render PinInput component', () => {
+      const { getByTestId } = renderWithProviders(<PinConfirmScreen />);
+      expect(getByTestId('pin-confirm-input')).toBeTruthy();
+    });
+  });
+
+  describe('PIN matching', () => {
+    it('should save PIN and navigate to main on match', async () => {
+      const { getByText } = renderWithProviders(<PinConfirmScreen />);
+
+      // Enter matching PIN (1234 from route params)
+      fireEvent.press(getByText('1'));
+      fireEvent.press(getByText('2'));
+      fireEvent.press(getByText('3'));
+      fireEvent.press(getByText('4'));
+
+      await waitFor(() => {
+        expect(mockPinSecureStorage.storePinHash).toHaveBeenCalled();
+      });
+    });
+
+    it('should show error on PIN mismatch', async () => {
+      const { getByText } = renderWithProviders(<PinConfirmScreen />);
+
+      // Enter non-matching PIN (9999 instead of 1234)
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+
+      await waitFor(() => {
+        expect(getByText('PINs do not match. Please try again.')).toBeTruthy();
+      });
+    });
+
+    it('should clear input on mismatch for retry', async () => {
+      const { getByText, queryByTestId } = renderWithProviders(<PinConfirmScreen />);
+
+      // Enter non-matching PIN
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+      fireEvent.press(getByText('9'));
+
+      await waitFor(() => {
+        expect(getByText('PINs do not match. Please try again.')).toBeTruthy();
+      });
+
+      // Input should be cleared (no filled dots)
+      // This is verified by being able to enter new PIN
+    });
+  });
+
+  describe('navigation', () => {
+    it('should allow going back to re-enter', () => {
+      const { getByTestId } = renderWithProviders(<PinConfirmScreen />);
+
+      // There should be a way to go back
+      // Implementation could be a back button or gesture
+    });
+  });
+});

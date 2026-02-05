@@ -1,0 +1,93 @@
+{
+  "title": "My Orders",
+  "empty": {
+    "title": "No Orders Yet",
+    "description": "You haven't placed any orders yet",
+    "shopNow": "Start Shopping"
+  },
+  "status": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "processing": "Processing",
+    "out_for_delivery": "Out for Delivery",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled"
+  },
+  "payment": {
+    "pending": "Payment Pending",
+    "paid": "Paid",
+    "failed": "Payment Failed",
+    "refunded": "Refunded",
+    "cod": "Cash on Delivery"
+  },
+  "detail": {
+    "title": "Order Details",
+    "orderNumber": "Order #{{number}}",
+    "placedOn": "Placed on {{date}}",
+    "items": "Order Items",
+    "deliveryAddress": "Delivery Address",
+    "paymentMethod": "Payment Method",
+    "orderSummary": "Order Summary",
+    "trackOrder": "Track Order",
+    "reorder": "Reorder",
+    "cancelOrder": "Cancel Order",
+    "needHelp": "Need Help?",
+    "contactSupport": "Contact Support"
+  },
+  "tracking": {
+    "title": "Track Order",
+    "orderPlaced": "Order Placed",
+    "confirmed": "Order Confirmed",
+    "processing": "Preparing Your Order",
+    "dispatched": "Out for Delivery",
+    "delivered": "Delivered",
+    "estimatedDelivery": "Estimated Delivery",
+    "deliveryPerson": "Delivery Partner",
+    "call": "Call",
+    "liveTracking": "Live Tracking"
+  },
+  "cancel": {
+    "title": "Cancel Order",
+    "confirm": "Are you sure you want to cancel this order?",
+    "reason": "Reason for cancellation",
+    "reasons": {
+      "changed_mind": "Changed my mind",
+      "found_cheaper": "Found cheaper elsewhere",
+      "wrong_item": "Ordered wrong item",
+      "delivery_delay": "Delivery taking too long",
+      "other": "Other reason"
+    },
+    "button": "Cancel Order",
+    "success": "Order cancelled successfully",
+    "refundNote": "Refund will be processed within 5-7 business days"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "deliveryAddress": "Delivery Address",
+    "changeAddress": "Change",
+    "addAddress": "Add New Address",
+    "deliverySlot": "Delivery Slot",
+    "selectSlot": "Select Delivery Time",
+    "paymentMethod": "Payment Method",
+    "instructions": "Delivery Instructions",
+    "instructionsPlaceholder": "Any special instructions for delivery?",
+    "placeOrder": "Place Order",
+    "orderTotal": "Order Total"
+  },
+  "success": {
+    "title": "Order Placed!",
+    "message": "Your order has been placed successfully",
+    "orderNumber": "Order Number",
+    "estimatedDelivery": "Estimated Delivery",
+    "viewOrder": "View Order",
+    "continueShopping": "Continue Shopping"
+  },
+  "deliverySlots": {
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "morning": "Morning (8 AM - 12 PM)",
+    "afternoon": "Afternoon (12 PM - 4 PM)",
+    "evening": "Evening (4 PM - 8 PM)",
+    "notAvailable": "Not Available"
+  }
+}

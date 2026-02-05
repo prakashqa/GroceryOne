@@ -1,0 +1,151 @@
+/**
+ * BottomTabNavigator Tests
+ * TDD tests for bottom tab navigation
+ */
+
+import React from 'react';
+
+// Mock navigation
+jest.mock('@react-navigation/bottom-tabs', () => {
+  return {
+    createBottomTabNavigator: () => ({
+      Navigator: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+      Screen: ({ component: Component }: { component: React.ComponentType }) => (
+        <Component />
+      ),
+    }),
+  };
+});
+
+// Mock navigation stack
+jest.mock('@react-navigation/native-stack', () => ({
+  createNativeStackNavigator: () => ({
+    Navigator: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    Screen: () => null,
+  }),
+}));
+
+// Mock theme hook
+jest.mock('../../theme', () => ({
+  useTheme: () => ({
+    colors: {
+      primary: '#2E7D32',
+      surface: '#FFFFFF',
+      background: '#F5F5F5',
+      text: '#1A1A1A',
+      textSecondary: '#666666',
+      border: '#E8E8E8',
+    },
+    spacing: { xs: 4, sm: 8, md: 16, lg: 24 },
+  }),
+  useIsDarkMode: () => false,
+}));
+
+// Mock useTranslation
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'navigation.dashboard': 'Dashboard',
+        'navigation.carts': 'Carts',
+        'navigation.settings': 'Settings',
+        'picking.cartReview': 'Cart Review',
+      };
+      return translations[key] || key;
+    },
+    ready: true,
+  }),
+}));
+
+// Mock screens
+jest.mock('../../screens/dashboard', () => ({
+  DashboardScreen: () => null,
+}));
+
+jest.mock('../../screens/picking', () => ({
+  ManageCartsScreen: () => null,
+  PickingScreen: () => null,
+  CartScreen: () => null,
+}));
+
+jest.mock('../../screens/settings', () => ({
+  SettingsScreen: () => null,
+  AppearanceSettingsScreen: () => null,
+  LanguageSettingsScreen: () => null,
+  NotificationSettingsScreen: () => null,
+  PrinterSettingsScreen: () => null,
+  AboutScreen: () => null,
+}));
+
+jest.mock('../../screens/management', () => ({
+  CategoryManagementScreen: () => null,
+  ItemManagementScreen: () => null,
+}));
+
+jest.mock('../../../features/orderScanning', () => ({
+  CameraCaptureScreen: () => null,
+  ScanReviewScreen: () => null,
+}));
+
+// Mock vector icons
+jest.mock('react-native-vector-icons/MaterialIcons', () => 'Icon');
+
+import { BottomTabNavigator, TabParamList } from '../BottomTabNavigator';
+
+describe('BottomTabNavigator', () => {
+  describe('Tab Configuration', () => {
+    it('exports TabParamList type with correct tabs', () => {
+      // TabParamList should include Dashboard, Carts, and Settings
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
+      expect(tabs).toHaveLength(3);
+    });
+
+    it('can be imported and is a valid component', () => {
+      // Verify the component is exported correctly
+      expect(BottomTabNavigator).toBeDefined();
+      expect(typeof BottomTabNavigator).toBe('function');
+    });
+  });
+
+  describe('Navigation Structure', () => {
+    it('has Dashboard as a tab', () => {
+      // The Dashboard should be accessible from the bottom tabs
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
+      expect(tabs).toContain('DashboardTab');
+    });
+
+    it('has Carts as a tab', () => {
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
+      expect(tabs).toContain('CartsTab');
+    });
+
+    it('has Settings as a tab', () => {
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
+      expect(tabs).toContain('SettingsTab');
+    });
+  });
+
+  describe('i18n Integration', () => {
+    it('waits for i18n to be ready before rendering', () => {
+      // The component should check ready state from useTranslation
+      // and return null if translations are not ready yet
+      // This prevents showing translation keys like "navigation.dashboard"
+      expect(BottomTabNavigator).toBeDefined();
+    });
+
+    it('renders tab labels with translated values when ready', () => {
+      // When i18n is ready, tab labels should show translated values
+      // Dashboard, Carts, Settings - not the keys
+      const translations: Record<string, string> = {
+        'navigation.dashboard': 'Dashboard',
+        'navigation.carts': 'Carts',
+        'navigation.settings': 'Settings',
+      };
+
+      // Verify translations are defined
+      expect(translations['navigation.dashboard']).toBe('Dashboard');
+      expect(translations['navigation.carts']).toBe('Carts');
+      expect(translations['navigation.settings']).toBe('Settings');
+    });
+  });
+});

@@ -1,0 +1,45 @@
+{
+  "name": "groceryone",
+  "version": "1.0.0",
+  "description": "Multi-tenant grocery mobile application",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "mobile",
+    "backend"
+  ],
+  "scripts": {
+    "mobile": "npm run --workspace=mobile",
+    "backend": "npm run --workspace=backend",
+    "admin": "npm run --workspace=admin",
+    "shared": "npm run --workspace=@groceryone/shared",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.0",
+    "rimraf": "^5.0.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "dependencies": {
+    "typeorm": "^0.3.28"
+  }
+}

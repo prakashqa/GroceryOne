@@ -1,0 +1,73 @@
+{
+  "title": "Products",
+  "featured": "Featured Products",
+  "categories": "Categories",
+  "newArrivals": "New Arrivals",
+  "bestSellers": "Best Sellers",
+  "filters": {
+    "title": "Filters",
+    "sortBy": "Sort By",
+    "priceRange": "Price Range",
+    "minPrice": "Min Price",
+    "maxPrice": "Max Price",
+    "brand": "Brand",
+    "rating": "Rating",
+    "availability": "Availability",
+    "inStockOnly": "In Stock Only",
+    "clear": "Clear All",
+    "apply": "Apply Filters",
+    "results": "{{count}} result",
+    "results_plural": "{{count}} results"
+  },
+  "sort": {
+    "relevance": "Relevance",
+    "priceLowHigh": "Price: Low to High",
+    "priceHighLow": "Price: High to Low",
+    "newest": "Newest First",
+    "rating": "Rating",
+    "popularity": "Popularity"
+  },
+  "details": {
+    "description": "Description",
+    "specifications": "Specifications",
+    "reviews": "Reviews",
+    "similarProducts": "Similar Products",
+    "youMayAlsoLike": "You May Also Like",
+    "inStock": "In Stock",
+    "outOfStock": "Out of Stock",
+    "lowStock": "Only {{count}} left",
+    "sku": "SKU",
+    "brand": "Brand",
+    "unit": "Unit",
+    "origin": "Country of Origin"
+  },
+  "addToCart": "Add to Cart",
+  "addedToCart": "Added to Cart",
+  "goToCart": "Go to Cart",
+  "buyNow": "Buy Now",
+  "quantity": "Quantity",
+  "selectVariant": "Select {{name}}",
+  "reviews": {
+    "title": "Customer Reviews",
+    "writeReview": "Write a Review",
+    "rating": "{{rating}} out of 5",
+    "basedOn": "Based on {{count}} review",
+    "basedOn_plural": "Based on {{count}} reviews",
+    "verifiedPurchase": "Verified Purchase",
+    "helpful": "Helpful ({{count}})",
+    "noReviews": "No reviews yet",
+    "beFirst": "Be the first to review this product"
+  },
+  "wishlist": {
+    "add": "Add to Wishlist",
+    "remove": "Remove from Wishlist",
+    "added": "Added to Wishlist",
+    "removed": "Removed from Wishlist"
+  },
+  "share": "Share",
+  "empty": {
+    "title": "No Products Found",
+    "description": "Try adjusting your filters or search terms",
+    "browseCategories": "Browse Categories"
+  }
+}

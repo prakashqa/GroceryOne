@@ -1,0 +1,83 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Mobile
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/*.xcworkspace
+mobile/*.xcodeproj/xcuserdata/
+*.apk
+*.aab
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Backend
+backend/dist/
+
+# Admin
+admin/dist/
+admin/.vite/
+
+# Testing
+coverage/
+.nyc_output/
+e2e/artifacts/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.pem
+.cache/
+tmp/
+temp/
+
+# Detox
+mobile/e2e/artifacts/
+
+# Generated
+*.generated.*
+
+# Local config
+.claude/
+
+# Stale/nested directories
+node_modules_old/
+GroceryOne/
+nul
+
+# Expo
+.expo/

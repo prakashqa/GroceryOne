@@ -1,0 +1,46 @@
+# ================================
+# GroceryOne Backend - Development Dockerfile
+# Supports hot-reload for development
+# Handles monorepo structure with @groceryone/shared
+# ================================
+
+FROM node:20-alpine
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ jq
+
+WORKDIR /app
+
+# Copy and build shared package first
+COPY packages/shared ./packages/shared
+WORKDIR /app/packages/shared
+RUN npm install --legacy-peer-deps
+RUN npm run build
+
+# Copy backend package files
+WORKDIR /app/backend
+COPY backend/package*.json ./
+
+# Remove @groceryone/shared from package.json (it's linked locally, not from registry)
+RUN jq 'del(.dependencies["@groceryone/shared"])' package.json > package.json.tmp && \
+    mv package.json.tmp package.json
+
+# Install all dependencies (including devDependencies)
+RUN npm install --legacy-peer-deps
+
+# Link the shared package locally
+RUN mkdir -p node_modules/@groceryone && \
+    cp -r /app/packages/shared node_modules/@groceryone/shared
+
+# Copy backend source code
+COPY backend/ ./
+
+# Set environment
+ENV NODE_ENV=development
+ENV PORT=3000
+
+# Expose the application port
+EXPOSE 3000
+
+# Start in development mode with hot-reload
+CMD ["npm", "run", "start:dev"]

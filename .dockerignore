@@ -1,0 +1,64 @@
+# ================================
+# Docker Ignore for GroceryOne Monorepo
+# ================================
+
+# Dependencies (will be installed fresh in container)
+**/node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs (we build fresh in Docker)
+**/dist
+**/.next
+**/.expo
+
+# Mobile app (not needed for backend build)
+mobile
+
+# Development files
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+!.env.docker.example
+
+# IDE and editor files
+.idea
+.vscode
+**/*.swp
+**/*.swo
+*~
+
+# Test files
+**/coverage
+**/.nyc_output
+**/*.spec.ts
+**/*.test.ts
+**/test
+**/__tests__
+
+# Documentation
+README.md
+CHANGELOG.md
+docs
+*.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+**/*.log
+**/*.tmp
+**/tmp
+**/temp
+
+# Docker files (avoid recursion)
+Dockerfile
+Dockerfile.*
+docker-compose*.yml
+.dockerignore
+
+# GitHub
+.github

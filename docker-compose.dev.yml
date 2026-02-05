@@ -1,0 +1,22 @@
+# ================================
+# GroceryOne Docker Compose - Development Override
+# ================================
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# ================================
+
+services:
+  # Development backend with hot-reload
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    volumes:
+      # Mount source code for hot-reload
+      - ./backend/src:/app/backend/src:delegated
+      - ./backend/test:/app/backend/test:delegated
+      # Prevent overwriting node_modules
+      - /app/backend/node_modules
+    environment:
+      NODE_ENV: development
+      AUTO_SEED: "true"
+    command: npm run start:dev
