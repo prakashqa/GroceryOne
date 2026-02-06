@@ -82,6 +82,7 @@ nul
 # Expo
 .expo/
 
-# Firebase (downloaded per-environment, contain project credentials)
-**/google-services.json
+# Firebase (NOTE: google-services.json is committed for EAS builds)
+# The API keys are restricted by Firebase and safe to commit
+# **/google-services.json
 **/GoogleService-Info.plist

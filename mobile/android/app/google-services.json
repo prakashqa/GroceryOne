@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "343826079780",
+    "project_id": "groceryone-production",
+    "storage_bucket": "groceryone-production.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343826079780:android:1948dab7902c3ceb96b8b1",
+        "android_client_info": {
+          "package_name": "com.groceryone.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbtISlg6Zrob8kIguI0BLOHs0iwM0prL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

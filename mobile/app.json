@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -53,6 +53,14 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "googleVisionApiKey": "AIzaSyAdeKEFCkSEIohC-X8JRVJ1JPabP3zbB2s",
+      "localApiIp": "192.168.0.104",
+      "eas": {
+        "projectId": "9adb473c-118b-44dc-a88e-df0833b4bc85"
+      }
+    },
+    "owner": "prakashgro"
   }
 }
