@@ -90,6 +90,15 @@ const PRE_DISPATCH_ACTIONS = [
 let persistTimer: NodeJS.Timeout | null = null;
 const DEBOUNCE_MS = 500;
 
+// Critical actions that should persist IMMEDIATELY (no debounce)
+// These are important state changes that must be saved before the app closes
+const IMMEDIATE_PERSIST_ACTIONS = [
+  'multiCart/markActiveCartAsPaid',
+  'multiCart/markCartAsPaid',
+  'multiCart/deleteCart',
+  'multiCart/resetMultiCart',
+];
+
 /**
  * Get tenant slug from Redux state
  */
@@ -537,23 +546,34 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
 
       // Handle persistence to AsyncStorage
       if (PERSIST_ACTIONS.includes(actionType)) {
-        // Clear existing timer
-        if (persistTimer) {
-          clearTimeout(persistTimer);
-        }
+        const state = storeAPI.getState();
+        const tenantSlug = getTenantSlug(state);
 
-        // Debounce persistence to avoid excessive writes
-        persistTimer = setTimeout(() => {
-          const state = storeAPI.getState();
-          const tenantSlug = getTenantSlug(state);
-          if (!tenantSlug) {
-            console.warn('[MultiCartPersist] No tenant slug, skipping persistence');
-            return;
-          }
+        if (!tenantSlug) {
+          console.warn('[MultiCartPersist] No tenant slug, skipping persistence');
+        } else if (IMMEDIATE_PERSIST_ACTIONS.includes(actionType)) {
+          // Critical actions: persist IMMEDIATELY without debounce
+          // This ensures payment status is saved before app closes
           saveMultiCartState(state.multiCart, tenantSlug).catch((error) => {
-            console.error('[MultiCartPersist] Failed to save state:', error);
+            console.error('[MultiCartPersist] Failed to save state (immediate):', error);
           });
-        }, DEBOUNCE_MS);
+        } else {
+          // Non-critical actions: debounce to avoid excessive writes
+          if (persistTimer) {
+            clearTimeout(persistTimer);
+          }
+          persistTimer = setTimeout(() => {
+            const currentState = storeAPI.getState();
+            const currentTenantSlug = getTenantSlug(currentState);
+            if (!currentTenantSlug) {
+              console.warn('[MultiCartPersist] No tenant slug, skipping persistence');
+              return;
+            }
+            saveMultiCartState(currentState.multiCart, currentTenantSlug).catch((error) => {
+              console.error('[MultiCartPersist] Failed to save state:', error);
+            });
+          }, DEBOUNCE_MS);
+        }
       }
 
       // Handle backend sync for cart creation
