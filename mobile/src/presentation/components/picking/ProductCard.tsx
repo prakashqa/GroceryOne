@@ -70,7 +70,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 : '#F5F5F5',
               borderTopLeftRadius: theme.borderRadius.lg,
               borderTopRightRadius: theme.borderRadius.lg,
-              height: isTablet ? 120 : 100,
+              height: isTablet ? 100 : 80,
             },
           ]}
         >
@@ -79,8 +79,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               styles.categoryIconLarge,
               {
                 fontSize: isTablet
-                  ? theme.typography.fontSize.lg * 2.5
-                  : theme.typography.fontSize.lg * 2,
+                  ? theme.typography.fontSize.lg * 2
+                  : theme.typography.fontSize.lg * 1.5,
               },
             ]}
           >
@@ -133,9 +133,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {
                 color: theme.colors.text,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.lg
-                  : theme.typography.fontSize.md,
-                fontWeight: theme.typography.fontWeight.semibold,
+                  ? theme.typography.fontSize.xl
+                  : theme.typography.fontSize.lg,
+                fontWeight: theme.typography.fontWeight.bold,
               },
             ]}
             numberOfLines={2}
@@ -148,8 +148,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {
                 color: theme.colors.textSecondary,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.md
-                  : theme.typography.fontSize.sm,
+                  ? theme.typography.fontSize.lg
+                  : theme.typography.fontSize.md,
                 fontWeight: theme.typography.fontWeight.regular,
                 marginTop: theme.spacing.xs,
               },

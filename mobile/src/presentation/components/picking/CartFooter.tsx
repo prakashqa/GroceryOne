@@ -34,8 +34,8 @@ export const CartFooter: React.FC<CartFooterProps> = ({
         {
           backgroundColor: theme.colors.surface,
           paddingHorizontal: responsiveStyles.contentPadding,
-          paddingTop: theme.spacing.md,
-          paddingBottom: Math.max(theme.spacing.md, insets.bottom),
+          paddingTop: theme.spacing.lg,
+          paddingBottom: Math.max(theme.spacing.lg, insets.bottom),
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
         },
@@ -50,9 +50,9 @@ export const CartFooter: React.FC<CartFooterProps> = ({
             {
               color: theme.colors.text,
               fontSize: isTablet
-                ? theme.typography.fontSize.lg
-                : theme.typography.fontSize.md,
-              fontWeight: theme.typography.fontWeight.medium,
+                ? theme.typography.fontSize.xl
+                : theme.typography.fontSize.lg,
+              fontWeight: theme.typography.fontWeight.semibold,
             },
           ]}
         >
@@ -64,8 +64,8 @@ export const CartFooter: React.FC<CartFooterProps> = ({
             styles.viewCartButton,
             {
               backgroundColor: theme.colors.buttonPrimary,
-              paddingVertical: theme.spacing.sm + 2,
-              paddingHorizontal: theme.spacing.lg,
+              paddingVertical: theme.spacing.md,
+              paddingHorizontal: theme.spacing.xl,
               borderRadius: theme.borderRadius.xl,
             },
           ]}
@@ -79,8 +79,8 @@ export const CartFooter: React.FC<CartFooterProps> = ({
               {
                 color: theme.colors.buttonPrimaryText,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.lg
-                  : theme.typography.fontSize.md,
+                  ? theme.typography.fontSize.xl
+                  : theme.typography.fontSize.lg,
                 fontWeight: theme.typography.fontWeight.semibold,
               },
             ]}
@@ -93,8 +93,8 @@ export const CartFooter: React.FC<CartFooterProps> = ({
               {
                 color: theme.colors.buttonPrimaryText,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.lg
-                  : theme.typography.fontSize.md,
+                  ? theme.typography.fontSize.xl
+                  : theme.typography.fontSize.lg,
               },
             ]}
             testID={testID ? `${testID}-chevron` : undefined}
