@@ -108,6 +108,11 @@
     "daysAgo_plural": "{{count}} days ago"
   },
   "picking": {
+    "itemCount": "{{count}} items",
+    "itemCount_one": "{{count}} item",
+    "itemsAdded": "{{count}} items added",
+    "itemsAdded_one": "{{count}} item added",
+    "scan": "Scan",
     "cartReview": "Cart Review",
     "defaultCart": "Default Cart",
     "greeting": "Hello, Merchant!",

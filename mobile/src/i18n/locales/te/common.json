@@ -108,6 +108,11 @@
     "daysAgo_plural": "{{count}} రోజుల క్రితం"
   },
   "picking": {
+    "itemCount": "{{count}} వస్తువులు",
+    "itemCount_one": "{{count}} వస్తువు",
+    "itemsAdded": "{{count}} వస్తువులు జోడించబడ్డాయి",
+    "itemsAdded_one": "{{count}} వస్తువు జోడించబడింది",
+    "scan": "స్కాన్",
     "cartReview": "కార్ట్ సమీక్ష",
     "defaultCart": "డిఫాల్ట్ కార్ట్",
     "greeting": "హలో, వ్యాపారి!",
