@@ -168,8 +168,9 @@ export const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
         >
           <Text style={styles.calendarIcon}>📅</Text>
           <Text
+            numberOfLines={1}
             style={[
-              styles.presetText,
+              styles.customDateText,
               {
                 fontSize: theme.typography.fontSize.sm,
                 color: isCustomSelected
@@ -226,9 +227,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 0,
   },
   presetText: {
     // fontSize applied inline via theme tokens
+  },
+  customDateText: {
+    // fontSize applied inline via theme tokens
+    flexShrink: 0,
   },
   calendarIcon: {
     fontSize: 14,
