@@ -18,7 +18,19 @@ import Constants from 'expo-constants';
  */
 const LOCAL_MACHINE_IP = '192.168.0.104'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
 
+// Cloud Run production API URL
+const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1';
+
+// Set to true to use Cloud Run backend even in dev mode (for testing with cloud services)
+// Set to false to use local backend (for local development)
+const USE_CLOUD_API = true;
+
 const getDevBaseUrl = (): string => {
+  // Priority 0: Use cloud API if explicitly enabled
+  if (USE_CLOUD_API) {
+    return CLOUD_API_URL;
+  }
+
   // Priority 1: Explicit IP from .env — most reliable for physical devices
   const envIp = Constants.expoConfig?.extra?.localApiIp;
   if (envIp) {
@@ -45,7 +57,7 @@ export const API_CONFIG = {
   // Base URL - automatically configured based on platform
   BASE_URL: __DEV__
     ? getDevBaseUrl()
-    : 'https://api.groceryone.com/api/v1',
+    : 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1',
 
   // API version
   VERSION: '1.0',

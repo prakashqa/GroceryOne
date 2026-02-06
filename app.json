@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "9adb473c-118b-44dc-a88e-df0833b4bc85"
+      }
+    },
+    "android": {
+      "package": "com.prakashgro.groceryone"
+    }
+  }
+}
