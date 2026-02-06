@@ -87,6 +87,13 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.groceryone.app'
+
+    sourceSets {
+        main {
+            java.srcDirs = ['src/main/java']
+            kotlin.srcDirs = ['src/main/java']
+        }
+    }
     defaultConfig {
         applicationId 'com.groceryone.app'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -172,5 +179,12 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+// Ensure Kotlin compiles correctly
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
     }
 }
