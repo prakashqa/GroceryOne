@@ -8,14 +8,9 @@ dist/
 build/
 *.tsbuildinfo
 
-# Mobile
-mobile/android/app/build/
-mobile/android/.gradle/
-mobile/android/local.properties
-mobile/ios/Pods/
-mobile/ios/build/
-mobile/*.xcworkspace
-mobile/*.xcodeproj/xcuserdata/
+# Mobile - Native folders (managed by EAS/Expo prebuild)
+mobile/android/
+mobile/ios/
 *.apk
 *.aab
 *.ipa
