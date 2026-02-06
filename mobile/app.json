@@ -12,11 +12,9 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.groceryone.app",
-      "googleServicesFile": "./ios/GoogleService-Info.plist"
+      "bundleIdentifier": "com.groceryone.app"
     },
     "android": {
-      "googleServicesFile": "./android/app/google-services.json",
       "package": "com.groceryone.app",
       "permissions": [
         "android.permission.INTERNET",

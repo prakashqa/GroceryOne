@@ -11,11 +11,4 @@
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }
 
-# Keep the MainApplication class (required for app startup)
--keep class com.groceryone.app.MainApplication { *; }
--keep class com.groceryone.app.MainActivity { *; }
-
-# Keep all Expo modules
--keep class expo.modules.** { *; }
-
 # Add any project specific keep options here:
