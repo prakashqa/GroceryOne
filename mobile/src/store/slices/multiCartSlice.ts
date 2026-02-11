@@ -512,8 +512,15 @@ const multiCartSlice = createSlice({
             const localCart = state.carts.find(
               (c) => c.id === backendCart.id || c.backendId === backendCart.id
             );
-            if (localCart && localCart.status === 'paid' && localCart.items.length > backendCart.items.length) {
-              return { ...backendCart, items: localCart.items };
+            if (localCart && localCart.status === 'paid') {
+              // Preserve paidItemCount from local state (backend doesn't store it)
+              const paidItemCount = localCart.paidItemCount ?? backendCart.paidItemCount;
+              // Preserve items if backend returns fewer (race condition during payment sync)
+              const items = localCart.items.length > backendCart.items.length
+                ? localCart.items : backendCart.items;
+              // Preserve paymentInfo from local state
+              const paymentInfo = localCart.paymentInfo ?? backendCart.paymentInfo;
+              return { ...backendCart, items, paidItemCount, paymentInfo };
             }
           }
           return backendCart;
@@ -533,10 +540,34 @@ const multiCartSlice = createSlice({
         // Update existing carts that are in backend (match by id or backendId)
         state.carts = state.carts.map((cart) => {
           const backendCart = convertedCarts.find((c) => c.id === cart.id);
-          if (backendCart) return backendCart;
+          if (backendCart) {
+            // For paid carts, preserve local-only metadata that backend doesn't store
+            if (cart.status === 'paid') {
+              return {
+                ...backendCart,
+                paidItemCount: cart.paidItemCount ?? backendCart.paidItemCount,
+                paymentInfo: cart.paymentInfo ?? backendCart.paymentInfo,
+                items: cart.items.length > backendCart.items.length
+                  ? cart.items : backendCart.items,
+              };
+            }
+            return backendCart;
+          }
           // Check if a backend cart matches this local cart's backendId
           const matchByBackendId = convertedCarts.find((c) => c.id === cart.backendId);
           if (matchByBackendId) {
+            // For paid carts, preserve local-only metadata
+            if (cart.status === 'paid') {
+              return {
+                ...matchByBackendId,
+                id: cart.id,
+                backendId: cart.backendId,
+                paidItemCount: cart.paidItemCount ?? matchByBackendId.paidItemCount,
+                paymentInfo: cart.paymentInfo ?? matchByBackendId.paymentInfo,
+                items: cart.items.length > matchByBackendId.items.length
+                  ? cart.items : matchByBackendId.items,
+              };
+            }
             // Merge backend data but preserve local id and backendId
             return {
               ...matchByBackendId,

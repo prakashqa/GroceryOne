@@ -55,6 +55,8 @@ jest.mock('../../../theme', () => ({
         sm: 12,
         md: 14,
         lg: 16,
+        xl: 18,
+        '2xl': 20,
       },
       fontWeight: {
         regular: '400',
@@ -147,8 +149,8 @@ describe('ProductCard', () => {
       expect(getByText('1 kg')).toBeTruthy();
     });
 
-    it('renders category icon in placeholder', () => {
-      const { getByText } = render(
+    it('does not render category icon', () => {
+      const { queryByText } = render(
         <ProductCard
           item={mockItem}
           categoryIcon="🌾"
@@ -160,7 +162,7 @@ describe('ProductCard', () => {
         />
       );
 
-      expect(getByText('🌾')).toBeTruthy();
+      expect(queryByText('🌾')).toBeNull();
     });
 
     it('renders with testID when provided', () => {
@@ -248,6 +250,33 @@ describe('ProductCard', () => {
       );
 
       expect(getByText('IN CART')).toBeTruthy();
+    });
+
+    it('IN CART badge does not use absolute positioning to prevent overlap with product name', () => {
+      const { getByText, UNSAFE_root } = render(
+        <ProductCard
+          item={mockItem}
+          categoryIcon="🌾"
+          quantityInCart={2}
+          onAdd={mockOnAdd}
+          onIncrement={mockOnIncrement}
+          onDecrement={mockOnDecrement}
+          onPress={mockOnPress}
+        />
+      );
+
+      // Verify badge renders and is not absolutely positioned
+      const badgeText = getByText('IN CART');
+      expect(badgeText).toBeTruthy();
+
+      // Walk up from badge text to find the badge container View
+      // and verify it does NOT have position: 'absolute' in any of its styles
+      const badgeView = badgeText.parent;
+      const badgeStyles = badgeView?.props?.style;
+      const flatStyle = Array.isArray(badgeStyles)
+        ? badgeStyles.reduce((acc: Record<string, unknown>, s: Record<string, unknown> | null | undefined) => (s ? { ...acc, ...s } : acc), {})
+        : badgeStyles || {};
+      expect(flatStyle.position).not.toBe('absolute');
     });
 
     it('shows quantity controls when in cart', () => {

@@ -31,8 +31,8 @@ export const CategoryHeader: React.FC<CategoryHeaderProps> = ({
         styles.container,
         {
           paddingHorizontal: responsiveStyles.contentPadding,
-          marginTop: theme.spacing.md,
-          marginBottom: theme.spacing.sm,
+          marginTop: theme.spacing.sm,
+          marginBottom: theme.spacing.xs,
         },
       ]}
       testID={testID}

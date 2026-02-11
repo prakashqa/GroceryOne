@@ -38,7 +38,7 @@ export const PickingHeader: React.FC<PickingHeaderProps> = ({
         styles.container,
         {
           backgroundColor: theme.colors.headerBackground,
-          paddingBottom: theme.spacing.md,
+          paddingBottom: theme.spacing.sm,
         },
       ]}
       testID={testID}
@@ -52,14 +52,18 @@ export const PickingHeader: React.FC<PickingHeaderProps> = ({
             },
           ]}
         >
-          {/* Greeting and Store Info */}
+          {/* Greeting and Date Row */}
           <View
             style={[
               styles.greetingSection,
               {
-                marginBottom: theme.spacing.md,
+                marginBottom: theme.spacing.sm,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               },
             ]}
+            testID={testID ? `${testID}-greeting-row` : undefined}
           >
             <Text
               style={[
@@ -70,10 +74,12 @@ export const PickingHeader: React.FC<PickingHeaderProps> = ({
                     ? theme.typography.fontSize['2xl']
                     : theme.typography.fontSize.xl,
                   fontWeight: theme.typography.fontWeight.bold,
+                  flexShrink: 1,
                 },
               ]}
+              numberOfLines={1}
             >
-              {t('picking.greeting')}
+              {t('picking.greeting', { storeName })}
             </Text>
             <Text
               style={[
@@ -84,12 +90,12 @@ export const PickingHeader: React.FC<PickingHeaderProps> = ({
                     ? theme.typography.fontSize.lg
                     : theme.typography.fontSize.md,
                   fontWeight: theme.typography.fontWeight.regular,
-                  marginTop: theme.spacing.xs,
+                  marginLeft: theme.spacing.sm,
                 },
               ]}
               numberOfLines={1}
             >
-              {storeName} {'\u2022'} {currentDate}
+              {currentDate}
             </Text>
           </View>
 

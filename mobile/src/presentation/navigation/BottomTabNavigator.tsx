@@ -65,6 +65,8 @@ export type CartsStackParamList = {
   ManageCarts: undefined;
   Cart: undefined;
   Picking: undefined;
+  CameraCapture: undefined;
+  ScanReview: undefined;
   Settings: undefined;
   AppearanceSettings: undefined;
   LanguageSettings: undefined;
@@ -269,6 +271,16 @@ function CartsStackNavigator() {
       <CartsStack.Screen
         name="Picking"
         component={PickingScreen}
+        options={{ headerShown: false }}
+      />
+      <CartsStack.Screen
+        name="CameraCapture"
+        component={CameraCaptureScreen}
+        options={{ headerShown: false }}
+      />
+      <CartsStack.Screen
+        name="ScanReview"
+        component={ScanReviewScreen}
         options={{ headerShown: false }}
       />
       <CartsStack.Screen

@@ -3,13 +3,15 @@
  * Service for seeding tenants and users for multi-tenant testing
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Tenant } from '../../tenant/entities/tenant.entity';
 import { TenantConfig } from '../../tenant/entities/tenant-config.entity';
 import { User } from '../../modules/users/entities/user.entity';
 import { PasswordService } from '../../modules/auth/services/password.service';
+import { SeedService } from './seed.service';
 import {
   SEED_TENANTS,
   SEED_USERS,
@@ -28,7 +30,7 @@ export interface TenantUserSeedReport {
 }
 
 @Injectable()
-export class TenantUserSeedService {
+export class TenantUserSeedService implements OnModuleInit {
   private readonly logger = new Logger(TenantUserSeedService.name);
 
   constructor(
@@ -40,7 +42,44 @@ export class TenantUserSeedService {
     private readonly userRepository: Repository<User>,
     private readonly passwordService: PasswordService,
     private readonly dataSource: DataSource,
+    private readonly configService: ConfigService,
+    private readonly seedService: SeedService,
   ) {}
+
+  /**
+   * Auto-seed on module init in development mode
+   * Seeds tenants/users first, then delegates to SeedService for categories/items
+   */
+  async onModuleInit() {
+    const autoSeed =
+      this.configService.get<string>('AUTO_SEED', 'false') === 'true';
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+
+    if (autoSeed && nodeEnv === 'development') {
+      this.logger.log(
+        'Auto-seeding enabled, checking for tenants and users...',
+      );
+      await this.seedIfEmpty();
+      // Seed categories/items after tenants exist
+      await this.seedService.seedIfEmpty();
+    }
+  }
+
+  /**
+   * Seed tenants and users if none exist
+   */
+  async seedIfEmpty(): Promise<TenantUserSeedReport | null> {
+    const tenantCount = await this.tenantRepository.count();
+
+    if (tenantCount > 0) {
+      this.logger.log(
+        `Database already has ${tenantCount} tenants. Skipping tenant/user seed.`,
+      );
+      return null;
+    }
+
+    return this.seed();
+  }
 
   /**
    * Seed tenants and users

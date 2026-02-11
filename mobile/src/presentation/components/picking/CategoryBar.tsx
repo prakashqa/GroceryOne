@@ -112,7 +112,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
       style={[
         styles.container,
         {
-          paddingVertical: theme.spacing.smd,
+          paddingVertical: theme.spacing.sm,
         },
       ]}
       testID={testID}

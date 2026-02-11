@@ -23,7 +23,7 @@ const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.a
 
 // Set to true to use Cloud Run backend even in dev mode (for testing with cloud services)
 // Set to false to use local backend (for local development)
-const USE_CLOUD_API = true;
+const USE_CLOUD_API = false;
 
 const getDevBaseUrl = (): string => {
   // Priority 0: Use cloud API if explicitly enabled

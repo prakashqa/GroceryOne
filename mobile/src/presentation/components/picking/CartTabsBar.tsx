@@ -38,7 +38,7 @@ export const CartTabsBar: React.FC<CartTabsBarProps> = ({
       style={[
         styles.container,
         {
-          paddingVertical: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs,
         },
       ]}
       testID={testID}

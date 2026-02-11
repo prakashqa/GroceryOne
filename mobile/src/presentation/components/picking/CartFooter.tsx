@@ -34,8 +34,8 @@ export const CartFooter: React.FC<CartFooterProps> = ({
         {
           backgroundColor: theme.colors.surface,
           paddingHorizontal: responsiveStyles.contentPadding,
-          paddingTop: theme.spacing.lg,
-          paddingBottom: Math.max(theme.spacing.lg, insets.bottom),
+          paddingTop: theme.spacing.smd,
+          paddingBottom: Math.max(theme.spacing.smd, insets.bottom),
           borderTopWidth: 1,
           borderTopColor: theme.colors.border,
         },
@@ -64,7 +64,7 @@ export const CartFooter: React.FC<CartFooterProps> = ({
             styles.viewCartButton,
             {
               backgroundColor: theme.colors.buttonPrimary,
-              paddingVertical: theme.spacing.md,
+              paddingVertical: theme.spacing.smd,
               paddingHorizontal: theme.spacing.xl,
               borderRadius: theme.borderRadius.xl,
             },

@@ -67,7 +67,7 @@ const PickingScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const theme = useTheme();
   const isDarkMode = useIsDarkMode();
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
 
@@ -109,13 +109,15 @@ const PickingScreen: React.FC = () => {
 
   const activeCartName = getTranslatedCartName(activeCart?.name);
 
-  // Get current date formatted
+  // Get current date formatted (matches Dashboard format)
   const currentDate = useMemo(() => {
-    const now = new Date();
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
-  }, []);
+    const dateLocale = i18n.language === 'te' ? 'te-IN' : 'en-US';
+    return new Date().toLocaleDateString(dateLocale, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+  }, [i18n.language]);
 
   // Create default cart if none exists
   React.useEffect(() => {

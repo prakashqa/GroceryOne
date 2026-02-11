@@ -38,7 +38,6 @@ import {
   selectActiveCartTotalQuantity,
   selectActiveCartGrandTotal,
   selectTodaysCarts,
-  selectMostRecentDraftCart,
   selectAllCarts,
   createCart,
   setActiveCart,
@@ -166,7 +165,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
     ),
     [todaysCartsUnsorted]
   );
-  const mostRecentDraft = useSelector(selectMostRecentDraftCart);
   const allCarts = useSelector(selectAllCarts);
 
   // Derive user role display string for header
@@ -209,20 +207,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   const quickActions: QuickAction[] = useMemo(() => {
     const actions: QuickAction[] = [];
 
-    // Resume Last Draft (only shows if a draft cart exists)
-    if (mostRecentDraft) {
-      actions.push({
-        id: 'resume-draft',
-        title: t('dashboard.resumeDraft', 'Resume Draft'),
-        subtitle: mostRecentDraft.name,
-        icon: 'resume',
-        onPress: () => {
-          dispatch(setActiveCart(mostRecentDraft.id));
-          navigation.navigate('Cart');
-        },
-      });
-    }
-
     // Scan List (OCR)
     actions.push({
       id: 'scan-list',
@@ -241,13 +225,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
       onPress: () => navigation.navigate('Reports'),
     });
 
+    // Manage Categories
+    actions.push({
+      id: 'manage-categories',
+      title: t('manageCategories.title'),
+      subtitle: t('manageCategories.categories'),
+      icon: 'list',
+      onPress: () => navigation.navigate('CategoryManagement'),
+    });
+
     // Manage Items
     actions.push({
       id: 'manage-items',
       title: t('dashboard.manageItems'),
-      subtitle: t('dashboard.categoriesItems'),
+      subtitle: t('dashboard.items'),
       icon: 'box',
-      onPress: () => navigation.navigate('CategoryManagement'),
+      onPress: () => navigation.navigate('ItemManagement'),
     });
 
     // New Cart (PRIMARY - full width at bottom for thumb accessibility)
@@ -261,7 +254,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
     });
 
     return actions;
-  }, [t, navigation, mostRecentDraft, handleOpenCreateCartModal, dispatch]);
+  }, [t, navigation, handleOpenCreateCartModal]);
 
   // Transform recent carts to RecentCart format
   const recentCartsData: RecentCart[] = useMemo(() => {

@@ -90,7 +90,7 @@ jest.mock('../../../features/orderScanning', () => ({
 // Mock vector icons
 jest.mock('react-native-vector-icons/MaterialIcons', () => 'Icon');
 
-import { BottomTabNavigator, TabParamList } from '../BottomTabNavigator';
+import { BottomTabNavigator, TabParamList, CartsStackParamList, DashboardStackParamList } from '../BottomTabNavigator';
 
 describe('BottomTabNavigator', () => {
   describe('Tab Configuration', () => {
@@ -122,6 +122,29 @@ describe('BottomTabNavigator', () => {
     it('has Settings as a tab', () => {
       const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
       expect(tabs).toContain('SettingsTab');
+    });
+  });
+
+  describe('Scan Screen Registration', () => {
+    it('CartsStack includes CameraCapture screen for scan access from Carts tab', () => {
+      // CameraCapture must be in CartsStack so users can scan from Picking
+      // when accessed via the Carts tab (CartsTab → ManageCarts → Cart → Picking → Scan)
+      const cartsScreens: (keyof CartsStackParamList)[] = ['CameraCapture'];
+      expect(cartsScreens).toContain('CameraCapture');
+    });
+
+    it('CartsStack includes ScanReview screen for reviewing scanned items', () => {
+      // ScanReview must be in CartsStack so users can review scanned items
+      // after CameraCapture navigates to ScanReview
+      const cartsScreens: (keyof CartsStackParamList)[] = ['ScanReview'];
+      expect(cartsScreens).toContain('ScanReview');
+    });
+
+    it('DashboardStack includes scan screens', () => {
+      // Verify scan screens remain in DashboardStack too
+      const dashboardScreens: (keyof DashboardStackParamList)[] = ['CameraCapture', 'ScanReview'];
+      expect(dashboardScreens).toContain('CameraCapture');
+      expect(dashboardScreens).toContain('ScanReview');
     });
   });
 

@@ -10,8 +10,8 @@ import PickingHeader from '../PickingHeader';
 // Mock react-i18next
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
-      if (key === 'picking.greeting') return 'Hello, Merchant!';
+    t: (key: string, options?: Record<string, string>) => {
+      if (key === 'picking.greeting') return `Hello, ${options?.storeName || 'Store'}`;
       if (key === 'picking.searchItems') return 'Search items...';
       if (key === 'picking.scan') return 'Scan';
       return key;
@@ -108,22 +108,22 @@ describe('PickingHeader', () => {
         />
       );
 
-      expect(getByText('Hello, Merchant!')).toBeTruthy();
+      expect(getByText('Hello, Krishna Stores')).toBeTruthy();
     });
 
-    it('renders store name with date', () => {
+    it('renders store name in greeting and date separately', () => {
       const { getByText } = render(
         <PickingHeader
           storeName="Krishna Stores"
-          currentDate="Thu, 6 Feb"
+          currentDate="Thursday, February 6"
           searchQuery=""
           onSearchChange={mockOnSearchChange}
           onScanPress={mockOnScanPress}
         />
       );
 
-      expect(getByText(/Krishna Stores/)).toBeTruthy();
-      expect(getByText(/Thu, 6 Feb/)).toBeTruthy();
+      expect(getByText('Hello, Krishna Stores')).toBeTruthy();
+      expect(getByText('Thursday, February 6')).toBeTruthy();
     });
 
     it('renders search input', () => {
@@ -219,19 +219,49 @@ describe('PickingHeader', () => {
     });
   });
 
+  describe('Layout', () => {
+    it('renders greeting and date on the same row', () => {
+      const { getByText, getByTestId } = render(
+        <PickingHeader
+          storeName="Krishna Stores"
+          currentDate="Saturday, February 7"
+          searchQuery=""
+          onSearchChange={mockOnSearchChange}
+          onScanPress={mockOnScanPress}
+          testID="picking-header"
+        />
+      );
+
+      // Both greeting and date should be rendered
+      expect(getByText('Hello, Krishna Stores')).toBeTruthy();
+      expect(getByText('Saturday, February 7')).toBeTruthy();
+
+      // The greeting row container should exist with proper testID
+      const greetingRow = getByTestId('picking-header-greeting-row');
+      expect(greetingRow).toBeTruthy();
+
+      // Greeting row should have row direction with space-between for right-aligned date
+      const rowStyle = Array.isArray(greetingRow.props.style)
+        ? Object.assign({}, ...greetingRow.props.style.flat().filter(Boolean))
+        : greetingRow.props.style;
+      expect(rowStyle.flexDirection).toBe('row');
+      expect(rowStyle.justifyContent).toBe('space-between');
+    });
+  });
+
   describe('Different Store Names', () => {
-    it('renders Telugu store name', () => {
+    it('renders Telugu store name in greeting', () => {
       const { getByText } = render(
         <PickingHeader
           storeName="ప్రకాష్ గ్రోసరీస్"
-          currentDate="గురు, 6 ఫిబ్ర"
+          currentDate="గురువారం, ఫిబ్రవరి 6"
           searchQuery=""
           onSearchChange={mockOnSearchChange}
           onScanPress={mockOnScanPress}
         />
       );
 
-      expect(getByText(/ప్రకాష్ గ్రోసరీస్/)).toBeTruthy();
+      expect(getByText('Hello, ప్రకాష్ గ్రోసరీస్')).toBeTruthy();
     });
 
     it('renders long store name', () => {

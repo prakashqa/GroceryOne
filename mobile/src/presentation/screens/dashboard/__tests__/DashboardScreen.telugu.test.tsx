@@ -48,7 +48,7 @@ describe('DashboardScreen - Telugu Translation Integration', () => {
   });
 
   it('should render summary cards with Telugu labels', async () => {
-    const { getByText } = renderWithProviders(<DashboardScreen />, {
+    const { getByText, getAllByText } = renderWithProviders(<DashboardScreen />, {
       preloadedState: {
         cart: {
           currentCart: null,
@@ -60,7 +60,7 @@ describe('DashboardScreen - Telugu Translation Integration', () => {
 
     await waitFor(() => {
       expect(getByText('కార్ట్‌లు')).toBeTruthy(); // Carts
-      expect(getByText('వస్తువులు')).toBeTruthy(); // Items
+      expect(getAllByText('వస్తువులు').length).toBeGreaterThanOrEqual(1); // Items (appears in summary card and Manage Items subtitle)
       expect(getByText('అమ్మకాలు')).toBeTruthy(); // Sales
     });
   });
@@ -80,7 +80,8 @@ describe('DashboardScreen - Telugu Translation Integration', () => {
       expect(getByText('త్వరిత చర్యలు')).toBeTruthy(); // Quick Actions
       expect(getByText('కొత్త కార్ట్')).toBeTruthy(); // New Cart
       expect(getByText('జాబితా స్కాన్ చేయండి')).toBeTruthy(); // Scan List
-      expect(getByText('నివేదికలు')).toBeTruthy(); // Reports
+      expect(getByText('రిపోర్ట్‌లు')).toBeTruthy(); // Reports (dashboard.reports)
+      expect(getByText('కేటగిరీలు నిర్వహించండి')).toBeTruthy(); // Manage Categories
       expect(getByText('వస్తువులను నిర్వహించండి')).toBeTruthy(); // Manage Items
     });
   });
@@ -139,6 +140,7 @@ describe('DashboardScreen - Telugu Translation Integration', () => {
       expect(queryByText('Recent Carts')).toBeNull();
       expect(queryByText('Scan List')).toBeNull();
       expect(queryByText('Reports')).toBeNull();
+      expect(queryByText('Manage Categories')).toBeNull();
       expect(queryByText('Manage Items')).toBeNull();
     });
   });

@@ -115,7 +115,7 @@
     "scan": "Scan",
     "cartReview": "Cart Review",
     "defaultCart": "Default Cart",
-    "greeting": "Hello, Merchant!",
+    "greeting": "Hello, {{storeName}}",
     "createList": "",
     "newCart": "New Cart",
     "createCart": "Create New Cart",
@@ -247,6 +247,8 @@
     "grantPermission": "Grant Permission",
     "discardConfirm": "Discard this scan and go back?",
     "noItemsToAdd": "No items to add to cart",
+    "noActiveCart": "No active cart. Please create or select a cart.",
+    "cartNotEditable": "The selected cart cannot be modified. Please select a different cart.",
     "addedToCart": "Added {{count}} items to cart"
   },
   "manageCarts": {

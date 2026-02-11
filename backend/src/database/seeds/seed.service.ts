@@ -3,7 +3,7 @@
  * Service for seeding the database with initial data
  */
 
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -24,7 +24,7 @@ export interface SeedReport {
 }
 
 @Injectable()
-export class SeedService implements OnModuleInit {
+export class SeedService {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
@@ -36,19 +36,6 @@ export class SeedService implements OnModuleInit {
     private readonly tenantRepository: Repository<Tenant>,
     private readonly configService: ConfigService,
   ) {}
-
-  /**
-   * Auto-seed on module init in development mode
-   */
-  async onModuleInit() {
-    const autoSeed = this.configService.get<string>('AUTO_SEED', 'false') === 'true';
-    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
-
-    if (autoSeed && nodeEnv === 'development') {
-      this.logger.log('Auto-seeding enabled, checking database...');
-      await this.seedIfEmpty();
-    }
-  }
 
   /**
    * Seed database if empty

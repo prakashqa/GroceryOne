@@ -4,8 +4,10 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { TenantUserSeedService } from './tenant-user-seed.service';
+import { SeedService } from './seed.service';
 import { Tenant } from '../../tenant/entities/tenant.entity';
 import { TenantConfig } from '../../tenant/entities/tenant-config.entity';
 import { User } from '../../modules/users/entities/user.entity';
@@ -56,6 +58,14 @@ describe('TenantUserSeedService', () => {
     query: jest.fn(),
   };
 
+  const mockConfigService = {
+    get: jest.fn(),
+  };
+
+  const mockSeedService = {
+    seedIfEmpty: jest.fn().mockResolvedValue(null),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -79,6 +89,14 @@ describe('TenantUserSeedService', () => {
         {
           provide: DataSource,
           useValue: mockDataSource,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
+        },
+        {
+          provide: SeedService,
+          useValue: mockSeedService,
         },
       ],
     }).compile();
@@ -142,12 +160,16 @@ describe('TenantUserSeedService', () => {
       expect(mockUserRepository.save).toHaveBeenCalledTimes(SEED_USERS.length);
     });
 
-    it('should hash passwords correctly', async () => {
+    it('should hash passwords and PINs correctly', async () => {
       await service.seed();
 
-      expect(mockPasswordService.hash).toHaveBeenCalledTimes(SEED_USERS.length);
+      // Each user gets both password and PIN hashed
+      expect(mockPasswordService.hash).toHaveBeenCalledTimes(
+        SEED_USERS.length * 2,
+      );
       SEED_USERS.forEach((user) => {
         expect(mockPasswordService.hash).toHaveBeenCalledWith(user.password);
+        expect(mockPasswordService.hash).toHaveBeenCalledWith(user.pin);
       });
     });
 
@@ -226,6 +248,153 @@ describe('TenantUserSeedService', () => {
 
       expect(counts.tenants).toBe(2);
       expect(counts.users).toBe(4);
+    });
+  });
+
+  describe('onModuleInit', () => {
+    beforeEach(() => {
+      // Setup default seed mocks
+      mockTenantRepository.count.mockResolvedValue(0);
+      mockUserRepository.count.mockResolvedValue(0);
+      mockTenantRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockTenantRepository.create.mockImplementation((data) => ({
+        id: `tenant-${data.slug}`,
+        ...data,
+      }));
+      mockTenantRepository.save.mockImplementation((tenant) =>
+        Promise.resolve(tenant),
+      );
+      mockConfigRepository.create.mockImplementation((data) => ({
+        id: `config-${data.tenantId}`,
+        ...data,
+      }));
+      mockConfigRepository.save.mockImplementation((config) =>
+        Promise.resolve(config),
+      );
+      mockUserRepository.create.mockImplementation((data) => ({
+        id: `user-${data.email}`,
+        ...data,
+      }));
+      mockUserRepository.save.mockImplementation((user) =>
+        Promise.resolve(user),
+      );
+    });
+
+    it('should auto-seed tenants/users and then categories/items when AUTO_SEED=true and NODE_ENV=development', async () => {
+      mockConfigService.get
+        .mockImplementation((key: string, defaultValue?: string) => {
+          if (key === 'AUTO_SEED') return 'true';
+          if (key === 'NODE_ENV') return 'development';
+          return defaultValue;
+        });
+
+      await service.onModuleInit();
+
+      // Should have seeded tenants
+      expect(mockTenantRepository.save).toHaveBeenCalled();
+      // Should have called SeedService.seedIfEmpty() for categories/items
+      expect(mockSeedService.seedIfEmpty).toHaveBeenCalled();
+    });
+
+    it('should not auto-seed when AUTO_SEED=false', async () => {
+      mockConfigService.get
+        .mockImplementation((key: string, defaultValue?: string) => {
+          if (key === 'AUTO_SEED') return 'false';
+          if (key === 'NODE_ENV') return 'development';
+          return defaultValue;
+        });
+
+      await service.onModuleInit();
+
+      expect(mockTenantRepository.save).not.toHaveBeenCalled();
+      expect(mockSeedService.seedIfEmpty).not.toHaveBeenCalled();
+    });
+
+    it('should not auto-seed when NODE_ENV=production', async () => {
+      mockConfigService.get
+        .mockImplementation((key: string, defaultValue?: string) => {
+          if (key === 'AUTO_SEED') return 'true';
+          if (key === 'NODE_ENV') return 'production';
+          return defaultValue;
+        });
+
+      await service.onModuleInit();
+
+      expect(mockTenantRepository.save).not.toHaveBeenCalled();
+      expect(mockSeedService.seedIfEmpty).not.toHaveBeenCalled();
+    });
+
+    it('should seed categories/items AFTER tenants/users', async () => {
+      const callOrder: string[] = [];
+
+      mockConfigService.get
+        .mockImplementation((key: string, defaultValue?: string) => {
+          if (key === 'AUTO_SEED') return 'true';
+          if (key === 'NODE_ENV') return 'development';
+          return defaultValue;
+        });
+
+      mockTenantRepository.save.mockImplementation((tenant) => {
+        callOrder.push('tenant-saved');
+        return Promise.resolve(tenant);
+      });
+
+      mockSeedService.seedIfEmpty.mockImplementation(() => {
+        callOrder.push('categories-seeded');
+        return Promise.resolve(null);
+      });
+
+      await service.onModuleInit();
+
+      // Tenants should be saved before categories are seeded
+      expect(callOrder.indexOf('tenant-saved')).toBeLessThan(
+        callOrder.indexOf('categories-seeded'),
+      );
+    });
+  });
+
+  describe('seedIfEmpty', () => {
+    it('should seed when tenants table is empty', async () => {
+      mockTenantRepository.count.mockResolvedValue(0);
+      mockUserRepository.count.mockResolvedValue(0);
+      mockTenantRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockTenantRepository.create.mockImplementation((data) => ({
+        id: `tenant-${data.slug}`,
+        ...data,
+      }));
+      mockTenantRepository.save.mockImplementation((tenant) =>
+        Promise.resolve(tenant),
+      );
+      mockConfigRepository.create.mockImplementation((data) => ({
+        id: `config-${data.tenantId}`,
+        ...data,
+      }));
+      mockConfigRepository.save.mockImplementation((config) =>
+        Promise.resolve(config),
+      );
+      mockUserRepository.create.mockImplementation((data) => ({
+        id: `user-${data.email}`,
+        ...data,
+      }));
+      mockUserRepository.save.mockImplementation((user) =>
+        Promise.resolve(user),
+      );
+
+      const report = await service.seedIfEmpty();
+
+      expect(report).not.toBeNull();
+      expect(report!.tenantsCreated).toBe(SEED_TENANTS.length);
+    });
+
+    it('should skip seed when tenants already exist', async () => {
+      mockTenantRepository.count.mockResolvedValue(2);
+
+      const report = await service.seedIfEmpty();
+
+      expect(report).toBeNull();
+      expect(mockTenantRepository.save).not.toHaveBeenCalled();
     });
   });
 });

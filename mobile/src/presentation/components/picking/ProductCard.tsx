@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useTheme, useIsDarkMode } from '../../theme';
+import { useTheme } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 import { Item } from '../../../domain/types/picking';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
@@ -33,7 +33,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   testID,
 }) => {
   const theme = useTheme();
-  const isDarkMode = useIsDarkMode();
   const { t } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
@@ -60,82 +59,54 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         onPress={onPress}
         testID={testID ? `${testID}-pressable` : undefined}
       >
-        {/* Image Placeholder */}
-        <View
-          style={[
-            styles.imagePlaceholder,
-            {
-              backgroundColor: isDarkMode
-                ? theme.colors.background
-                : '#F5F5F5',
-              borderTopLeftRadius: theme.borderRadius.lg,
-              borderTopRightRadius: theme.borderRadius.lg,
-              height: isTablet ? 100 : 80,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.categoryIconLarge,
-              {
-                fontSize: isTablet
-                  ? theme.typography.fontSize.lg * 2
-                  : theme.typography.fontSize.lg * 1.5,
-              },
-            ]}
-          >
-            {categoryIcon}
-          </Text>
-        </View>
-
-        {/* In Cart Badge */}
-        {isInCart && (
-          <View
-            style={[
-              styles.inCartBadge,
-              {
-                backgroundColor: theme.colors.inCartBadge,
-                borderRadius: theme.borderRadius.sm,
-                paddingHorizontal: theme.spacing.sm,
-                paddingVertical: theme.spacing.xs,
-                top: theme.spacing.sm,
-                right: theme.spacing.sm,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.inCartText,
-                {
-                  color: theme.colors.textInverse,
-                  fontSize: theme.typography.fontSize.xs,
-                  fontWeight: theme.typography.fontWeight.bold,
-                },
-              ]}
-            >
-              {t('picking.inCart')}
-            </Text>
-          </View>
-        )}
-
         {/* Product Info */}
         <View
           style={[
             styles.infoContainer,
             {
               padding: theme.spacing.smd,
+              paddingTop: isInCart ? theme.spacing.smd : theme.spacing.md,
             },
           ]}
         >
+          {/* In Cart Badge */}
+          {isInCart && (
+            <View
+              style={[
+                styles.inCartBadge,
+                {
+                  backgroundColor: theme.colors.inCartBadge,
+                  borderRadius: theme.borderRadius.sm,
+                  paddingHorizontal: theme.spacing.sm,
+                  paddingVertical: theme.spacing.xs,
+                  marginBottom: theme.spacing.xs,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.inCartText,
+                  {
+                    color: theme.colors.textInverse,
+                    fontSize: theme.typography.fontSize.xs,
+                    fontWeight: theme.typography.fontWeight.bold,
+                  },
+                ]}
+              >
+                {t('picking.inCart')}
+              </Text>
+            </View>
+          )}
           <Text
             style={[
               styles.productName,
               {
                 color: theme.colors.text,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.xl
-                  : theme.typography.fontSize.lg,
+                  ? theme.typography.fontSize['2xl']
+                  : theme.typography.fontSize.xl,
                 fontWeight: theme.typography.fontWeight.bold,
+                lineHeight: isTablet ? 28 : 24,
               },
             ]}
             numberOfLines={2}
@@ -148,8 +119,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {
                 color: theme.colors.textSecondary,
                 fontSize: isTablet
-                  ? theme.typography.fontSize.lg
-                  : theme.typography.fontSize.md,
+                  ? theme.typography.fontSize.xl
+                  : theme.typography.fontSize.lg,
                 fontWeight: theme.typography.fontWeight.regular,
                 marginTop: theme.spacing.xs,
               },
@@ -302,13 +273,8 @@ const styles = StyleSheet.create({
   pressable: {
     flex: 1,
   },
-  imagePlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  categoryIconLarge: {},
   inCartBadge: {
-    position: 'absolute',
+    alignSelf: 'flex-end',
   },
   inCartText: {
     textTransform: 'uppercase',

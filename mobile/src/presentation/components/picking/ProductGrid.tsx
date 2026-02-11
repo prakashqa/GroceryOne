@@ -136,7 +136,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
         styles.listContent,
         {
           paddingHorizontal: responsiveStyles.contentPadding - theme.spacing.xs,
-          paddingBottom: hasCartItems ? 100 : theme.spacing.lg,
+          paddingBottom: hasCartItems ? 80 : theme.spacing.lg,
         },
       ]}
       columnWrapperStyle={styles.columnWrapper}

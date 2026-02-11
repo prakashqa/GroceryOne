@@ -66,6 +66,18 @@ export const ScanReviewScreen: React.FC = () => {
   const activeCartId = useSelector(selectActiveCartId);
   const catalogItems = useSelector(selectItems);
 
+  // Filter out paid/completed carts — only show editable carts in selector
+  const editableCarts = useMemo(() => {
+    return allCarts.filter((c) => c.status !== 'paid' && c.status !== 'completed');
+  }, [allCarts]);
+
+  // Auto-create a default cart if no editable carts exist
+  React.useEffect(() => {
+    if (editableCarts.length === 0) {
+      dispatch(createCart({ name: t('picking.defaultCart') }));
+    }
+  }, [editableCarts.length, dispatch, t]);
+
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [itemSelectorVisible, setItemSelectorVisible] = useState(false);
@@ -168,6 +180,17 @@ export const ScanReviewScreen: React.FC = () => {
       return;
     }
 
+    // Validate active cart exists and is editable
+    if (!activeCartId) {
+      Alert.alert(t('error'), t('scan.noActiveCart'));
+      return;
+    }
+    const activeCart = allCarts.find((c) => c.id === activeCartId);
+    if (!activeCart || activeCart.status === 'paid' || activeCart.status === 'completed') {
+      Alert.alert(t('error'), t('scan.cartNotEditable'));
+      return;
+    }
+
     // Add each item to the active cart
     itemsToAdd.forEach((matchResult) => {
       if (matchResult.matchedItem) {
@@ -209,7 +232,7 @@ export const ScanReviewScreen: React.FC = () => {
         },
       ]
     );
-  }, [dispatch, navigation, itemsToAdd, t]);
+  }, [dispatch, navigation, itemsToAdd, t, activeCartId, allCarts]);
 
   const handleCreateNewCart = useCallback(() => {
     const newCartName = `Scan ${new Date().toLocaleDateString()}`;
@@ -404,7 +427,7 @@ export const ScanReviewScreen: React.FC = () => {
             {t('scan.selectCart')}:
           </Text>
           <View style={[styles.cartButtons, { gap: theme.spacing.sm }]}>
-            {allCarts.slice(0, 2).map((cart) => (
+            {editableCarts.slice(0, 2).map((cart) => (
               <TouchableOpacity
                 key={cart.id}
                 style={[

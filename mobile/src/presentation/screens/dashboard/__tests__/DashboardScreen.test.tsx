@@ -247,6 +247,8 @@ jest.mock('react-i18next', () => ({
         'dashboard.seeAllCarts': 'See all carts',
         'dashboard.categoriesItems': 'Categories & Items',
         'dashboard.resumeDraft': 'Resume Draft',
+        'manageCategories.title': 'Manage Categories',
+        'manageCategories.categories': 'Categories',
         'dashboard.todaysReport': "Today's Report",
         'dashboard.viewSummary': 'View daily summary',
         'dashboard.reports': 'Reports',
@@ -482,36 +484,12 @@ describe('DashboardScreen', () => {
       const { getByText } = render(<DashboardScreen />);
       expect(getByText('New Cart')).toBeTruthy();
       expect(getByText('Scan List')).toBeTruthy();
+      expect(getByText('Manage Categories')).toBeTruthy();
       expect(getByText('Manage Items')).toBeTruthy();
       expect(getByText('Reports')).toBeTruthy();
     });
 
-    it('renders Resume Draft action when draft exists', () => {
-      const { getByText } = render(<DashboardScreen />);
-      expect(getByText('Resume Draft')).toBeTruthy();
-      expect(getByText('My Draft Cart')).toBeTruthy(); // Draft cart name as subtitle
-    });
-
-    it('does not render Resume Draft action when no draft exists', () => {
-      (selectMostRecentDraftCart as jest.Mock).mockReturnValue(null);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return mockActiveCart;
-        if (selector === selectActiveCartItemCount) return 5;
-        if (selector === selectActiveCartCategoryCount) return 3;
-        if (selector === selectActiveCartTotalQuantity) return 12.5;
-        if (selector === selectActiveCartGrandTotal) return 1250;
-        if (selector === selectAllCarts) return [...mockRecentCarts, mockActiveCart];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: mockRecentCarts } }); } catch { return mockRecentCarts; }
-        }
-        return mockRecentCarts;
-      });
-
+    it('does not render Resume Draft action', () => {
       const { queryByText } = render(<DashboardScreen />);
       expect(queryByText('Resume Draft')).toBeNull();
     });
@@ -600,10 +578,16 @@ describe('DashboardScreen', () => {
       expect(mockNavigate).toHaveBeenCalledWith('CameraCapture');
     });
 
-    it('navigates to CategoryManagement when Manage Items is pressed', () => {
+    it('navigates to CategoryManagement when Manage Categories is pressed', () => {
+      const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
+      fireEvent.press(getByTestId('quick-action-manage-categories'));
+      expect(mockNavigate).toHaveBeenCalledWith('CategoryManagement');
+    });
+
+    it('navigates to ItemManagement when Manage Items is pressed', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       fireEvent.press(getByTestId('quick-action-manage-items'));
-      expect(mockNavigate).toHaveBeenCalledWith('CategoryManagement');
+      expect(mockNavigate).toHaveBeenCalledWith('ItemManagement');
     });
 
     it('navigates to Reports when Reports is pressed', () => {
@@ -612,19 +596,6 @@ describe('DashboardScreen', () => {
       expect(mockNavigate).toHaveBeenCalledWith('Reports');
     });
 
-    it('sets active cart and navigates to Cart when Resume Draft is pressed', () => {
-      const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
-      fireEvent.press(getByTestId('quick-action-resume-draft'));
-      // Should dispatch setActiveCart with the draft cart ID
-      expect(mockDispatch).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'multiCart/setActiveCart',
-          payload: 'draft-cart-1',
-        })
-      );
-      // Should navigate to Cart screen
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
-    });
 
     it('navigates to Picking screen to add items when Continue is pressed on active cart', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);

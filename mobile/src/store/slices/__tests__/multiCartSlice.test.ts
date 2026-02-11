@@ -4257,5 +4257,212 @@ describe('multiCartSlice', () => {
       expect(state.carts[0].items).toHaveLength(2);
       expect(state.carts[0].paidAmount).toBe(240);
     });
+
+    it('should preserve paidItemCount from local paid cart when replaceAll is true and backend has no paidItemCount', () => {
+      // Setup: Local paid cart with paidItemCount captured at payment time
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'paid-cart-uuid',
+            name: 'Paid Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Rice',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 2,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 60,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+            paidAmount: 120,
+            paidItemCount: 5, // Captured at payment time (items may have been modified since)
+          },
+        ],
+        activeCartId: 'paid-cart-uuid',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns paid cart with items but NO paidItemCount field
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'paid-cart-uuid',
+              name: 'Paid Cart',
+              status: 'paid',
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              paidAt: paidCartState.carts[0].paidAt,
+              paidAmount: 120,
+              items: [
+                {
+                  itemId: 'item-1',
+                  quantity: 2,
+                  priceSnapshot: 60,
+                  addedAt: new Date().toISOString(),
+                  item: { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 },
+                },
+              ],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: paidItemCount should be preserved from local state
+      expect(state.carts[0].paidItemCount).toBe(5);
+    });
+
+    it('should preserve paidItemCount from local paid cart when replaceAll is false (merge mode)', () => {
+      // Setup: Local paid cart with paidItemCount
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'paid-cart-uuid',
+            name: 'Paid Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Rice',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 2,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 60,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+            paidAmount: 120,
+            paidItemCount: 3,
+          },
+        ],
+        activeCartId: 'paid-cart-uuid',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend sync with replaceAll: false (merge mode)
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'paid-cart-uuid',
+              name: 'Paid Cart',
+              status: 'paid',
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              paidAt: paidCartState.carts[0].paidAt,
+              paidAmount: 120,
+              items: [
+                {
+                  itemId: 'item-1',
+                  quantity: 2,
+                  priceSnapshot: 60,
+                  addedAt: new Date().toISOString(),
+                  item: { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 },
+                },
+              ],
+            },
+          ],
+          replaceAll: false,
+        })
+      );
+
+      // Assert: paidItemCount should be preserved from local state
+      expect(state.carts[0].paidItemCount).toBe(3);
+    });
+
+    it('should preserve paidItemCount AND items for paid cart when backend returns empty items (replaceAll: true)', () => {
+      // Setup: Local paid cart with items and paidItemCount
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'paid-cart-uuid',
+            name: 'Paid Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Rice',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 2,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 60,
+              },
+              {
+                item: {
+                  id: 'item-2',
+                  categoryId: 'cat-2',
+                  name: 'Dal',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 120,
+                },
+                quantity: 1,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 120,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+            paidAmount: 240,
+            paidItemCount: 2,
+          },
+        ],
+        activeCartId: 'paid-cart-uuid',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns paid cart with EMPTY items array
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'paid-cart-uuid',
+              name: 'Paid Cart',
+              status: 'paid',
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              paidAt: paidCartState.carts[0].paidAt,
+              paidAmount: 240,
+              items: [],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: Both items AND paidItemCount should be preserved
+      expect(state.carts[0].items).toHaveLength(2);
+      expect(state.carts[0].paidItemCount).toBe(2);
+    });
   });
 });
