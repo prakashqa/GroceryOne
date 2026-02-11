@@ -4,16 +4,19 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { useWindowDimensions } from 'react-native';
 import { useDeviceType } from '../useDeviceType';
 
-// Mock useWindowDimensions
-jest.mock('react-native', () => ({
-  ...jest.requireActual('react-native'),
-  useWindowDimensions: jest.fn(),
-}));
-
-const mockUseWindowDimensions = useWindowDimensions as jest.MockedFunction<typeof useWindowDimensions>;
+// Mock useWindowDimensions without spreading the entire react-native module
+// (spreading triggers native module loading errors like 'SettingsManager' in Jest)
+const mockUseWindowDimensions = jest.fn();
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  Object.defineProperty(RN, 'useWindowDimensions', {
+    value: (...args: any[]) => mockUseWindowDimensions(...args),
+    writable: true,
+  });
+  return RN;
+});
 
 describe('useDeviceType', () => {
   describe('device detection', () => {

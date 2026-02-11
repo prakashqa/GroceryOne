@@ -128,7 +128,7 @@ describe('ManageCartsScreen - Edit and Delete Actions', () => {
       });
 
       await waitFor(() => {
-        const input = getByTestId('rename-cart-modal-input');
+        const input = getByTestId('rename-cart-modal-input-field');
         expect(input.props.value).toBe('Default Cart');
       });
     });

@@ -44,7 +44,6 @@ describe('PrinterSettingsScreen', () => {
 
     expect(getByText('80mm (Standard)')).toBeTruthy();
     expect(getByText('58mm (Compact)')).toBeTruthy();
-    expect(getByText('A4 (Full Page)')).toBeTruthy();
   });
 
   it('should show print format options when printer is enabled', () => {

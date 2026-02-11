@@ -5,12 +5,16 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { NavigationContainer } from '@react-navigation/native';
 import { PinLoginScreen } from '../PinLoginScreen';
 import pinReducer from '../../store/pinSlice';
-import authReducer from '../../../../store/slices/authSlice';
+import { authSlice } from '../../../../store/slices/authSlice';
+import { tenantSlice } from '../../../../store/slices/tenantSlice';
+const authReducer = authSlice.reducer;
+const tenantReducer = tenantSlice.reducer;
 import { PinHashService } from '../../services/PinHashService';
 import { PinSecureStorage } from '../../services/PinSecureStorage';
 import { PIN_CONFIG } from '../../constants';
@@ -18,6 +22,22 @@ import { PIN_CONFIG } from '../../constants';
 // Mock services
 jest.mock('../../services/PinHashService');
 jest.mock('../../services/PinSecureStorage');
+jest.mock('../../services/PinAuthApi', () => ({
+  PinAuthApi: {
+    verifyPin: jest.fn().mockResolvedValue({ success: false, error: 'mock' }),
+  },
+}));
+jest.mock('../../../../utils/storage/tenantDataCleaner', () => ({
+  clearAllTenantData: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    setItem: jest.fn().mockResolvedValue(undefined),
+    getItem: jest.fn().mockResolvedValue(null),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const mockPinHashService = PinHashService as jest.Mocked<typeof PinHashService>;
 const mockPinSecureStorage = PinSecureStorage as jest.Mocked<typeof PinSecureStorage>;
@@ -84,7 +104,7 @@ jest.mock('@react-navigation/native', () => {
 // Mock i18n
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, defaultValue?: string) => {
       const translations: Record<string, string> = {
         'pin.loginTitle': 'Enter Your PIN',
         'pin.welcomeBack': 'Welcome back',
@@ -92,11 +112,18 @@ jest.mock('react-i18next', () => ({
         'pin.attemptsRemaining': 'attempts remaining',
         'pin.accountLocked': 'Account locked',
         'pin.forgotPin': 'Forgot PIN?',
+        'pin.resetPinTitle': 'Reset PIN',
+        'pin.resetPinMessage': 'This will clear your current PIN. Continue?',
+        'common.cancel': 'Cancel',
+        'common.reset': 'Reset',
       };
-      return translations[key] || key;
+      return translations[key] || defaultValue || key;
     },
   }),
 }));
+
+// Mock Alert
+jest.spyOn(Alert, 'alert');
 
 describe('PinLoginScreen', () => {
   let store: ReturnType<typeof createTestStore>;
@@ -106,6 +133,7 @@ describe('PinLoginScreen', () => {
       reducer: {
         pin: pinReducer,
         auth: authReducer,
+        tenant: tenantReducer,
       },
       preloadedState: {
         auth: {
@@ -131,11 +159,13 @@ describe('PinLoginScreen', () => {
     });
   }
 
-  function renderWithProviders(ui: React.ReactElement, pinState = {}) {
+  function renderScreen(pinState = {}) {
     store = createTestStore(pinState);
     return render(
       <Provider store={store}>
-        <NavigationContainer>{ui}</NavigationContainer>
+        <NavigationContainer>
+          <PinLoginScreen />
+        </NavigationContainer>
       </Provider>
     );
   }
@@ -146,30 +176,34 @@ describe('PinLoginScreen', () => {
       hash: 'correcthash',
       salt: 'salt',
     });
+    mockPinSecureStorage.getUserIdentifier.mockResolvedValue(null);
+    mockPinSecureStorage.getTenantSlug.mockResolvedValue(null);
+    mockPinSecureStorage.clearPin.mockResolvedValue(undefined);
+    mockPinSecureStorage.isPinConfigured.mockResolvedValue(true);
   });
 
   describe('rendering', () => {
     it('should render user greeting', () => {
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+      const { getByText } = renderScreen();
       expect(getByText(/Welcome back/)).toBeTruthy();
     });
 
     it('should render PinInput component', () => {
-      const { getByTestId } = renderWithProviders(<PinLoginScreen />);
+      const { getByTestId } = renderScreen();
       expect(getByTestId('pin-login-input')).toBeTruthy();
     });
 
     it('should render forgot PIN link', () => {
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+      const { getByText } = renderScreen();
       expect(getByText('Forgot PIN?')).toBeTruthy();
     });
   });
 
   describe('PIN verification', () => {
-    it('should navigate to main on correct PIN', async () => {
+    it('should update Redux state on correct PIN', async () => {
       mockPinHashService.verifyPin.mockResolvedValue(true);
 
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+      const { getByText } = renderScreen();
 
       fireEvent.press(getByText('1'));
       fireEvent.press(getByText('2'));
@@ -177,17 +211,17 @@ describe('PinLoginScreen', () => {
       fireEvent.press(getByText('4'));
 
       await waitFor(() => {
-        expect(mockReset).toHaveBeenCalledWith({
-          index: 0,
-          routes: [{ name: 'Main' }],
-        });
+        // PIN verified - Redux state should be updated (isPinVerified = true)
+        // RootNavigator handles navigation based on this state
+        const state = store.getState() as any;
+        expect(state.pin.isPinVerified).toBe(true);
       });
     });
 
     it('should show error on wrong PIN', async () => {
       mockPinHashService.verifyPin.mockResolvedValue(false);
 
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+      const { getByText } = renderScreen();
 
       fireEvent.press(getByText('9'));
       fireEvent.press(getByText('9'));
@@ -201,8 +235,12 @@ describe('PinLoginScreen', () => {
 
     it('should show remaining attempts after failure', async () => {
       mockPinHashService.verifyPin.mockResolvedValue(false);
+      // Provide stored credentials so verification goes through the backend-fallback path
+      // which tracks attempts
+      mockPinSecureStorage.getUserIdentifier.mockResolvedValue('test@example.com');
+      mockPinSecureStorage.getTenantSlug.mockResolvedValue('test-tenant');
 
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+      const { getByText } = renderScreen();
 
       fireEvent.press(getByText('9'));
       fireEvent.press(getByText('9'));
@@ -219,7 +257,7 @@ describe('PinLoginScreen', () => {
   describe('lockout behavior', () => {
     it('should show lockout message when locked', () => {
       const lockoutTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      const { getByText } = renderWithProviders(<PinLoginScreen />, {
+      const { getByText } = renderScreen({
         isLocked: true,
         lockoutUntil: lockoutTime,
         failedAttempts: PIN_CONFIG.MAX_ATTEMPTS,
@@ -230,7 +268,7 @@ describe('PinLoginScreen', () => {
 
     it('should disable input when locked', () => {
       const lockoutTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      const { getByText } = renderWithProviders(<PinLoginScreen />, {
+      const { getByText } = renderScreen({
         isLocked: true,
         lockoutUntil: lockoutTime,
       });
@@ -242,15 +280,20 @@ describe('PinLoginScreen', () => {
   });
 
   describe('forgot PIN flow', () => {
-    it('should navigate to login on forgot PIN', () => {
-      const { getByText } = renderWithProviders(<PinLoginScreen />);
+    it('should show confirmation alert on forgot PIN', () => {
+      const { getByText } = renderScreen();
 
       fireEvent.press(getByText('Forgot PIN?'));
 
-      expect(mockReset).toHaveBeenCalledWith({
-        index: 0,
-        routes: [{ name: 'Auth' }],
-      });
+      // Component now shows a confirmation Alert instead of directly navigating
+      expect(Alert.alert).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        expect.arrayContaining([
+          expect.objectContaining({ text: 'Cancel', style: 'cancel' }),
+          expect.objectContaining({ text: 'Reset', style: 'destructive' }),
+        ])
+      );
     });
   });
 });

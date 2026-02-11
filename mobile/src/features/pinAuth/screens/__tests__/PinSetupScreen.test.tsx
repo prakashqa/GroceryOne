@@ -10,7 +10,8 @@ import { configureStore } from '@reduxjs/toolkit';
 import { NavigationContainer } from '@react-navigation/native';
 import { PinSetupScreen } from '../PinSetupScreen';
 import pinReducer from '../../store/pinSlice';
-import authReducer from '../../../../store/slices/authSlice';
+import { authSlice } from '../../../../store/slices/authSlice';
+const authReducer = authSlice.reducer;
 
 // Mock theme
 jest.mock('../../../../presentation/theme', () => ({
@@ -35,6 +36,10 @@ jest.mock('../../../../presentation/theme', () => ({
     borderRadius: {
       full: 999,
       md: 8,
+    },
+    typography: {
+      fontSize: { sm: 12, md: 14, lg: 16, xl: 20, xxl: 24, '2xl': 28, xxxl: 32 },
+      fontWeight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
     },
   }),
 }));

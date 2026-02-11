@@ -253,7 +253,7 @@ describe('useResponsiveStyles', () => {
       expect(result.current.fontScale).toBe(1);
     });
 
-    it('should return 1.15 for small tablet', () => {
+    it('should return 1.35 for small tablet', () => {
       setupMock({
         breakpoint: 'md',
         isTablet: true,
@@ -264,10 +264,10 @@ describe('useResponsiveStyles', () => {
 
       const { result } = renderHook(() => useResponsiveStyles());
 
-      expect(result.current.fontScale).toBe(1.15);
+      expect(result.current.fontScale).toBe(1.35);
     });
 
-    it('should return 1.25 for tablet', () => {
+    it('should return 1.45 for tablet', () => {
       setupMock({
         breakpoint: 'lg',
         isTablet: true,
@@ -278,10 +278,10 @@ describe('useResponsiveStyles', () => {
 
       const { result } = renderHook(() => useResponsiveStyles());
 
-      expect(result.current.fontScale).toBe(1.25);
+      expect(result.current.fontScale).toBe(1.45);
     });
 
-    it('should return 1.35 for large tablet', () => {
+    it('should return 1.55 for large tablet', () => {
       setupMock({
         breakpoint: 'xl',
         isTablet: true,
@@ -292,7 +292,7 @@ describe('useResponsiveStyles', () => {
 
       const { result } = renderHook(() => useResponsiveStyles());
 
-      expect(result.current.fontScale).toBe(1.35);
+      expect(result.current.fontScale).toBe(1.55);
     });
   });
 

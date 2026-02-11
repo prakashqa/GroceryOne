@@ -159,7 +159,7 @@ describe('CartService', () => {
       expect(result).toEqual(mockCartTenantA);
       expect(mockCartRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'cart-a-uuid', tenantId: TENANT_A_ID },
-        relations: ['items', 'items.item'],
+        relations: ['items', 'items.item', 'items.item.category'],
       });
     });
 

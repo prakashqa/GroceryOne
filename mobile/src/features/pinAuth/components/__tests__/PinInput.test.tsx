@@ -31,6 +31,10 @@ jest.mock('../../../../presentation/theme', () => ({
       full: 999,
       md: 8,
     },
+    typography: {
+      fontSize: { sm: 12, md: 14, lg: 16, xl: 20, xxl: 24, '2xl': 28, xxxl: 32 },
+      fontWeight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
+    },
   }),
 }));
 
@@ -53,7 +57,7 @@ describe('PinInput', () => {
       );
 
       // Should have 4 digit containers
-      const digits = getAllByTestId(/pin-input-digit-\d/);
+      const digits = getAllByTestId(/^pin-input-digit-\d$/);
       expect(digits).toHaveLength(4);
     });
 

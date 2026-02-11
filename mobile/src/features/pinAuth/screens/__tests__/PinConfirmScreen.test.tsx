@@ -10,13 +10,32 @@ import { configureStore } from '@reduxjs/toolkit';
 import { NavigationContainer } from '@react-navigation/native';
 import { PinConfirmScreen } from '../PinConfirmScreen';
 import pinReducer from '../../store/pinSlice';
-import authReducer from '../../../../store/slices/authSlice';
+import { authSlice } from '../../../../store/slices/authSlice';
+import { tenantSlice } from '../../../../store/slices/tenantSlice';
+const authReducer = authSlice.reducer;
+const tenantReducer = tenantSlice.reducer;
 import { PinHashService } from '../../services/PinHashService';
 import { PinSecureStorage } from '../../services/PinSecureStorage';
 
 // Mock services
 jest.mock('../../services/PinHashService');
 jest.mock('../../services/PinSecureStorage');
+jest.mock('../../services/PinAuthApi', () => ({
+  PinAuthApi: {
+    verifyPin: jest.fn().mockResolvedValue({ success: false, error: 'mock' }),
+  },
+}));
+jest.mock('../../../../utils/storage/tenantDataCleaner', () => ({
+  clearAllTenantData: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    setItem: jest.fn().mockResolvedValue(undefined),
+    getItem: jest.fn().mockResolvedValue(null),
+    removeItem: jest.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const mockPinHashService = PinHashService as jest.Mocked<typeof PinHashService>;
 const mockPinSecureStorage = PinSecureStorage as jest.Mocked<typeof PinSecureStorage>;
@@ -44,6 +63,10 @@ jest.mock('../../../../presentation/theme', () => ({
     borderRadius: {
       full: 999,
       md: 8,
+    },
+    typography: {
+      fontSize: { sm: 12, md: 14, lg: 16, xl: 20, xxl: 24, '2xl': 28, xxxl: 32 },
+      fontWeight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
     },
   }),
 }));
@@ -91,6 +114,7 @@ describe('PinConfirmScreen', () => {
       reducer: {
         pin: pinReducer,
         auth: authReducer,
+        tenant: tenantReducer,
       },
       preloadedState: {
         auth: {

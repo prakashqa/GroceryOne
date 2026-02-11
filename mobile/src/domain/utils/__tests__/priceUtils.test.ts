@@ -109,8 +109,9 @@ describe('priceUtils', () => {
     });
 
     it('should return price for Cumin Seeds by ID', () => {
+      // Cumin Seeds price stored per-KG (250gm @ 85 → 340/kg)
       const price = getHardcodedItemPrice('sp-001', 'Cumin Seeds');
-      expect(price).toBe(85);
+      expect(price).toBe(340);
     });
 
     it('should fallback to name match when ID does not match', () => {

@@ -73,7 +73,7 @@ describe('PaymentMethodSelector', () => {
 
     it('should render section title', () => {
       const { getByText } = render(<PaymentMethodSelector {...defaultProps} />);
-      expect(getByText('Select Payment Method')).toBeTruthy();
+      expect(getByText('SELECT PAYMENT METHOD')).toBeTruthy();
     });
 
     it('should have text elements with numberOfLines prop to prevent wrapping', () => {

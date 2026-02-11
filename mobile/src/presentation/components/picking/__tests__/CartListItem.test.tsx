@@ -446,8 +446,8 @@ describe('CartListItem', () => {
         ? style.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
         : style;
 
-      // Compact layout: marginHorizontal is reduced by 20% (16 * 0.8 = ~13)
-      expect(flattenedStyle.marginHorizontal).toBe(13);
+      // Single column layout: marginHorizontal is 0
+      expect(flattenedStyle.marginHorizontal).toBe(0);
     });
 
     it('renders with default margins when numColumns is undefined', () => {
@@ -467,8 +467,8 @@ describe('CartListItem', () => {
         ? style.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
         : style;
 
-      // Compact layout: marginHorizontal is reduced by 20% (16 * 0.8 = ~13)
-      expect(flattenedStyle.marginHorizontal).toBe(13);
+      // Single column layout: marginHorizontal is 0
+      expect(flattenedStyle.marginHorizontal).toBe(0);
     });
   });
 

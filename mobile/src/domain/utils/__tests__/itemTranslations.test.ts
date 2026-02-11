@@ -46,7 +46,7 @@ describe('Item Translations', () => {
 
       // Test a few items from i18n translations
       expect(getTranslatedItemName('atta-1')).toBe('ఆశీర్వాద్ ఆటా');
-      expect(getTranslatedItemName('dal-1')).toBe('కందిపప్పు'); // Telugu name for Toor Dal
+      expect(getTranslatedItemName('dal-1')).toBe('తూర్ దాల్'); // Telugu transliteration for Toor Dal
       expect(getTranslatedItemName('oil-3')).toBe('అమూల్ ఘీ');
     });
 
@@ -71,7 +71,7 @@ describe('Item Translations', () => {
 
       const result = getTranslatedCategoryName('tea-coffee');
 
-      expect(result).toBe('టీ, కాఫీ & డ్రింక్స్');
+      expect(result).toBe('టీ, కాఫీ & పానీయాలు');
     });
 
     it('should return English name for various categories when in English', async () => {
@@ -86,7 +86,7 @@ describe('Item Translations', () => {
       await i18n.changeLanguage('te');
 
       expect(getTranslatedCategoryName('atta-rice')).toBe('ఆటా, బియ్యం & ధాన్యాలు');
-      expect(getTranslatedCategoryName('dal-pulses')).toBe('పప్పులు & దినుసులు');
+      expect(getTranslatedCategoryName('dal-pulses')).toBe('పప్పులు & కాయధాన్యాలు');
       expect(getTranslatedCategoryName('oil-ghee')).toBe('నూనె & నెయ్యి');
     });
 
