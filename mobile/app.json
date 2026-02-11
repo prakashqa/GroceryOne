@@ -52,11 +52,11 @@
     ],
     "extra": {
       "googleVisionApiKey": "AIzaSyAdeKEFCkSEIohC-X8JRVJ1JPabP3zbB2s",
-      "localApiIp": "192.168.0.104",
+      "localApiIp": "localhost",
       "eas": {
-        "projectId": "9adb473c-118b-44dc-a88e-df0833b4bc85"
+        "projectId": "c789090c-d24b-470a-8e91-7e06d38ff195"
       }
     },
-    "owner": "prakashgro"
+    "owner": "nanirestro"
   }
 }

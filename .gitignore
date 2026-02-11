@@ -16,6 +16,9 @@ mobile/ios/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.jks
+*.keystore
+credentials.json
 
 # Backend
 backend/dist/
