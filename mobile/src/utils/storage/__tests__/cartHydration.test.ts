@@ -86,6 +86,7 @@ const backendCartsResponse = {
           item: {
             id: 'atta-1-uuid',
             categoryId: 'atta-rice-uuid',
+            category: { slug: 'atta-rice' },
             name: 'Aashirvaad Atta',
             nameTe: 'ఆశీర్వాద్ ఆటా',
             unit: 'kg',
@@ -261,6 +262,34 @@ describe('cartHydration', () => {
       expect(result.fromBackend).toBe(false);
     });
 
+    it('should NOT log console.error when aborted (AbortError is expected cleanup)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const controller = new AbortController();
+      controller.abort();
+
+      (loadMultiCartState as jest.Mock).mockResolvedValue(null);
+      mockFetch.mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'));
+
+      await loadOrFetchCarts(TENANT_SLUG, ACCESS_TOKEN, controller.signal);
+
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should still log console.error for real errors during hydration', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      (loadMultiCartState as jest.Mock).mockRejectedValue(new Error('AsyncStorage failed'));
+
+      await loadOrFetchCarts(TENANT_SLUG, ACCESS_TOKEN);
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[CartHydration] Error during cart hydration:',
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
     it('should return backendSkipped: false when carts fetched from backend', async () => {
       (loadMultiCartState as jest.Mock).mockResolvedValue(null);
       mockFetch.mockResolvedValue({
@@ -297,7 +326,7 @@ describe('cartHydration', () => {
 
       const item = cart.items[0];
       expect(item.item.id).toBe('atta-1-uuid');
-      expect(item.item.categoryId).toBe('atta-rice-uuid');
+      expect(item.item.categoryId).toBe('atta-rice');
       expect(item.item.name).toBe('Aashirvaad Atta');
       expect(item.item.nameTe).toBe('ఆశీర్వాద్ ఆటా');
       expect(item.item.unit).toBe('kg');
@@ -471,6 +500,33 @@ describe('cartHydration', () => {
       expect(result).toBeNull();
     });
 
+    it('should NOT log console.error when aborted (AbortError is expected cleanup)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const controller = new AbortController();
+      controller.abort();
+
+      mockFetch.mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'));
+
+      await fetchCartsFromBackend(TENANT_SLUG, ACCESS_TOKEN, controller.signal);
+
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should still log console.error for real network errors', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      mockFetch.mockRejectedValue(new Error('Network error'));
+
+      await fetchCartsFromBackend(TENANT_SLUG, ACCESS_TOKEN);
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[CartHydration] Failed to fetch carts from backend:',
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
+    });
+
     it('should preserve paidAt and paidAmount from backend response', async () => {
       const paidCartResponse = {
         success: true,
@@ -499,6 +555,99 @@ describe('cartHydration', () => {
       expect(result!.carts[0].status).toBe('paid');
       expect(result!.carts[0].paidAt).toBe('2026-01-31T07:30:00.000Z');
       expect(result!.carts[0].paidAmount).toBe(422.0);
+    });
+
+    it('should use category slug as categoryId when category relation is present', async () => {
+      // Backend response includes category object with slug
+      const responseWithCategory = {
+        success: true,
+        data: [
+          {
+            id: 'cart-uuid',
+            name: 'Test Cart',
+            status: 'draft',
+            createdAt: '2026-01-31T06:00:00.000Z',
+            updatedAt: '2026-01-31T06:00:00.000Z',
+            paidAt: null,
+            paidAmount: null,
+            items: [
+              {
+                id: 'ci-1',
+                cartId: 'cart-uuid',
+                itemId: 'item-uuid',
+                quantity: 2,
+                priceSnapshot: 60.0,
+                addedAt: '2026-01-31T06:00:00.000Z',
+                item: {
+                  id: 'item-uuid',
+                  categoryId: '1f21cd9a-6f62-49a1-81d5-4e825545e262',
+                  category: { slug: 'atta-rice' },
+                  name: 'Wheat Flour',
+                  unit: 'kg',
+                  defaultQuantity: 5,
+                  price: 48.0,
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(responseWithCategory),
+      });
+
+      const result = await fetchCartsFromBackend(TENANT_SLUG, ACCESS_TOKEN);
+
+      expect(result).not.toBeNull();
+      expect(result!.carts[0].items[0].item.categoryId).toBe('atta-rice');
+    });
+
+    it('should fallback to raw categoryId when category relation is missing', async () => {
+      // Backend response without category object (edge case)
+      const responseWithoutCategory = {
+        success: true,
+        data: [
+          {
+            id: 'cart-uuid',
+            name: 'Test Cart',
+            status: 'draft',
+            createdAt: '2026-01-31T06:00:00.000Z',
+            updatedAt: '2026-01-31T06:00:00.000Z',
+            paidAt: null,
+            paidAmount: null,
+            items: [
+              {
+                id: 'ci-1',
+                cartId: 'cart-uuid',
+                itemId: 'item-uuid',
+                quantity: 2,
+                priceSnapshot: 30.0,
+                addedAt: '2026-01-31T06:00:00.000Z',
+                item: {
+                  id: 'item-uuid',
+                  categoryId: 'some-uuid-fallback',
+                  name: 'Test Item',
+                  unit: 'kg',
+                  defaultQuantity: 1,
+                  price: 30.0,
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(responseWithoutCategory),
+      });
+
+      const result = await fetchCartsFromBackend(TENANT_SLUG, ACCESS_TOKEN);
+
+      expect(result).not.toBeNull();
+      expect(result!.carts[0].items[0].item.categoryId).toBe('some-uuid-fallback');
     });
   });
 });

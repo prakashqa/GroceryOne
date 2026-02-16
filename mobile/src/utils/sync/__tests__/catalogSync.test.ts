@@ -139,6 +139,20 @@ describe('catalogSync', () => {
       expect(items[0].id).toBe('bv-001');
     });
 
+    it('should store backend UUID as backendId for cart sync', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockBackendItem] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      // backendId should be the UUID from backend, not the slug
+      expect(items[0].backendId).toBe('uuid-1');
+      // id should still be the slug for backward compat
+      expect(items[0].id).toBe('bv-001');
+    });
+
     it('should use category slug as categoryId', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

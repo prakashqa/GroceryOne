@@ -3,7 +3,7 @@
  * Redux slice for managing multiple carts
  */
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { Item, ManagedCart, MultiCartState, CartItemState, CartStatus } from '../../domain/types/picking';
 import type { PaymentInfo, MarkPaidPayload, MarkCartPaidPayload } from '../../domain/types/payment';
 import { getHardcodedItemPrice } from '../../domain/utils/priceUtils';
@@ -463,6 +463,7 @@ const multiCartSlice = createSlice({
             item?: {
               id: string;
               categoryId: string;
+              category?: { slug: string };
               name: string;
               nameTe?: string;
               unit: 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
@@ -490,7 +491,7 @@ const multiCartSlice = createSlice({
           .map((item) => ({
             item: {
               id: item.item!.id,
-              categoryId: item.item!.categoryId,
+              categoryId: item.item!.category?.slug || item.item!.categoryId,
               name: item.item!.name,
               nameTe: item.item!.nameTe,
               unit: item.item!.unit,
@@ -504,32 +505,55 @@ const multiCartSlice = createSlice({
       }));
 
       if (replaceAll) {
-        // For paid carts, preserve local items if backend returns fewer items
-        // This prevents item data loss from race conditions during payment sync
+        // Merge backend carts with local state, preserving local payment status.
+        // This handles the race condition where the user marks a cart as paid locally,
+        // but the payment PUT hasn't reached the backend yet, so the backend still
+        // returns status: 'draft'. Local 'paid'/'completed' status always wins.
         const mergedCarts = convertedCarts.map((backendCart) => {
-          if (backendCart.status === 'paid') {
-            // Match local cart by id or backendId (local carts use cart-xxx ids, backend uses UUIDs)
-            const localCart = state.carts.find(
-              (c) => c.id === backendCart.id || c.backendId === backendCart.id
-            );
-            if (localCart && localCart.status === 'paid') {
-              // Preserve paidItemCount from local state (backend doesn't store it)
-              const paidItemCount = localCart.paidItemCount ?? backendCart.paidItemCount;
-              // Preserve items if backend returns fewer (race condition during payment sync)
-              const items = localCart.items.length > backendCart.items.length
-                ? localCart.items : backendCart.items;
-              // Preserve paymentInfo from local state
-              const paymentInfo = localCart.paymentInfo ?? backendCart.paymentInfo;
-              return { ...backendCart, items, paidItemCount, paymentInfo };
-            }
+          // Match local cart by id or backendId (local carts use cart-xxx ids, backend uses UUIDs)
+          const localCart = state.carts.find(
+            (c) => c.id === backendCart.id || c.backendId === backendCart.id
+          );
+
+          // LOCAL WINS: if local cart is paid/completed, preserve ALL payment state
+          // regardless of backend status (handles race condition during payment sync)
+          if (localCart && (localCart.status === 'paid' || localCart.status === 'completed')) {
+            const items = localCart.items.length > backendCart.items.length
+              ? localCart.items : backendCart.items;
+            return {
+              ...backendCart,
+              status: localCart.status,
+              paidAt: localCart.paidAt ?? backendCart.paidAt,
+              paidAmount: localCart.paidAmount ?? backendCart.paidAmount,
+              paidItemCount: localCart.paidItemCount ?? backendCart.paidItemCount,
+              paymentInfo: localCart.paymentInfo ?? backendCart.paymentInfo,
+              items,
+            };
           }
+
           return backendCart;
         });
 
-        state.carts = mergedCarts;
+        // Preserve local-only paid/completed carts not present in backend.
+        // These carts exist locally (e.g., from AsyncStorage cache) but the backend
+        // doesn't know about them (sync failed or created offline).
+        const backendCartIds = new Set(convertedCarts.map((c) => c.id));
+        const localOnlyCarts = state.carts.filter((localCart) => {
+          if (localCart.status !== 'paid' && localCart.status !== 'completed') {
+            return false;
+          }
+          const matchedById = backendCartIds.has(localCart.id);
+          const matchedByBackendId = localCart.backendId
+            ? backendCartIds.has(localCart.backendId)
+            : false;
+          return !matchedById && !matchedByBackendId;
+        });
+
+        const finalCarts = [...mergedCarts, ...localOnlyCarts];
+        state.carts = finalCarts;
         // Reset active cart if it no longer exists
-        if (state.activeCartId && !mergedCarts.find((c) => c.id === state.activeCartId)) {
-          state.activeCartId = mergedCarts.length > 0 ? mergedCarts[0].id : null;
+        if (state.activeCartId && !finalCarts.find((c) => c.id === state.activeCartId)) {
+          state.activeCartId = finalCarts.length > 0 ? finalCarts[0].id : null;
         }
       } else {
         // Merge: backend carts take precedence, add new ones
@@ -541,10 +565,14 @@ const multiCartSlice = createSlice({
         state.carts = state.carts.map((cart) => {
           const backendCart = convertedCarts.find((c) => c.id === cart.id);
           if (backendCart) {
-            // For paid carts, preserve local-only metadata that backend doesn't store
-            if (cart.status === 'paid') {
+            // LOCAL WINS: preserve paid/completed status and all payment metadata
+            // Handles race condition where payment PUT hasn't reached backend yet
+            if (cart.status === 'paid' || cart.status === 'completed') {
               return {
                 ...backendCart,
+                status: cart.status,
+                paidAt: cart.paidAt ?? backendCart.paidAt,
+                paidAmount: cart.paidAmount ?? backendCart.paidAmount,
                 paidItemCount: cart.paidItemCount ?? backendCart.paidItemCount,
                 paymentInfo: cart.paymentInfo ?? backendCart.paymentInfo,
                 items: cart.items.length > backendCart.items.length
@@ -556,12 +584,15 @@ const multiCartSlice = createSlice({
           // Check if a backend cart matches this local cart's backendId
           const matchByBackendId = convertedCarts.find((c) => c.id === cart.backendId);
           if (matchByBackendId) {
-            // For paid carts, preserve local-only metadata
-            if (cart.status === 'paid') {
+            // LOCAL WINS: preserve paid/completed status and all payment metadata
+            if (cart.status === 'paid' || cart.status === 'completed') {
               return {
                 ...matchByBackendId,
                 id: cart.id,
                 backendId: cart.backendId,
+                status: cart.status,
+                paidAt: cart.paidAt ?? matchByBackendId.paidAt,
+                paidAmount: cart.paidAmount ?? matchByBackendId.paidAmount,
                 paidItemCount: cart.paidItemCount ?? matchByBackendId.paidItemCount,
                 paymentInfo: cart.paymentInfo ?? matchByBackendId.paymentInfo,
                 items: cart.items.length > matchByBackendId.items.length
@@ -655,10 +686,12 @@ export const selectActiveCart = (state: RootState): ManagedCart | null => {
   return carts.find((cart) => cart.id === activeCartId) || null;
 };
 
-export const selectActiveCartItems = (state: RootState): CartItemState[] => {
-  const activeCart = selectActiveCart(state);
-  return activeCart?.items || [];
-};
+const EMPTY_ITEMS: CartItemState[] = [];
+
+export const selectActiveCartItems = createSelector(
+  [selectActiveCart],
+  (activeCart): CartItemState[] => activeCart?.items || EMPTY_ITEMS
+);
 
 export const selectActiveCartItemCount = (state: RootState): number => {
   return selectActiveCartItems(state).length;
@@ -731,25 +764,31 @@ export const selectActiveCartHasPrices = (state: RootState): boolean => {
  * Get all carts created today
  * Compares cart createdAt date with today's date
  */
-export const selectTodaysCarts = (state: RootState): ManagedCart[] => {
-  const today = new Date().toDateString();
-  return state.multiCart.carts.filter(
-    (cart) => new Date(cart.createdAt).toDateString() === today
-  );
-};
+export const selectTodaysCarts = createSelector(
+  [selectAllCarts],
+  (carts): ManagedCart[] => {
+    const today = new Date().toDateString();
+    return carts.filter(
+      (cart) => new Date(cart.createdAt).toDateString() === today
+    );
+  }
+);
 
 /**
  * Get all carts created yesterday
  * Compares cart createdAt date with yesterday's date
  */
-export const selectYesterdaysCarts = (state: RootState): ManagedCart[] => {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toDateString();
-  return state.multiCart.carts.filter(
-    (cart) => new Date(cart.createdAt).toDateString() === yesterdayStr
-  );
-};
+export const selectYesterdaysCarts = createSelector(
+  [selectAllCarts],
+  (carts): ManagedCart[] => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+    return carts.filter(
+      (cart) => new Date(cart.createdAt).toDateString() === yesterdayStr
+    );
+  }
+);
 
 /**
  * Get all carts within a specific date range (inclusive)
@@ -776,31 +815,28 @@ export const selectCartsByDateRange = (
  * Get all carts sorted by updatedAt (most recent first)
  * Useful for displaying carts in chronological order
  */
-export const selectCartsSortedByDate = (state: RootState): ManagedCart[] => {
-  return [...state.multiCart.carts].sort(
-    (a, b) =>
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
-};
+export const selectCartsSortedByDate = createSelector(
+  [selectAllCarts],
+  (carts): ManagedCart[] =>
+    [...carts].sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    )
+);
 
 /**
  * Count carts by status
  * Returns counts for draft, printed, paid, and completed carts
  */
-export const selectCartsByStatus = (state: RootState): {
-  draft: number;
-  printed: number;
-  paid: number;
-  completed: number;
-} => {
-  const carts = state.multiCart.carts;
-  return {
+export const selectCartsByStatus = createSelector(
+  [selectAllCarts],
+  (carts): { draft: number; printed: number; paid: number; completed: number } => ({
     draft: carts.filter((c) => c.status === 'draft').length,
     printed: carts.filter((c) => c.status === 'printed').length,
     paid: carts.filter((c) => c.status === 'paid').length,
     completed: carts.filter((c) => c.status === 'completed').length,
-  };
-};
+  })
+);
 
 /**
  * Calculate today's business metrics
@@ -809,49 +845,50 @@ export const selectCartsByStatus = (state: RootState): {
  * - totalQuantity: Sum of all quantities in today's carts
  * - totalSales: Sales amount from completed and printed carts (not drafts)
  */
-export const selectTodaysMetrics = (state: RootState): {
-  cartsCreated: number;
-  itemsPicked: number;
-  totalQuantity: number;
-  totalSales: number;
-} => {
-  const todaysCarts = selectTodaysCarts(state);
+export const selectTodaysMetrics = createSelector(
+  [selectTodaysCarts],
+  (todaysCarts): {
+    cartsCreated: number;
+    itemsPicked: number;
+    totalQuantity: number;
+    totalSales: number;
+  } => {
+    const totalItems = todaysCarts.reduce(
+      (sum, cart) => sum + cart.items.length,
+      0
+    );
 
-  const totalItems = todaysCarts.reduce(
-    (sum, cart) => sum + cart.items.length,
-    0
-  );
+    const totalQuantity = todaysCarts.reduce(
+      (sum, cart) =>
+        sum + cart.items.reduce((q, item) => q + item.quantity, 0),
+      0
+    );
 
-  const totalQuantity = todaysCarts.reduce(
-    (sum, cart) =>
-      sum + cart.items.reduce((q, item) => q + item.quantity, 0),
-    0
-  );
+    // Sales only from completed, printed, and paid carts (not drafts)
+    // Apply unit multiplier for gm/ml items (prices stored per-KG/per-L)
+    const totalSales = todaysCarts
+      .filter((c) => c.status === 'completed' || c.status === 'printed' || c.status === 'paid')
+      .reduce((sum, cart) => {
+        return (
+          sum +
+          cart.items.reduce(
+            (s, item) => {
+              const multiplier = getUnitMultiplier(item.item.unit);
+              return s + (item.priceSnapshot || 0) * item.quantity * multiplier;
+            },
+            0
+          )
+        );
+      }, 0);
 
-  // Sales only from completed, printed, and paid carts (not drafts)
-  // Apply unit multiplier for gm/ml items (prices stored per-KG/per-L)
-  const totalSales = todaysCarts
-    .filter((c) => c.status === 'completed' || c.status === 'printed' || c.status === 'paid')
-    .reduce((sum, cart) => {
-      return (
-        sum +
-        cart.items.reduce(
-          (s, item) => {
-            const multiplier = getUnitMultiplier(item.item.unit);
-            return s + (item.priceSnapshot || 0) * item.quantity * multiplier;
-          },
-          0
-        )
-      );
-    }, 0);
-
-  return {
-    cartsCreated: todaysCarts.length,
-    itemsPicked: totalItems,
-    totalQuantity,
-    totalSales,
-  };
-};
+    return {
+      cartsCreated: todaysCarts.length,
+      itemsPicked: totalItems,
+      totalQuantity,
+      totalSales,
+    };
+  }
+);
 
 /**
  * Get recent carts sorted by updatedAt (most recent first)

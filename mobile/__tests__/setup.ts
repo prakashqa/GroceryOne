@@ -157,6 +157,38 @@ jest.mock('expo-crypto', () => ({
   ),
 }));
 
+// Mock react-native-thermal-receipt-printer-image-qr
+jest.mock('react-native-thermal-receipt-printer-image-qr', () => ({
+  BLEPrinter: {
+    init: jest.fn().mockResolvedValue(true),
+    getDeviceList: jest.fn().mockResolvedValue([
+      { device_name: 'EPSON TM-T88', inner_mac_address: '00:11:22:33:44:55' },
+      { device_name: 'Star TSP100', inner_mac_address: '00:11:22:33:44:66' },
+    ]),
+    connectPrinter: jest.fn().mockResolvedValue(true),
+    printText: jest.fn().mockResolvedValue(true),
+    printRawData: jest.fn().mockResolvedValue(true),
+    closeConn: jest.fn().mockResolvedValue(true),
+  },
+  NetPrinter: {
+    init: jest.fn().mockResolvedValue(true),
+    getDeviceList: jest.fn().mockResolvedValue([]),
+    connectPrinter: jest.fn().mockResolvedValue(true),
+    printText: jest.fn().mockResolvedValue(true),
+    closeConn: jest.fn().mockResolvedValue(true),
+  },
+  USBPrinter: {
+    init: jest.fn().mockResolvedValue(true),
+    getDeviceList: jest.fn().mockResolvedValue([
+      { device_name: 'USB Thermal Printer', vendor_id: '1208', product_id: '0001' },
+    ]),
+    connectPrinter: jest.fn().mockResolvedValue(true),
+    printText: jest.fn().mockResolvedValue(true),
+    printRawData: jest.fn().mockResolvedValue(true),
+    closeConn: jest.fn().mockResolvedValue(true),
+  },
+}));
+
 // Mock react-native-tcp-socket
 jest.mock('react-native-tcp-socket', () => {
   const EventEmitter = require('events');

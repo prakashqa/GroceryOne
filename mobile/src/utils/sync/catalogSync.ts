@@ -188,6 +188,7 @@ export async function fetchItemsFromBackend(options?: {
     sortOrder?: number;
   }) => ({
     id: item.slug, // Use slug as ID for compatibility
+    backendId: item.id, // Store backend UUID for cart sync API calls
     name: item.name,
     nameTe: item.nameTe,
     categoryId: item.category?.slug || item.categoryId, // Use category slug

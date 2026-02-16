@@ -63,8 +63,10 @@ Thumbs.db
 tmp/
 temp/
 
-# Detox
-mobile/e2e/artifacts/
+# Detox test artifacts & e2e
+mobile/artifacts/
+mobile/e2e/
+mobile/.detoxrc.js
 
 # Generated
 *.generated.*

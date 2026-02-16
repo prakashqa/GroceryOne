@@ -14,6 +14,14 @@ import {
 } from '../../utils/storage/multiCartStorage';
 import { updateCartBackendId } from '../slices/multiCartSlice';
 import { API_CONFIG } from '../../core/config/api.config';
+import type { Item } from '../../domain/types/picking';
+
+/**
+ * Resolve the backend-compatible item ID for API calls.
+ * Prefers backendId (UUID) when available, falls back to id (slug) for
+ * backward compatibility with items cached before backendId was introduced.
+ */
+const resolveBackendItemId = (item: Item): string => item.backendId || item.id;
 
 // Actions that should trigger persistence
 const PERSIST_ACTIONS = [
@@ -512,13 +520,19 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
               (c) => c.id === preState.multiCart.activeCartId
             );
             if (activeCart?.backendId) {
-              preDispatchData = { activeCartBackendId: activeCart.backendId, itemId };
+              // Resolve backendId before dispatch (item will be removed from state)
+              const cartItem = activeCart.items.find((i) => i.item.id === itemId);
+              const resolvedItemId = cartItem ? resolveBackendItemId(cartItem.item) : itemId;
+              preDispatchData = { activeCartBackendId: activeCart.backendId, itemId: resolvedItemId };
             }
           } else if (actionType === 'multiCart/removeItemFromCart') {
             const { cartId, itemId } = (action as { payload: { cartId: string; itemId: string } }).payload;
             const cart = preState.multiCart.carts.find((c) => c.id === cartId);
             if (cart?.backendId) {
-              preDispatchData = { cartBackendId: cart.backendId, itemId };
+              // Resolve backendId before dispatch (item will be removed from state)
+              const cartItem = cart.items.find((i) => i.item.id === itemId);
+              const resolvedItemId = cartItem ? resolveBackendItemId(cartItem.item) : itemId;
+              preDispatchData = { cartBackendId: cart.backendId, itemId: resolvedItemId };
             }
           }
         }
@@ -603,9 +617,11 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
         }, DEBOUNCE_MS);
       }
 
-      // Handle backend sync for payment
+      // Handle backend sync for payment — IMMEDIATE (no debounce)
+      // Payment is a critical state change; it must reach the backend ASAP
+      // before Phase 2 background refresh returns stale 'draft' status.
       if (PAYMENT_SYNC_ACTIONS.includes(actionType)) {
-        setTimeout(async () => {
+        (async () => {
           const state = storeAPI.getState();
           const typedAction = action as { type: string; payload?: { cartId?: string } };
 
@@ -627,7 +643,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
               storeAPI.getState
             );
           }
-        }, DEBOUNCE_MS);
+        })();
       }
 
       // Handle backend sync for item addition
@@ -651,7 +667,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
               await syncCartItemToBackend(
                 activeCart.backendId,
                 {
-                  itemId: lastItem.item.id,
+                  itemId: resolveBackendItemId(lastItem.item),
                   quantity: typedAction.payload.quantity,
                   priceSnapshot: lastItem.priceSnapshot,
                 },
@@ -720,10 +736,11 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             const { itemId, quantity } = (action as { payload: { itemId: string; quantity: number } }).payload;
             // If quantity was set to 0, the item was removed — sync as delete
             const itemExists = activeCart.items.find((i) => i.item.id === itemId);
+            const resolvedId = itemExists ? resolveBackendItemId(itemExists.item) : itemId;
             if (itemExists) {
-              await updateCartItemOnBackend(activeCart.backendId, itemId, quantity, storeAPI.getState);
+              await updateCartItemOnBackend(activeCart.backendId, resolvedId, quantity, storeAPI.getState);
             } else {
-              await removeCartItemFromBackend(activeCart.backendId, itemId, storeAPI.getState);
+              await removeCartItemFromBackend(activeCart.backendId, resolvedId, storeAPI.getState);
             }
           }
 
@@ -731,7 +748,8 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             const itemId = (action as { payload: string }).payload;
             const item = activeCart.items.find((i) => i.item.id === itemId);
             if (item) {
-              await updateCartItemOnBackend(activeCart.backendId, itemId, item.quantity, storeAPI.getState);
+              const resolvedId = resolveBackendItemId(item.item);
+              await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
             }
           }
 
@@ -740,9 +758,11 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             const item = activeCart.items.find((i) => i.item.id === itemId);
             if (item) {
               // Item still exists, update quantity
-              await updateCartItemOnBackend(activeCart.backendId, itemId, item.quantity, storeAPI.getState);
+              const resolvedId = resolveBackendItemId(item.item);
+              await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
             } else {
               // Item was removed (quantity went to 0), sync as delete
+              // Note: itemId here is the slug since item is already gone from state
               await removeCartItemFromBackend(activeCart.backendId, itemId, storeAPI.getState);
             }
           }

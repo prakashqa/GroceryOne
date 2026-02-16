@@ -130,6 +130,8 @@
       "bluetoothDescription": "బ్లూటూత్ ద్వారా కనెక్ట్ చేయండి",
       "network": "నెట్‌వర్క్/WiFi",
       "networkDescription": "WiFi నెట్‌వర్క్ ద్వారా కనెక్ట్ చేయండి",
+      "usb": "USB",
+      "usbDescription": "USB కేబుల్ ద్వారా కనెక్ట్ చేయండి",
       "selectPrinter": "ప్రింటర్ ఎంచుకోండి",
       "selectPrinterMessage": "ప్రింటర్ డిస్కవరీ ఇంకా అందుబాటులో లేదు. ఈ ఫీచర్ భవిష్యత్ అప్‌డేట్‌లో అందుబాటులో ఉంటుంది.",
       "noPrinter": "ఏదీ లేదు",
@@ -198,6 +200,25 @@
         "removePrinter": "ప్రింటర్ తొలగించు",
         "removePrinterConfirm": "మీరు {{name}} ను తొలగించాలనుకుంటున్నారా?",
         "remove": "తొలగించు"
+      },
+      "usbModal": {
+        "title": "USB ప్రింటర్",
+        "scanDevices": "USB పరికరాల కోసం స్కాన్ చేయండి",
+        "scanning": "స్కాన్ చేస్తోంది...",
+        "scanningHint": "కనెక్ట్ చేసిన USB ప్రింటర్ల కోసం స్కాన్ చేస్తోంది...",
+        "availableDevices": "అందుబాటులో ఉన్న USB ప్రింటర్లు ({{count}})",
+        "noDevicesFound": "USB ప్రింటర్లు కనుగొనబడలేదు",
+        "emptyHint": "USB OTG కేబుల్ ద్వారా థర్మల్ ప్రింటర్‌ను కనెక్ట్ చేసి, స్కాన్ నొక్కండి.",
+        "tips": "చిట్కాలు",
+        "tipOtg": "ప్రింటర్‌ను కనెక్ట్ చేయడానికి USB OTG అడాప్టర్ ఉపయోగించండి",
+        "tipPower": "ప్రింటర్ ఆన్ చేయబడిందని నిర్ధారించుకోండి",
+        "tipDriver": "చాలా ESC/POS థర్మల్ ప్రింటర్లకు మద్దతు ఉంది",
+        "scanError": "స్కాన్ ఎర్రర్",
+        "scanErrorMessage": "USB పరికరాల కోసం స్కాన్ చేయడంలో విఫలమైంది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+        "connectionFailed": "కనెక్షన్ విఫలమైంది",
+        "connectionFailedMessage": "{{name}} కు కనెక్ట్ కాలేకపోయింది. దయచేసి USB కనెక్షన్ తనిఖీ చేయండి.",
+        "connectionError": "కనెక్షన్ ఎర్రర్",
+        "connectionErrorMessage": "USB ప్రింటర్‌కు కనెక్ట్ చేయడంలో విఫలమైంది."
       }
     },
     "payment": {

@@ -13,6 +13,17 @@ import { loadMultiCartState } from './multiCartStorage';
 import { API_CONFIG } from '../../core/config/api.config';
 
 /**
+ * Check if an error is an AbortError (expected cleanup when React effects unmount).
+ * AbortErrors are NOT real failures — they indicate the AbortController.abort() was called.
+ * Checks both DOMException (browser/RN) and plain Error with name 'AbortError'.
+ */
+function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true;
+  if (error instanceof Error && error.name === 'AbortError') return true;
+  return false;
+}
+
+/**
  * Result of cart hydration operation
  */
 export interface CartHydrationResult {
@@ -37,6 +48,7 @@ interface BackendCartItem {
   item?: {
     id: string;
     categoryId: string;
+    category?: { slug: string };
     name: string;
     nameTe?: string;
     unit: 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
@@ -90,7 +102,7 @@ function transformBackendCart(backendCart: BackendCart): ManagedCart {
       .map((cartItem): CartItemState => ({
         item: {
           id: cartItem.item!.id,
-          categoryId: cartItem.item!.categoryId,
+          categoryId: cartItem.item!.category?.slug || cartItem.item!.categoryId,
           name: cartItem.item!.name,
           nameTe: cartItem.item!.nameTe,
           unit: cartItem.item!.unit,
@@ -181,7 +193,9 @@ export async function fetchCartsFromBackend(
       backendSkipped: false,
     };
   } catch (error) {
-    console.error('[CartHydration] Failed to fetch carts from backend:', error);
+    if (!isAbortError(error)) {
+      console.error('[CartHydration] Failed to fetch carts from backend:', error);
+    }
     return null;
   }
 }
@@ -235,7 +249,9 @@ export async function loadOrFetchCarts(
     // Both sources empty
     return { ...EMPTY_RESULT };
   } catch (error) {
-    console.error('[CartHydration] Error during cart hydration:', error);
+    if (!isAbortError(error)) {
+      console.error('[CartHydration] Error during cart hydration:', error);
+    }
     return { ...EMPTY_RESULT };
   }
 }

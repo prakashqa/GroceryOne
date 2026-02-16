@@ -27,6 +27,7 @@ import {
 import {
   PrinterSelectionModal,
   NetworkPrinterModal,
+  UsbPrinterModal,
 } from '../../components/printer';
 import {
   selectPrinter,
@@ -48,6 +49,8 @@ import {
   BluetoothDevice,
   networkPrinterService,
   NetworkPrinter,
+  usbPrinterService,
+  UsbDevice,
 } from '../../../services/printer';
 import {
   generatePickingListReceipt,
@@ -55,7 +58,7 @@ import {
 } from '../../../domain/utils/receiptGenerator';
 
 // Option values - labels and descriptions will be translated at render time
-const connectionTypeValues: PrinterConnectionType[] = ['bluetooth', 'network'];
+const connectionTypeValues: PrinterConnectionType[] = ['bluetooth', 'network', 'usb'];
 const paperSizeValues: PaperSize[] = ['80mm', '58mm'];
 const printFormatValues: PrintFormat[] = ['receipt', 'detailed', 'compact'];
 
@@ -68,6 +71,7 @@ const PrinterSettingsScreen: React.FC = () => {
 
   const [showPrinterModal, setShowPrinterModal] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
+  const [showUsbModal, setShowUsbModal] = useState(false);
   const [isTestPrinting, setIsTestPrinting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -142,9 +146,22 @@ const PrinterSettingsScreen: React.FC = () => {
       }
     );
 
+    const unsubscribeUsb = usbPrinterService.onConnectionStatusChange(
+      (status) => {
+        if (printer.connectionType === 'usb') {
+          dispatch(
+            setPrinterConnectionStatus(
+              status as 'disconnected' | 'connecting' | 'connected' | 'error'
+            )
+          );
+        }
+      }
+    );
+
     return () => {
       unsubscribeBluetooth();
       unsubscribeNetwork();
+      unsubscribeUsb();
     };
   }, [dispatch, printer.connectionType]);
 
@@ -158,6 +175,8 @@ const PrinterSettingsScreen: React.FC = () => {
           await bluetoothPrinterService.disconnect();
         } else if (printer.connectionType === 'network') {
           await networkPrinterService.disconnect();
+        } else if (printer.connectionType === 'usb') {
+          await usbPrinterService.disconnect();
         }
         dispatch(setPrinterConnectionStatus('disconnected'));
       }
@@ -183,6 +202,8 @@ const PrinterSettingsScreen: React.FC = () => {
           await bluetoothPrinterService.disconnect();
         } else if (printer.connectionType === 'network') {
           await networkPrinterService.disconnect();
+        } else if (printer.connectionType === 'usb') {
+          await usbPrinterService.disconnect();
         }
         dispatch(setPrinterConnectionStatus('disconnected'));
         dispatch(setSelectedPrinter(null));
@@ -255,6 +276,8 @@ const PrinterSettingsScreen: React.FC = () => {
       setShowPrinterModal(true);
     } else if (printer.connectionType === 'network') {
       setShowNetworkModal(true);
+    } else if (printer.connectionType === 'usb') {
+      setShowUsbModal(true);
     }
   }, [printer.connectionType]);
 
@@ -318,6 +341,36 @@ const PrinterSettingsScreen: React.FC = () => {
     [dispatch, printer, tenant?.slug]
   );
 
+  const handleUsbPrinterSelected = useCallback(
+    async (device: UsbDevice) => {
+      dispatch(
+        setSelectedPrinter({
+          id: device.id,
+          name: device.name,
+          address: `${device.vendorId}:${device.productId}`,
+        })
+      );
+      dispatch(setPrinterConnectionStatus('connected'));
+
+      if (tenant?.slug) {
+        try {
+          await saveSettings({
+            printer: {
+              ...printer,
+              selectedPrinterId: device.id,
+              selectedPrinterName: device.name,
+              selectedPrinterAddress: `${device.vendorId}:${device.productId}`,
+              connectionStatus: 'connected',
+            },
+          }, tenant.slug);
+        } catch (error) {
+          console.error('Failed to save printer settings:', error);
+        }
+      }
+    },
+    [dispatch, printer, tenant?.slug]
+  );
+
   const handleDisconnect = useCallback(async () => {
     Alert.alert(
       t('settings.printer.disconnect', 'Disconnect Printer'),
@@ -335,6 +388,8 @@ const PrinterSettingsScreen: React.FC = () => {
               await bluetoothPrinterService.disconnect();
             } else if (printer.connectionType === 'network') {
               await networkPrinterService.disconnect();
+            } else if (printer.connectionType === 'usb') {
+              await usbPrinterService.disconnect();
             }
             dispatch(setPrinterConnectionStatus('disconnected'));
             dispatch(setSelectedPrinter(null));
@@ -401,6 +456,17 @@ const PrinterSettingsScreen: React.FC = () => {
           isConnected: false,
         };
         connected = await networkPrinterService.connect(networkPrinter);
+      } else if (printer.connectionType === 'usb') {
+        // Parse vendorId:productId from selectedPrinterAddress
+        const [vendorId, productId] = printer.selectedPrinterAddress.split(':');
+        const usbDevice: UsbDevice = {
+          id: printer.selectedPrinterId,
+          name: printer.selectedPrinterName || 'Unknown',
+          vendorId,
+          productId,
+          isConnected: false,
+        };
+        connected = await usbPrinterService.connect(usbDevice);
       }
 
       if (connected) {
@@ -473,6 +539,8 @@ const PrinterSettingsScreen: React.FC = () => {
         printJob = await bluetoothPrinterService.print(testReceipt);
       } else if (printer.connectionType === 'network') {
         printJob = await networkPrinterService.print(testReceipt);
+      } else if (printer.connectionType === 'usb') {
+        printJob = await usbPrinterService.print(testReceipt);
       } else {
         throw new Error('No printer connection type selected');
       }
@@ -771,6 +839,14 @@ const PrinterSettingsScreen: React.FC = () => {
         visible={showNetworkModal}
         onClose={() => setShowNetworkModal(false)}
         onSelect={handleNetworkPrinterSelected}
+        currentPrinterId={printer.selectedPrinterId}
+      />
+
+      {/* USB Printer Selection Modal */}
+      <UsbPrinterModal
+        visible={showUsbModal}
+        onClose={() => setShowUsbModal(false)}
+        onSelect={handleUsbPrinterSelected}
         currentPrinterId={printer.selectedPrinterId}
       />
     </SafeAreaView>

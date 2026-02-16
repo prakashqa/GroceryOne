@@ -7,7 +7,7 @@ import { baseApi } from './baseApi';
 
 // Types
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type PrinterConnectionType = 'bluetooth' | 'network' | 'none';
+export type PrinterConnectionType = 'bluetooth' | 'network' | 'usb' | 'none';
 export type PaperSize = '80mm' | '58mm';
 export type PrintFormat = 'receipt' | 'detailed' | 'compact';
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';

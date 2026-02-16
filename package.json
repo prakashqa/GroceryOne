@@ -18,12 +18,17 @@
     "lint": "npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "backend:e2e": "npm run test:e2e --workspace=backend -- --runInBand --forceExit",
+    "mobile:e2e:build": "npm run e2e:build --workspace=mobile",
+    "mobile:e2e": "npm run e2e:test --workspace=mobile",
     "clean": "npm run clean --workspaces --if-present && rimraf node_modules",
+    "postinstall": "patch-package",
     "prepare": "husky install"
   },
   "devDependencies": {
     "husky": "^9.0.11",
     "lint-staged": "^15.2.0",
+    "patch-package": "^8.0.1",
     "rimraf": "^5.0.5"
   },
   "lint-staged": {

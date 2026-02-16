@@ -32,6 +32,8 @@ config.resolver.extraNodeModules = {
   'expo-asset': path.resolve(projectRoot, 'node_modules', 'expo-asset'),
   // Force react-native-svg to use the mobile workspace version (fixes fabric compatibility)
   'react-native-svg': path.resolve(projectRoot, 'node_modules', 'react-native-svg'),
+  // Shim react-native-ping (peer dep of thermal printer lib, only needed for NetPrinter which we don't use)
+  'react-native-ping': path.resolve(projectRoot, 'shims', 'react-native-ping.js'),
 };
 
 // Performance optimizations

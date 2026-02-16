@@ -9,7 +9,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 // Printer connection types
-export type PrinterConnectionType = 'bluetooth' | 'network' | 'none';
+export type PrinterConnectionType = 'bluetooth' | 'network' | 'usb' | 'none';
 
 // Paper size options (thermal printers only)
 export type PaperSize = '80mm' | '58mm';

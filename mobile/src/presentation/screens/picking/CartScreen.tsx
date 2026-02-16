@@ -47,6 +47,7 @@ import {
   markActiveCartAsPaid,
 } from '../../../store/slices/multiCartSlice';
 import { selectPrinter } from '../../../store/slices/settingsSlice';
+import { selectTenant } from '../../../store/slices/tenantSlice';
 import {
   bluetoothPrinterService,
   networkPrinterService,
@@ -111,6 +112,7 @@ const CartScreen: React.FC = () => {
   const isPaid = useSelector(selectActiveCartIsPaid);
   const canMarkPayment = useSelector(selectCanMarkPayment);
   const printerSettings = useSelector(selectPrinter);
+  const tenant = useSelector(selectTenant);
   const categories = useSelector(selectCategories);
   const catalogItems = useSelector(selectItems);
 
@@ -274,10 +276,12 @@ const CartScreen: React.FC = () => {
     // Get locale for date/time formatting based on current language
     const locale = i18n.language === 'te' ? 'te-IN' : 'en-US';
 
-    // Get translated merchant info
+    // Get merchant info - prefer tenant name from Redux (dynamic per tenant),
+    // fallback to i18n hardcoded value when tenant data is not yet available
     const merchantInfo = {
-      name: t('picking.receipt.merchantName'),
+      name: tenant?.name || t('picking.receipt.merchantName'),
       address: t('picking.receipt.merchantAddress'),
+      phone: tenant?.contactPhone,
     };
 
     // Generate professional receipt with merchant info

@@ -3,6 +3,8 @@
  * TDD tests for Bluetooth printer discovery, connection, and printing
  */
 
+import { Platform } from 'react-native';
+import { BLEPrinter } from 'react-native-thermal-receipt-printer-image-qr';
 import { BluetoothPrinterService } from '../BluetoothPrinterService';
 
 describe('BluetoothPrinterService', () => {
@@ -10,6 +12,7 @@ describe('BluetoothPrinterService', () => {
 
   beforeEach(() => {
     service = new BluetoothPrinterService();
+    jest.clearAllMocks();
   });
 
   describe('initial state', () => {
@@ -198,6 +201,115 @@ describe('BluetoothPrinterService', () => {
     it('should stop scanning', () => {
       service.stopScan();
       expect(service.isCurrentlyScanning()).toBe(false);
+    });
+  });
+
+  describe('reconnect before print', () => {
+    it('should reconnect to the last connected device before printing', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+
+      await service.connect(device);
+
+      // Clear mocks to track only calls made during print()
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      const printJob = await service.print('Test content');
+
+      // Should have reconnected (called connectPrinter with the device address)
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+      // And then printed
+      expect(BLEPrinter.printText).toHaveBeenCalledWith('Test content');
+      expect(printJob.status).toBe('completed');
+    });
+
+    it('should reconnect to the last connected device before printing raw', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+
+      await service.connect(device);
+
+      // Clear mocks to track only calls made during printRaw()
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      const rawCommands = new Uint8Array([0x1b, 0x40]);
+      const printJob = await service.printRaw(rawCommands);
+
+      // Should have reconnected
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+      expect(printJob.status).toBe('completed');
+    });
+
+    it('should set status to failed and not crash if reconnect fails', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+
+      await service.connect(device);
+
+      // Simulate reconnect failure (printer turned off / out of range)
+      (BLEPrinter.connectPrinter as jest.Mock).mockRejectedValueOnce(
+        new Error('Bluetooth socket closed')
+      );
+
+      // Should NOT throw — should return a failed job instead
+      const printJob = await service.print('Test content');
+
+      expect(printJob.status).toBe('failed');
+      expect(printJob.error).toContain('Failed to reconnect to printer');
+    });
+
+    it('should throw if no device was ever connected', async () => {
+      // Don't connect — just try to print directly
+      // The new ensureConnected() should throw 'No printer connected'
+      await expect(service.print('Test content')).rejects.toThrow(
+        'No printer connected'
+      );
+    });
+  });
+
+  describe('permission handling', () => {
+    beforeEach(() => {
+      // Simulate Android 12+ (API 31) where BLUETOOTH_CONNECT is required
+      (Platform as any).OS = 'android';
+      (Platform as any).Version = 31;
+    });
+
+    it('should request Bluetooth permissions before calling BLEPrinter.init()', async () => {
+      // Mock requestBluetoothPermissions at the service level to return true
+      const permSpy = jest.spyOn(service, 'requestBluetoothPermissions')
+        .mockResolvedValue(true);
+
+      await service.getPairedDevices();
+
+      // Permissions should be requested before BLEPrinter operations
+      expect(permSpy).toHaveBeenCalled();
+
+      // And BLEPrinter.init() should have been called after permissions
+      expect(BLEPrinter.init).toHaveBeenCalled();
+
+      permSpy.mockRestore();
+    });
+
+    it('should return empty array from getPairedDevices when permissions denied', async () => {
+      // Mock requestBluetoothPermissions at the service level to return false
+      const permSpy = jest.spyOn(service, 'requestBluetoothPermissions')
+        .mockResolvedValue(false);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toEqual([]);
+      permSpy.mockRestore();
+    });
+
+    it('should not call BLEPrinter.getDeviceList when permissions denied', async () => {
+      // Mock requestBluetoothPermissions at the service level to return false
+      const permSpy = jest.spyOn(service, 'requestBluetoothPermissions')
+        .mockResolvedValue(false);
+
+      await service.getPairedDevices();
+
+      expect(BLEPrinter.getDeviceList).not.toHaveBeenCalled();
+      permSpy.mockRestore();
     });
   });
 });

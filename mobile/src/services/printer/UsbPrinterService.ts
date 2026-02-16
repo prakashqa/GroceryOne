@@ -1,0 +1,292 @@
+/**
+ * USB Printer Service
+ * Handles USB device discovery, connection, and printing for thermal printers
+ * Uses react-native-thermal-receipt-printer-image-qr USBPrinter module
+ */
+
+import { USBPrinter } from 'react-native-thermal-receipt-printer-image-qr';
+
+// USB device interface
+export interface UsbDevice {
+  id: string;
+  name: string;
+  vendorId: string;
+  productId: string;
+  isConnected: boolean;
+}
+
+// USB print job interface
+export interface UsbPrintJob {
+  id: string;
+  content: string;
+  status: 'pending' | 'printing' | 'completed' | 'failed';
+  createdAt: Date;
+  error?: string;
+}
+
+// USB connection status
+export type UsbConnectionStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'error';
+
+// Service state
+interface UsbPrinterServiceState {
+  isScanning: boolean;
+  connectionStatus: UsbConnectionStatus;
+  connectedDevice: UsbDevice | null;
+  discoveredDevices: UsbDevice[];
+  printQueue: UsbPrintJob[];
+}
+
+// Event listeners
+type DeviceDiscoveredListener = (device: UsbDevice) => void;
+type ConnectionStatusListener = (status: UsbConnectionStatus) => void;
+type PrintCompleteListener = (job: UsbPrintJob) => void;
+
+class UsbPrinterService {
+  private state: UsbPrinterServiceState = {
+    isScanning: false,
+    connectionStatus: 'disconnected',
+    connectedDevice: null,
+    discoveredDevices: [],
+    printQueue: [],
+  };
+
+  private isInitialized: boolean = false;
+
+  private deviceDiscoveredListeners: DeviceDiscoveredListener[] = [];
+  private connectionStatusListeners: ConnectionStatusListener[] = [];
+  private printCompleteListeners: PrintCompleteListener[] = [];
+
+  /**
+   * Initialize the USB printer module
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      try {
+        await USBPrinter.init();
+        this.isInitialized = true;
+      } catch (error) {
+        console.error('Failed to initialize USBPrinter:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Map library device format to UsbDevice interface
+   */
+  private mapToUsbDevice(rawDevice: {
+    device_name?: string;
+    vendor_id: string;
+    product_id: string;
+  }): UsbDevice {
+    return {
+      id: `${rawDevice.vendor_id}-${rawDevice.product_id}`,
+      name: rawDevice.device_name || `USB Printer (${rawDevice.vendor_id})`,
+      vendorId: String(rawDevice.vendor_id),
+      productId: String(rawDevice.product_id),
+      isConnected: false,
+    };
+  }
+
+  /**
+   * Discover connected USB devices
+   */
+  async discoverDevices(): Promise<UsbDevice[]> {
+    this.state.isScanning = true;
+    this.state.discoveredDevices = [];
+
+    try {
+      await this.ensureInitialized();
+
+      const rawDevices = await USBPrinter.getDeviceList();
+
+      const devices: UsbDevice[] = (rawDevices || []).map(
+        (d: { device_name?: string; vendor_id: string; product_id: string }) =>
+          this.mapToUsbDevice(d)
+      );
+
+      this.state.discoveredDevices = devices;
+
+      // Notify device discovered listeners for each device
+      devices.forEach((device) => {
+        this.deviceDiscoveredListeners.forEach((listener) => listener(device));
+      });
+
+      return devices;
+    } catch (error) {
+      console.error('USB scan error:', error);
+      throw error;
+    } finally {
+      this.state.isScanning = false;
+    }
+  }
+
+  /**
+   * Connect to a USB device
+   */
+  async connect(device: UsbDevice): Promise<boolean> {
+    this.updateConnectionStatus('connecting');
+
+    try {
+      await this.ensureInitialized();
+      await USBPrinter.connectPrinter(device.vendorId, device.productId);
+
+      this.state.connectedDevice = { ...device, isConnected: true };
+      this.updateConnectionStatus('connected');
+
+      return true;
+    } catch (error) {
+      console.error('USB connect error:', error);
+      this.updateConnectionStatus('error');
+      return false;
+    }
+  }
+
+  /**
+   * Disconnect from current device
+   */
+  async disconnect(): Promise<void> {
+    try {
+      await USBPrinter.closeConn();
+    } catch (error) {
+      console.error('USB disconnect error:', error);
+    }
+    this.state.connectedDevice = null;
+    this.updateConnectionStatus('disconnected');
+  }
+
+  /**
+   * Print text content to the connected USB printer
+   */
+  async print(content: string): Promise<UsbPrintJob> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+
+    const job: UsbPrintJob = {
+      id: `print-${Date.now()}`,
+      content,
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    this.state.printQueue.push(job);
+    job.status = 'printing';
+
+    try {
+      await USBPrinter.printText(content);
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Print failed';
+    }
+
+    // Notify listeners
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
+  }
+
+  /**
+   * Print ESC/POS raw commands
+   */
+  async printRaw(commands: Uint8Array): Promise<UsbPrintJob> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+
+    const job: UsbPrintJob = {
+      id: `print-${Date.now()}`,
+      content: '[RAW ESC/POS DATA]',
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    this.state.printQueue.push(job);
+    job.status = 'printing';
+
+    try {
+      const hexString = Array.from(commands)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      await USBPrinter.printRawData(hexString);
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Raw print failed';
+    }
+
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
+  }
+
+  /**
+   * Get current connection status
+   */
+  getConnectionStatus(): UsbConnectionStatus {
+    return this.state.connectionStatus;
+  }
+
+  /**
+   * Get connected device info
+   */
+  getConnectedDevice(): UsbDevice | null {
+    return this.state.connectedDevice;
+  }
+
+  /**
+   * Check if currently scanning
+   */
+  isCurrentlyScanning(): boolean {
+    return this.state.isScanning;
+  }
+
+  /**
+   * Get discovered devices
+   */
+  getDiscoveredDevices(): UsbDevice[] {
+    return [...this.state.discoveredDevices];
+  }
+
+  // Event listener management
+  onDeviceDiscovered(listener: DeviceDiscoveredListener): () => void {
+    this.deviceDiscoveredListeners.push(listener);
+    return () => {
+      this.deviceDiscoveredListeners = this.deviceDiscoveredListeners.filter(
+        (l) => l !== listener
+      );
+    };
+  }
+
+  onConnectionStatusChange(listener: ConnectionStatusListener): () => void {
+    this.connectionStatusListeners.push(listener);
+    return () => {
+      this.connectionStatusListeners = this.connectionStatusListeners.filter(
+        (l) => l !== listener
+      );
+    };
+  }
+
+  onPrintComplete(listener: PrintCompleteListener): () => void {
+    this.printCompleteListeners.push(listener);
+    return () => {
+      this.printCompleteListeners = this.printCompleteListeners.filter(
+        (l) => l !== listener
+      );
+    };
+  }
+
+  private updateConnectionStatus(status: UsbConnectionStatus): void {
+    this.state.connectionStatus = status;
+    this.connectionStatusListeners.forEach((listener) => listener(status));
+  }
+}
+
+// Export singleton instance
+export const usbPrinterService = new UsbPrinterService();
+
+// Export class for testing
+export { UsbPrinterService };

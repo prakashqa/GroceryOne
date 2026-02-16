@@ -1,0 +1,69 @@
+diff --git a/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java b/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
+index 9d77969..34aef45 100644
+--- a/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
++++ b/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
+@@ -114,8 +114,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+         }
+         BLEPrinterDeviceId blePrinterDeviceId = (BLEPrinterDeviceId)printerDeviceId;
+         if(this.mBluetoothDevice != null){
+-            if(this.mBluetoothDevice.getAddress().equals(blePrinterDeviceId.getInnerMacAddress()) && this.mBluetoothSocket != null){
+-                Log.v(LOG_TAG, "do not need to reconnect");
++            if(this.mBluetoothDevice.getAddress().equals(blePrinterDeviceId.getInnerMacAddress())
++                    && this.mBluetoothSocket != null
++                    && this.mBluetoothSocket.isConnected()){
++                Log.v(LOG_TAG, "already connected and socket is alive");
+                 successCallback.invoke(new BLEPrinterDevice(this.mBluetoothDevice).toRNWritableMap());
+                 return;
+             }else{
+@@ -191,6 +193,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+             errorCallback.invoke("bluetooth connection is not built, may be you forgot to connectPrinter");
+             return;
+         }
++        if(!this.mBluetoothSocket.isConnected()){
++            errorCallback.invoke("bluetooth socket is not connected");
++            return;
++        }
+         final String rawData = rawBase64Data;
+         final BluetoothSocket socket = this.mBluetoothSocket;
+         Log.v(LOG_TAG, "start to print raw data " + rawBase64Data);
+@@ -200,11 +206,18 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+                 byte [] bytes = Base64.decode(rawData, Base64.DEFAULT);
+                 try{
+                     OutputStream printerOutputStream = socket.getOutputStream();
++                    if(printerOutputStream == null){
++                        Log.e(LOG_TAG, "printer output stream is null, connection may have dropped");
++                        return;
++                    }
+                     printerOutputStream.write(bytes, 0, bytes.length);
+                     printerOutputStream.flush();
+                 }catch (IOException e){
+                     Log.e(LOG_TAG, "failed to print data" + rawData);
+                     e.printStackTrace();
++                }catch (NullPointerException e){
++                    Log.e(LOG_TAG, "null pointer during print, connection dropped: " + e.getMessage());
++                    e.printStackTrace();
+                 }
+ 
+             }
+@@ -250,6 +263,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+             int[][] pixels = getPixelsSlow(bitmapImage, imageWidth, imageHeight);
+ 
+             OutputStream printerOutputStream = socket.getOutputStream();
++            if(printerOutputStream == null){
++                errorCallback.invoke("printer output stream is null, connection may have dropped");
++                return;
++            }
+ 
+             printerOutputStream.write(SET_LINE_SPACE_24);
+             printerOutputStream.write(CENTER_ALIGN);
+@@ -297,6 +314,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+             int[][] pixels = getPixelsSlow(bitmapImage, imageWidth, imageHeight);
+ 
+             OutputStream printerOutputStream = socket.getOutputStream();
++            if(printerOutputStream == null){
++                errorCallback.invoke("printer output stream is null, connection may have dropped");
++                return;
++            }
+ 
+             printerOutputStream.write(SET_LINE_SPACE_24);
+             printerOutputStream.write(CENTER_ALIGN);

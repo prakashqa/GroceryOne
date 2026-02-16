@@ -15,7 +15,7 @@ module.exports = {
     '/__tests__/mocks/',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-native-community|@react-navigation|react-native-reanimated|react-native-screens|react-native-safe-area-context|react-native-gesture-handler|react-native-vector-icons|@react-native-async-storage|@reduxjs/toolkit|immer|redux|redux-thunk|react-redux|react-native-gifted-charts|gifted-charts-core|react-native-linear-gradient|react-native-svg|expo-constants|expo-modules-core)/)',
+    'node_modules/(?!(react-native|@react-native|@react-native-community|@react-navigation|react-native-reanimated|react-native-screens|react-native-safe-area-context|react-native-gesture-handler|react-native-vector-icons|@react-native-async-storage|@reduxjs/toolkit|immer|redux|redux-thunk|react-redux|react-native-gifted-charts|gifted-charts-core|react-native-linear-gradient|react-native-svg|expo-constants|expo-modules-core|react-native-thermal-receipt-printer-image-qr)/)',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

@@ -130,6 +130,8 @@
       "bluetoothDescription": "Connect via Bluetooth",
       "network": "Network/WiFi",
       "networkDescription": "Connect via WiFi network",
+      "usb": "USB",
+      "usbDescription": "Connect via USB cable",
       "selectPrinter": "Select Printer",
       "selectPrinterMessage": "Printer discovery is not available yet. This feature will be enabled in a future update.",
       "noPrinter": "None",
@@ -198,6 +200,25 @@
         "removePrinter": "Remove Printer",
         "removePrinterConfirm": "Are you sure you want to remove {{name}}?",
         "remove": "Remove"
+      },
+      "usbModal": {
+        "title": "USB Printer",
+        "scanDevices": "Scan for USB Devices",
+        "scanning": "Scanning...",
+        "scanningHint": "Scanning for connected USB printers...",
+        "availableDevices": "Available USB Printers ({{count}})",
+        "noDevicesFound": "No USB printers found",
+        "emptyHint": "Connect a thermal printer via USB OTG cable, then tap scan.",
+        "tips": "Tips",
+        "tipOtg": "Use a USB OTG adapter to connect the printer",
+        "tipPower": "Make sure the printer is powered on",
+        "tipDriver": "Most ESC/POS thermal printers are supported",
+        "scanError": "Scan Error",
+        "scanErrorMessage": "Failed to scan for USB devices. Please try again.",
+        "connectionFailed": "Connection Failed",
+        "connectionFailedMessage": "Could not connect to {{name}}. Please check the USB connection.",
+        "connectionError": "Connection Error",
+        "connectionErrorMessage": "Failed to connect to USB printer."
       }
     },
     "payment": {

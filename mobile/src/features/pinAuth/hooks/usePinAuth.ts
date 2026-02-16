@@ -261,7 +261,7 @@ export function usePinAuth(): UsePinAuthReturn {
       if (responseTenant) {
         dispatch(setTenant({
           id: data.user?.tenantId || '',
-          name: responseTenant,
+          name: tenant?.name || responseTenant,
           slug: responseTenant,
           status: 'active',
           subscriptionPlan: 'premium',

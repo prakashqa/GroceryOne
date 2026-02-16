@@ -1,20 +1,13 @@
 /**
  * Bluetooth Printer Service
  * Handles Bluetooth device discovery, connection, and printing for thermal printers
- *
- * Note: This service provides an abstraction layer for Bluetooth printing.
- * In a production app, you would integrate with a native Bluetooth library like:
- * - react-native-bluetooth-escpos-printer
- * - react-native-thermal-receipt-printer
- * - expo-bluetooth (when available)
- *
- * For now, this provides the interface and simulated functionality
- * that can be connected to actual Bluetooth APIs.
+ * Uses react-native-thermal-receipt-printer-image-qr for real Bluetooth communication
  */
 
 import { Platform, Alert } from 'react-native';
 // eslint-disable-next-line react-native/split-platform-components
 import { PermissionsAndroid } from 'react-native';
+import { BLEPrinter } from 'react-native-thermal-receipt-printer-image-qr';
 
 // Bluetooth device interface
 export interface BluetoothDevice {
@@ -68,38 +61,49 @@ class BluetoothPrinterService {
     printQueue: [],
   };
 
+  private isInitialized: boolean = false;
+
   private deviceDiscoveredListeners: DeviceDiscoveredListener[] = [];
   private connectionStatusListeners: ConnectionStatusListener[] = [];
   private scanCompleteListeners: ScanCompleteListener[] = [];
   private printCompleteListeners: PrintCompleteListener[] = [];
 
-  // Simulated paired devices (for demo purposes)
-  private simulatedPairedDevices: BluetoothDevice[] = [
-    {
-      id: 'bt-001',
-      name: 'EPSON TM-T88',
-      address: '00:11:22:33:44:55',
-      rssi: -45,
+  /**
+   * Initialize the BLE printer module
+   * Requests Bluetooth permissions before calling native init to prevent
+   * crashes on Android 12+ where BLUETOOTH_CONNECT is required.
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized) {
+      const hasPermission = await this.requestBluetoothPermissions();
+      if (!hasPermission) {
+        throw new Error('Bluetooth permissions not granted');
+      }
+      try {
+        await BLEPrinter.init();
+        this.isInitialized = true;
+      } catch (error) {
+        console.error('Failed to initialize BLEPrinter:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Map library device format to BluetoothDevice interface
+   */
+  private mapToBluetoothDevice(rawDevice: {
+    device_name?: string;
+    inner_mac_address: string;
+  }): BluetoothDevice {
+    return {
+      id: rawDevice.inner_mac_address,
+      name: rawDevice.device_name || 'Unknown Device',
+      address: rawDevice.inner_mac_address,
       isPaired: true,
       isConnected: false,
-    },
-    {
-      id: 'bt-002',
-      name: 'Star TSP100',
-      address: '00:11:22:33:44:66',
-      rssi: -60,
-      isPaired: true,
-      isConnected: false,
-    },
-    {
-      id: 'bt-003',
-      name: 'Generic Thermal Printer',
-      address: '00:11:22:33:44:77',
-      rssi: -70,
-      isPaired: true,
-      isConnected: false,
-    },
-  ];
+    };
+  }
 
   /**
    * Check and request Bluetooth permissions (Android)
@@ -148,18 +152,20 @@ class BluetoothPrinterService {
    * Check if Bluetooth is enabled on the device
    */
   async isBluetoothEnabled(): Promise<boolean> {
-    // In a real implementation, this would check the actual Bluetooth state
-    // For demo, we'll return true
-    this.state.isBluetoothEnabled = true;
-    return true;
+    try {
+      await this.ensureInitialized();
+      this.state.isBluetoothEnabled = true;
+      return true;
+    } catch {
+      this.state.isBluetoothEnabled = false;
+      return false;
+    }
   }
 
   /**
    * Enable Bluetooth (Android only, prompts user)
    */
   async enableBluetooth(): Promise<boolean> {
-    // In a real implementation, this would prompt the user to enable Bluetooth
-    // For now, we simulate it
     return new Promise((resolve) => {
       Alert.alert(
         'Enable Bluetooth',
@@ -174,53 +180,44 @@ class BluetoothPrinterService {
 
   /**
    * Start scanning for Bluetooth devices
+   * Returns paired/bonded BLE devices via the native library
    */
-  async startScan(timeoutMs: number = 10000): Promise<BluetoothDevice[]> {
+  async startScan(_timeoutMs: number = 10000): Promise<BluetoothDevice[]> {
     const hasPermission = await this.requestBluetoothPermissions();
     if (!hasPermission) {
       throw new Error('Bluetooth permissions not granted');
     }
 
-    const isEnabled = await this.isBluetoothEnabled();
-    if (!isEnabled) {
-      const enabled = await this.enableBluetooth();
-      if (!enabled) {
-        throw new Error('Bluetooth is not enabled');
-      }
-    }
-
     this.state.isScanning = true;
     this.state.discoveredDevices = [];
 
-    // In a real implementation, this would use the Bluetooth API to scan
-    // For demo, we simulate device discovery
-    return new Promise((resolve) => {
-      // Simulate discovering devices over time
-      let deviceIndex = 0;
-      const interval = setInterval(() => {
-        if (deviceIndex < this.simulatedPairedDevices.length) {
-          const device = this.simulatedPairedDevices[deviceIndex];
-          this.state.discoveredDevices.push(device);
+    try {
+      await this.ensureInitialized();
 
-          // Notify listeners
-          this.deviceDiscoveredListeners.forEach((listener) => listener(device));
-          deviceIndex++;
-        }
-      }, 1000);
+      const rawDevices = await BLEPrinter.getDeviceList();
 
-      // Stop scan after timeout
-      setTimeout(() => {
-        clearInterval(interval);
-        this.state.isScanning = false;
+      const devices: BluetoothDevice[] = (rawDevices || []).map(
+        (d: { device_name?: string; inner_mac_address: string }) =>
+          this.mapToBluetoothDevice(d)
+      );
 
-        // Notify scan complete listeners
-        this.scanCompleteListeners.forEach((listener) =>
-          listener(this.state.discoveredDevices)
-        );
+      this.state.discoveredDevices = devices;
 
-        resolve(this.state.discoveredDevices);
-      }, timeoutMs);
-    });
+      // Notify device discovered listeners for each device
+      devices.forEach((device) => {
+        this.deviceDiscoveredListeners.forEach((listener) => listener(device));
+      });
+
+      // Notify scan complete listeners
+      this.scanCompleteListeners.forEach((listener) => listener(devices));
+
+      return devices;
+    } catch (error) {
+      console.error('Bluetooth scan error:', error);
+      throw error;
+    } finally {
+      this.state.isScanning = false;
+    }
   }
 
   /**
@@ -232,10 +229,26 @@ class BluetoothPrinterService {
 
   /**
    * Get list of paired/bonded devices
+   * Requests Bluetooth permissions before accessing device list to prevent
+   * crashes on Android 12+ where BLUETOOTH_CONNECT is required.
    */
   async getPairedDevices(): Promise<BluetoothDevice[]> {
-    // In a real implementation, this would get bonded devices from the system
-    return this.simulatedPairedDevices;
+    try {
+      const hasPermission = await this.requestBluetoothPermissions();
+      if (!hasPermission) {
+        console.warn('Bluetooth permissions not granted, returning empty device list');
+        return [];
+      }
+      await this.ensureInitialized();
+      const rawDevices = await BLEPrinter.getDeviceList();
+      return (rawDevices || []).map(
+        (d: { device_name?: string; inner_mac_address: string }) =>
+          this.mapToBluetoothDevice(d)
+      );
+    } catch (error) {
+      console.error('Error getting paired devices:', error);
+      return [];
+    }
   }
 
   /**
@@ -244,35 +257,63 @@ class BluetoothPrinterService {
   async connect(device: BluetoothDevice): Promise<boolean> {
     this.updateConnectionStatus('connecting');
 
-    return new Promise((resolve) => {
-      // Simulate connection delay
-      setTimeout(() => {
-        // Update device state
-        const connectedDevice = {
-          ...device,
-          isConnected: true,
-        };
+    try {
+      await this.ensureInitialized();
+      await BLEPrinter.connectPrinter(device.address);
 
-        this.state.connectedDevice = connectedDevice;
-        this.updateConnectionStatus('connected');
+      const connectedDevice: BluetoothDevice = {
+        ...device,
+        isConnected: true,
+      };
 
-        resolve(true);
-      }, 1500);
-    });
+      this.state.connectedDevice = connectedDevice;
+      this.updateConnectionStatus('connected');
+
+      return true;
+    } catch (error) {
+      console.error('Bluetooth connect error:', error);
+      this.updateConnectionStatus('error');
+      return false;
+    }
   }
 
   /**
    * Disconnect from current device
    */
   async disconnect(): Promise<void> {
-    if (this.state.connectedDevice) {
-      this.state.connectedDevice = null;
-      this.updateConnectionStatus('disconnected');
+    try {
+      await BLEPrinter.closeConn();
+    } catch (error) {
+      console.error('Bluetooth disconnect error:', error);
+    }
+    this.state.connectedDevice = null;
+    this.updateConnectionStatus('disconnected');
+  }
+
+  /**
+   * Ensure we have an active BLE connection by reconnecting to the last device.
+   * BLE connections can silently drop; the native layer may hold a stale socket
+   * with a null OutputStream. Reconnecting creates a fresh socket, preventing
+   * native NullPointerException crashes in BLEPrinterAdapter.printRawData().
+   */
+  private async ensureConnected(): Promise<void> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+    try {
+      await this.ensureInitialized();
+      await BLEPrinter.connectPrinter(this.state.connectedDevice.address);
+    } catch (error) {
+      this.updateConnectionStatus('error');
+      throw new Error(
+        'Failed to reconnect to printer: ' + (error as Error).message
+      );
     }
   }
 
   /**
    * Print text content to the connected printer
+   * Reconnects before printing to ensure the native BLE socket is alive.
    */
   async print(content: string): Promise<PrintJob> {
     if (!this.state.connectedDevice) {
@@ -287,29 +328,27 @@ class BluetoothPrinterService {
     };
 
     this.state.printQueue.push(job);
+    job.status = 'printing';
 
-    return new Promise((resolve) => {
-      // Update job status
-      job.status = 'printing';
+    try {
+      await this.ensureConnected();
+      await BLEPrinter.printText(content);
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Print failed';
+    }
 
-      // Simulate print time based on content length
-      const printTime = Math.min(content.length * 10, 3000);
-
-      setTimeout(() => {
-        job.status = 'completed';
-
-        // Notify listeners
-        this.printCompleteListeners.forEach((listener) => listener(job));
-
-        resolve(job);
-      }, printTime);
-    });
+    // Notify listeners
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
   }
 
   /**
    * Print ESC/POS commands (for thermal printers)
+   * Reconnects before printing to ensure the native BLE socket is alive.
    */
-  async printRaw(_commands: Uint8Array): Promise<PrintJob> {
+  async printRaw(commands: Uint8Array): Promise<PrintJob> {
     if (!this.state.connectedDevice) {
       throw new Error('No printer connected');
     }
@@ -322,16 +361,23 @@ class BluetoothPrinterService {
     };
 
     this.state.printQueue.push(job);
+    job.status = 'printing';
 
-    return new Promise((resolve) => {
-      job.status = 'printing';
+    try {
+      await this.ensureConnected();
+      // Convert Uint8Array to hex string for the library
+      const hexString = Array.from(commands)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      await BLEPrinter.printRawData(hexString);
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Raw print failed';
+    }
 
-      setTimeout(() => {
-        job.status = 'completed';
-        this.printCompleteListeners.forEach((listener) => listener(job));
-        resolve(job);
-      }, 2000);
-    });
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
   }
 
   /**

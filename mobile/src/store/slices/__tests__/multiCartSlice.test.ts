@@ -4464,5 +4464,620 @@ describe('multiCartSlice', () => {
       expect(state.carts[0].items).toHaveLength(2);
       expect(state.carts[0].paidItemCount).toBe(2);
     });
+
+    it('replaceAll should preserve local-only paid carts not present in backend', () => {
+      // Setup: Local state has a paid cart that was never synced to backend
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayISO = yesterday.toISOString();
+
+      const stateWithLocalPaid: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-local-only-123',
+            name: 'Yesterday Paid Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Rice',
+                  unit: 'kg',
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 2,
+                addedAt: yesterdayISO,
+                priceSnapshot: 60,
+              },
+            ],
+            createdAt: yesterdayISO,
+            updatedAt: yesterdayISO,
+            status: 'paid',
+            paidAt: yesterdayISO,
+            paidAmount: 120,
+            paidItemCount: 1,
+          },
+        ],
+        activeCartId: 'cart-local-only-123',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns a DIFFERENT cart (doesn't know about the local paid cart)
+      const state = multiCartReducer(
+        stateWithLocalPaid,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'backend-uuid-today',
+              name: 'Today Cart',
+              status: 'draft',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: Both the backend cart AND the local-only paid cart should exist
+      expect(state.carts).toHaveLength(2);
+      expect(state.carts.find(c => c.id === 'backend-uuid-today')).toBeDefined();
+      expect(state.carts.find(c => c.id === 'cart-local-only-123')).toBeDefined();
+      expect(state.carts.find(c => c.id === 'cart-local-only-123')?.status).toBe('paid');
+      expect(state.carts.find(c => c.id === 'cart-local-only-123')?.items).toHaveLength(1);
+    });
+
+    it('replaceAll should NOT preserve local-only draft carts', () => {
+      // Setup: Local state has a draft cart that was never synced
+      const stateWithDraft: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-local-draft-456',
+            name: 'Unsynced Draft Cart',
+            items: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'draft',
+          },
+        ],
+        activeCartId: 'cart-local-draft-456',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns different carts
+      const state = multiCartReducer(
+        stateWithDraft,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'backend-uuid-1',
+              name: 'Backend Cart',
+              status: 'draft',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: Draft carts should NOT be preserved — backend is source of truth
+      expect(state.carts).toHaveLength(1);
+      expect(state.carts[0].id).toBe('backend-uuid-1');
+    });
+
+    it('replaceAll should preserve local-only paid carts with backendId when backend does not return them', () => {
+      // Scenario: Cart was synced (has backendId) and paid, but backend
+      // doesn't return it (deleted or filtered)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayISO = yesterday.toISOString();
+
+      const stateWithOrphaned: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-local-789',
+            backendId: 'backend-uuid-orphaned',
+            name: 'Orphaned Paid Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Rice',
+                  unit: 'kg',
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 1,
+                addedAt: yesterdayISO,
+                priceSnapshot: 60,
+              },
+            ],
+            createdAt: yesterdayISO,
+            updatedAt: yesterdayISO,
+            status: 'paid',
+            paidAt: yesterdayISO,
+            paidAmount: 60,
+            paidItemCount: 1,
+          },
+        ],
+        activeCartId: 'cart-local-789',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns different carts (doesn't include the orphaned paid cart)
+      const state = multiCartReducer(
+        stateWithOrphaned,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'backend-uuid-other',
+              name: 'Other Cart',
+              status: 'draft',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              items: [],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: Orphaned paid cart should be preserved
+      expect(state.carts).toHaveLength(2);
+      expect(state.carts.find(c => c.id === 'cart-local-789')).toBeDefined();
+      expect(state.carts.find(c => c.id === 'cart-local-789')?.status).toBe('paid');
+    });
+
+    it('should use category slug as categoryId when category relation is present in backend items', () => {
+      const state = multiCartReducer(
+        initialState,
+        syncCartsFromBackend({
+          carts: [{
+            id: 'backend-uuid-1',
+            name: 'Backend Cart',
+            status: 'draft' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [{
+              itemId: 'item-uuid-1',
+              quantity: 3,
+              priceSnapshot: 48.0,
+              addedAt: new Date().toISOString(),
+              item: {
+                id: 'item-uuid-1',
+                categoryId: 'category-uuid-123',
+                category: { slug: 'atta-rice' },
+                name: 'Atta',
+                unit: 'kg' as const,
+                defaultQuantity: 5,
+                price: 48.0,
+              },
+            }],
+          }],
+          replaceAll: true,
+        })
+      );
+
+      expect(state.carts[0].items[0].item.categoryId).toBe('atta-rice');
+    });
+
+    it('should fallback to raw categoryId when category relation is missing in syncCartsFromBackend', () => {
+      const state = multiCartReducer(
+        initialState,
+        syncCartsFromBackend({
+          carts: [{
+            id: 'backend-uuid-2',
+            name: 'Backend Cart 2',
+            status: 'draft' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            items: [{
+              itemId: 'item-uuid-2',
+              quantity: 1,
+              priceSnapshot: 30.0,
+              addedAt: new Date().toISOString(),
+              item: {
+                id: 'item-uuid-2',
+                categoryId: 'raw-uuid-fallback',
+                name: 'Dal',
+                unit: 'kg' as const,
+                defaultQuantity: 1,
+                price: 30.0,
+              },
+            }],
+          }],
+          replaceAll: true,
+        })
+      );
+
+      expect(state.carts[0].items[0].item.categoryId).toBe('raw-uuid-fallback');
+    });
+
+    it('replaceAll should preserve local paid status when backend returns draft (race condition)', () => {
+      // Setup: Local state has a cart marked as 'paid' with full payment metadata
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-paid-local',
+            backendId: 'cart-paid-uuid',
+            name: 'Test 1',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'atta-rice',
+                  name: 'Rice',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 60,
+                },
+                quantity: 2,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 60,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: '2026-02-16T10:00:00.000Z',
+            paidAmount: 832,
+            paidItemCount: 4,
+            paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 1000, change: 168 } },
+          },
+        ],
+        activeCartId: 'cart-paid-local',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns same cart but with status: 'draft' (payment sync hasn't arrived yet)
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'cart-paid-uuid',
+              name: 'Test 1',
+              status: 'draft' as const,  // ← Backend still has 'draft'
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              items: [
+                {
+                  itemId: 'item-1',
+                  quantity: 2,
+                  priceSnapshot: 60,
+                  addedAt: new Date().toISOString(),
+                  item: {
+                    id: 'item-1',
+                    categoryId: 'atta-rice',
+                    name: 'Rice',
+                    unit: 'kg' as const,
+                    defaultQuantity: 1,
+                    price: 60,
+                  },
+                },
+              ],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      // Assert: Local 'paid' status must be preserved, NOT overwritten by backend 'draft'
+      expect(state.carts).toHaveLength(1);
+      expect(state.carts[0].status).toBe('paid');
+      expect(state.carts[0].paidAt).toBe('2026-02-16T10:00:00.000Z');
+      expect(state.carts[0].paidAmount).toBe(832);
+      expect(state.carts[0].paidItemCount).toBe(4);
+      expect(state.carts[0].paymentInfo).toEqual({
+        method: 'cash',
+        cashDetails: { amountGiven: 1000, change: 168 },
+      });
+    });
+
+    it('replaceAll should preserve local completed status when backend returns draft', () => {
+      const completedCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-completed-uuid',
+            name: 'Completed Cart',
+            items: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'completed',
+            paidAt: '2026-02-15T08:00:00.000Z',
+            paidAmount: 500,
+          },
+        ],
+        activeCartId: 'cart-completed-uuid',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      const state = multiCartReducer(
+        completedCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'cart-completed-uuid',
+              name: 'Completed Cart',
+              status: 'draft' as const,
+              createdAt: completedCartState.carts[0].createdAt,
+              updatedAt: completedCartState.carts[0].updatedAt,
+              items: [],
+            },
+          ],
+          replaceAll: true,
+        })
+      );
+
+      expect(state.carts[0].status).toBe('completed');
+      expect(state.carts[0].paidAt).toBe('2026-02-15T08:00:00.000Z');
+      expect(state.carts[0].paidAmount).toBe(500);
+    });
+
+    it('merge (replaceAll=false) should preserve local paid status when backend returns draft', () => {
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-uuid-merge',
+            name: 'Merge Test Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Sugar',
+                  unit: 'kg' as const,
+                  defaultQuantity: 1,
+                  price: 45,
+                },
+                quantity: 3,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 45,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: '2026-02-16T11:00:00.000Z',
+            paidAmount: 135,
+            paidItemCount: 1,
+            paymentInfo: { method: 'upi' as const },
+          },
+        ],
+        activeCartId: 'cart-uuid-merge',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: replaceAll=false, backend returns 'draft' for same cart
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'cart-uuid-merge',
+              name: 'Merge Test Cart',
+              status: 'draft' as const,
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              items: [],
+            },
+          ],
+          replaceAll: false,
+        })
+      );
+
+      expect(state.carts[0].status).toBe('paid');
+      expect(state.carts[0].paidAt).toBe('2026-02-16T11:00:00.000Z');
+      expect(state.carts[0].paidAmount).toBe(135);
+      expect(state.carts[0].paidItemCount).toBe(1);
+      expect(state.carts[0].paymentInfo).toEqual({ method: 'upi' });
+      // Items should be preserved (local has more)
+      expect(state.carts[0].items).toHaveLength(1);
+    });
+
+    it('merge with backendId match should preserve local paid status when backend returns draft', () => {
+      const paidCartState: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-local-123',
+            backendId: 'cart-backend-uuid-456',
+            name: 'BackendId Match Cart',
+            items: [
+              {
+                item: {
+                  id: 'item-1',
+                  categoryId: 'cat-1',
+                  name: 'Tea',
+                  unit: 'pcs' as const,
+                  defaultQuantity: 1,
+                  price: 200,
+                },
+                quantity: 1,
+                addedAt: new Date().toISOString(),
+                priceSnapshot: 200,
+              },
+            ],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: '2026-02-16T12:00:00.000Z',
+            paidAmount: 200,
+            paidItemCount: 1,
+            paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 200, change: 0 } },
+          },
+        ],
+        activeCartId: 'cart-local-123',
+        isHydrated: true,
+        lastSyncedAt: null,
+      };
+
+      // Act: Backend returns cart by UUID (matches backendId), status is 'draft'
+      const state = multiCartReducer(
+        paidCartState,
+        syncCartsFromBackend({
+          carts: [
+            {
+              id: 'cart-backend-uuid-456',
+              name: 'BackendId Match Cart',
+              status: 'draft' as const,
+              createdAt: paidCartState.carts[0].createdAt,
+              updatedAt: paidCartState.carts[0].updatedAt,
+              items: [],
+            },
+          ],
+          replaceAll: false,
+        })
+      );
+
+      expect(state.carts[0].status).toBe('paid');
+      expect(state.carts[0].paidAt).toBe('2026-02-16T12:00:00.000Z');
+      expect(state.carts[0].paidAmount).toBe(200);
+      expect(state.carts[0].id).toBe('cart-local-123');
+      expect(state.carts[0].backendId).toBe('cart-backend-uuid-456');
+    });
+  });
+
+  describe('selector memoization (referential stability)', () => {
+    const todayISO = () => new Date().toISOString();
+
+    it('selectTodaysCarts should return same reference when called with same state', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectTodaysCarts(state);
+      const result2 = selectTodaysCarts(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectYesterdaysCarts should return same reference when called with same state', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const state = {
+        multiCart: {
+          carts: [
+            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: yesterday.toISOString(), updatedAt: yesterday.toISOString(), status: 'draft' as const },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectYesterdaysCarts(state);
+      const result2 = selectYesterdaysCarts(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectCartsSortedByDate should return same reference when called with same state', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectCartsSortedByDate(state);
+      const result2 = selectCartsSortedByDate(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectCartsByStatus should return same reference when called with same state', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectCartsByStatus(state);
+      const result2 = selectCartsByStatus(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectTodaysMetrics should return same reference when called with same state', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'cart-1', name: 'Cart 1',
+              items: [{ item: { id: 'i1', categoryId: 'c1', name: 'Item', unit: 'kg' as const, defaultQuantity: 1, price: 100 }, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 }],
+              createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const,
+            },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectTodaysMetrics(state);
+      const result2 = selectTodaysMetrics(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectActiveCartItems should return same reference when called with same state', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'cart-1', name: 'Cart 1',
+              items: [{ item: { id: 'i1', categoryId: 'c1', name: 'Item', unit: 'kg' as const, defaultQuantity: 1 }, quantity: 2, addedAt: todayISO() }],
+              createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const,
+            },
+          ],
+          activeCartId: 'cart-1',
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectActiveCartItems(state);
+      const result2 = selectActiveCartItems(state);
+      expect(result1).toBe(result2);
+    });
+
+    it('selectActiveCartItems should return same empty array reference when no active cart', () => {
+      const state = {
+        multiCart: {
+          carts: [],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectActiveCartItems(state);
+      const result2 = selectActiveCartItems(state);
+      expect(result1).toBe(result2);
+      expect(result1).toEqual([]);
+    });
   });
 });

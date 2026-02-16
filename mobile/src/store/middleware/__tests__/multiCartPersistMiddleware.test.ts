@@ -594,6 +594,66 @@ describe('multiCartPersistMiddleware', () => {
     });
   });
 
+  describe('Backend sync uses backendId for item API calls', () => {
+    const mockItemWithBackendId = {
+      id: 'onion-1kg',  // slug
+      backendId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', // UUID from backend
+      categoryId: 'cat-1',
+      name: 'Onion',
+      unit: 'kg' as const,
+      defaultQuantity: 1,
+      price: 30,
+    };
+
+    it('should send item.backendId (not slug) as itemId when adding item to cart', async () => {
+      const store = createTestStore();
+
+      // Create cart with backend sync
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          data: { id: 'backend-cart-uuid', name: 'BackendId Cart', status: 'draft' },
+        }),
+      });
+
+      store.dispatch(createCart({ name: 'BackendId Cart' }));
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      (global.fetch as jest.Mock).mockClear();
+
+      // Mock successful item sync
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          success: true,
+          data: { id: 'cart-item-uuid', itemId: mockItemWithBackendId.backendId, quantity: 1 },
+        }),
+      });
+
+      // Add item with backendId to cart
+      store.dispatch(addItemToActiveCart({ item: mockItemWithBackendId, quantity: 1 }));
+
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Verify the API call sends the UUID (backendId), not the slug
+      expect(global.fetch).toHaveBeenCalled();
+      const fetchCall = (global.fetch as jest.Mock).mock.calls.find(
+        (call: unknown[]) => (call[1] as { method: string }).method === 'POST'
+      );
+      expect(fetchCall).toBeDefined();
+      const requestBody = JSON.parse(fetchCall[1].body);
+      // Must send the backend UUID, not the slug
+      expect(requestBody.itemId).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    });
+  });
+
   // ============================================
   // Shared helper: create a cart with backendId and items
   // ============================================

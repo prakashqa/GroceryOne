@@ -76,7 +76,7 @@ export class CategoriesService {
     validateTenantId(tenantId);
 
     const query = this.categoryRepository.createQueryBuilder('category')
-      .leftJoinAndSelect('category.items', 'item')
+      .leftJoinAndSelect('category.items', 'item', 'item.tenantId = :itemTenantId', { itemTenantId: tenantId })
       .orderBy('category.sortOrder', 'ASC')
       .addOrderBy('category.name', 'ASC')
       .addOrderBy('item.sortOrder', 'ASC')
@@ -99,10 +99,11 @@ export class CategoriesService {
   async findOne(id: string, tenantId?: string): Promise<Category> {
     validateTenantId(tenantId);
 
-    const category = await this.categoryRepository.findOne({
-      where: { id, tenantId },
-      relations: ['items'],
-    });
+    const category = await this.categoryRepository.createQueryBuilder('category')
+      .leftJoinAndSelect('category.items', 'item', 'item.tenantId = :itemTenantId', { itemTenantId: tenantId })
+      .where('category.id = :id', { id })
+      .andWhere('category.tenantId = :tenantId', { tenantId })
+      .getOne();
 
     if (!category) {
       throw new NotFoundException(`Category with ID '${id}' not found`);
@@ -117,10 +118,11 @@ export class CategoriesService {
   async findBySlug(slug: string, tenantId?: string): Promise<Category> {
     validateTenantId(tenantId);
 
-    const category = await this.categoryRepository.findOne({
-      where: { slug, tenantId },
-      relations: ['items'],
-    });
+    const category = await this.categoryRepository.createQueryBuilder('category')
+      .leftJoinAndSelect('category.items', 'item', 'item.tenantId = :itemTenantId', { itemTenantId: tenantId })
+      .where('category.slug = :slug', { slug })
+      .andWhere('category.tenantId = :tenantId', { tenantId })
+      .getOne();
 
     if (!category) {
       throw new NotFoundException(`Category with slug '${slug}' not found`);

@@ -50,6 +50,7 @@ describe('CategoriesService', () => {
     andWhere: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     getMany: jest.fn(),
+    getOne: jest.fn(),
     getCount: jest.fn(),
   };
 
@@ -168,6 +169,20 @@ describe('CategoriesService', () => {
       expect(result).toHaveLength(1);
     });
 
+    it('should filter joined items by tenantId in the join condition', async () => {
+      createQueryBuilderMock.getMany.mockResolvedValue([]);
+
+      await service.findAllWithItems(false, TENANT_A_ID);
+
+      // The leftJoinAndSelect must include a tenant filter on the items join
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'category.items',
+        'item',
+        'item.tenantId = :itemTenantId',
+        { itemTenantId: TENANT_A_ID },
+      );
+    });
+
     it('should require tenantId parameter', async () => {
       await expect(service.findAllWithItems(false, undefined as any))
         .rejects.toThrow();
@@ -176,19 +191,36 @@ describe('CategoriesService', () => {
 
   describe('findOne', () => {
     it('should return category when found and belongs to tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(mockCategoryTenantA);
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
 
       const result = await service.findOne('cat-a-uuid', TENANT_A_ID);
 
       expect(result).toEqual(mockCategoryTenantA);
-      expect(mockCategoryRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 'cat-a-uuid', tenantId: TENANT_A_ID },
-        relations: ['items'],
-      });
+      expect(createQueryBuilderMock.where).toHaveBeenCalledWith(
+        'category.id = :id',
+        { id: 'cat-a-uuid' },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'category.tenantId = :tenantId',
+        { tenantId: TENANT_A_ID },
+      );
+    });
+
+    it('should filter items by tenantId in the join condition', async () => {
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+
+      await service.findOne('cat-a-uuid', TENANT_A_ID);
+
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'category.items',
+        'item',
+        'item.tenantId = :itemTenantId',
+        { itemTenantId: TENANT_A_ID },
+      );
     });
 
     it('should throw NotFoundException when category belongs to different tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.findOne('cat-a-uuid', TENANT_B_ID))
         .rejects.toThrow(NotFoundException);
@@ -202,19 +234,36 @@ describe('CategoriesService', () => {
 
   describe('findBySlug', () => {
     it('should return category when slug matches within tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(mockCategoryTenantA);
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
 
       const result = await service.findBySlug('fruits', TENANT_A_ID);
 
       expect(result).toEqual(mockCategoryTenantA);
-      expect(mockCategoryRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: 'fruits', tenantId: TENANT_A_ID },
-        relations: ['items'],
-      });
+      expect(createQueryBuilderMock.where).toHaveBeenCalledWith(
+        'category.slug = :slug',
+        { slug: 'fruits' },
+      );
+      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'category.tenantId = :tenantId',
+        { tenantId: TENANT_A_ID },
+      );
+    });
+
+    it('should filter items by tenantId in the join condition', async () => {
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+
+      await service.findBySlug('fruits', TENANT_A_ID);
+
+      expect(createQueryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'category.items',
+        'item',
+        'item.tenantId = :itemTenantId',
+        { itemTenantId: TENANT_A_ID },
+      );
     });
 
     it('should throw NotFoundException when slug exists in different tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.findBySlug('fruits', TENANT_B_ID))
         .rejects.toThrow(NotFoundException);
@@ -228,7 +277,8 @@ describe('CategoriesService', () => {
 
   describe('update', () => {
     it('should update category when it belongs to the tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(mockCategoryTenantA);
+      // findOne (ownership check) now uses QueryBuilder
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
       mockCategoryRepository.save.mockResolvedValue({ ...mockCategoryTenantA, name: 'Updated' });
 
       const result = await service.update('cat-a-uuid', { name: 'Updated' }, TENANT_A_ID);
@@ -237,22 +287,24 @@ describe('CategoriesService', () => {
     });
 
     it('should throw NotFoundException when category belongs to different tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      // findOne (ownership check) returns null via QueryBuilder
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.update('cat-a-uuid', { name: 'Hack' }, TENANT_B_ID))
         .rejects.toThrow(NotFoundException);
     });
 
     it('should scope slug duplicate check by tenant when updating slug', async () => {
-      mockCategoryRepository.findOne
-        .mockResolvedValueOnce(mockCategoryTenantA) // findOne for ownership
-        .mockResolvedValueOnce(null); // slug duplicate check (none found)
+      // findOne for ownership check (via QueryBuilder)
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+      // slug duplicate check still uses repository.findOne
+      mockCategoryRepository.findOne.mockResolvedValue(null);
       mockCategoryRepository.save.mockResolvedValue({ ...mockCategoryTenantA, slug: 'new-slug' });
 
       await service.update('cat-a-uuid', { slug: 'new-slug' }, TENANT_A_ID);
 
-      // Second findOne call should include tenantId
-      expect(mockCategoryRepository.findOne).toHaveBeenNthCalledWith(2, {
+      // repository.findOne is used for slug duplicate check (not QueryBuilder)
+      expect(mockCategoryRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'new-slug', tenantId: TENANT_A_ID },
       });
     });
@@ -265,7 +317,8 @@ describe('CategoriesService', () => {
 
   describe('remove', () => {
     it('should delete category when it belongs to the tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(mockCategoryTenantA);
+      // findOne (ownership check) now uses QueryBuilder
+      createQueryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
       mockCategoryRepository.softDelete.mockResolvedValue({ affected: 1 });
 
       await service.remove('cat-a-uuid', TENANT_A_ID);
@@ -274,7 +327,7 @@ describe('CategoriesService', () => {
     });
 
     it('should throw NotFoundException when category belongs to different tenant', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.remove('cat-a-uuid', TENANT_B_ID))
         .rejects.toThrow(NotFoundException);
@@ -336,21 +389,21 @@ describe('CategoriesService', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Tenant A from accessing Tenant B category by ID', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.findOne(mockCategoryTenantB.id, TENANT_A_ID))
         .rejects.toThrow(NotFoundException);
     });
 
     it('should prevent Tenant A from updating Tenant B category', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.update(mockCategoryTenantB.id, { name: 'Malicious' }, TENANT_A_ID))
         .rejects.toThrow(NotFoundException);
     });
 
     it('should prevent Tenant A from deleting Tenant B category', async () => {
-      mockCategoryRepository.findOne.mockResolvedValue(null);
+      createQueryBuilderMock.getOne.mockResolvedValue(null);
 
       await expect(service.remove(mockCategoryTenantB.id, TENANT_A_ID))
         .rejects.toThrow(NotFoundException);

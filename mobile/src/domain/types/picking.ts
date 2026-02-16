@@ -26,6 +26,7 @@ export interface Category {
 
 export interface Item {
   id: string;
+  backendId?: string; // UUID from backend database, used for cart sync API calls
   categoryId: string;
   name: string;
   nameTe?: string; // Telugu name

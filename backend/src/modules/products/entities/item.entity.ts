@@ -59,6 +59,7 @@ export class Item {
     precision: 10,
     scale: 2,
     default: 1,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : v) },
   })
   defaultQuantity: number;
 
@@ -67,6 +68,7 @@ export class Item {
     precision: 10,
     scale: 2,
     nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : null) },
   })
   price?: number;
 
@@ -76,6 +78,7 @@ export class Item {
     precision: 10,
     scale: 2,
     default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : v) },
   })
   compareAtPrice: number;
 
@@ -85,6 +88,7 @@ export class Item {
     precision: 10,
     scale: 2,
     nullable: true,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : null) },
   })
   costPrice?: number;
 

@@ -17,3 +17,11 @@ export {
   type NetworkPrintJob,
   type NetworkConnectionStatus,
 } from './NetworkPrinterService';
+
+export {
+  usbPrinterService,
+  UsbPrinterService,
+  type UsbDevice,
+  type UsbPrintJob,
+  type UsbConnectionStatus,
+} from './UsbPrinterService';
