@@ -8,6 +8,7 @@ import { Item, ManagedCart, MultiCartState, CartItemState, CartStatus } from '..
 import type { PaymentInfo, MarkPaidPayload, MarkCartPaidPayload } from '../../domain/types/payment';
 import { getHardcodedItemPrice } from '../../domain/utils/priceUtils';
 import type { ItemUnit } from '../../domain/utils/unitConversion';
+import { logout } from './authSlice';
 
 /**
  * Generate a unique ID for carts
@@ -463,7 +464,13 @@ const multiCartSlice = createSlice({
             item?: {
               id: string;
               categoryId: string;
-              category?: { slug: string };
+              category?: {
+                id: string;
+                slug: string;
+                name: string;
+                nameTe?: string;
+                icon: string;
+              } | null;
               name: string;
               nameTe?: string;
               unit: 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
@@ -534,14 +541,11 @@ const multiCartSlice = createSlice({
           return backendCart;
         });
 
-        // Preserve local-only paid/completed carts not present in backend.
-        // These carts exist locally (e.g., from AsyncStorage cache) but the backend
-        // doesn't know about them (sync failed or created offline).
+        // Preserve ALL local-only carts not present in backend, regardless of status.
+        // These carts may not have synced yet (created offline, sync failed, or backend
+        // was unavailable). Discarding them causes data loss for draft/printed carts.
         const backendCartIds = new Set(convertedCarts.map((c) => c.id));
         const localOnlyCarts = state.carts.filter((localCart) => {
-          if (localCart.status !== 'paid' && localCart.status !== 'completed') {
-            return false;
-          }
           const matchedById = backendCartIds.has(localCart.id);
           const matchedByBackendId = localCart.backendId
             ? backendCartIds.has(localCart.backendId)
@@ -646,6 +650,23 @@ const multiCartSlice = createSlice({
      * Clears all carts and resets to initial state
      */
     resetMultiCart: () => initialState,
+
+    /**
+     * Clear multi-cart state in memory only (no AsyncStorage persistence).
+     * Used during Phase 1 hydration to avoid destroying the AsyncStorage cache
+     * before it can be read. Unlike resetMultiCart, this action is intentionally
+     * NOT included in the middleware's PERSIST_ACTIONS or IMMEDIATE_PERSIST_ACTIONS.
+     */
+    clearMultiCartInMemory: () => initialState,
+  },
+  extraReducers: (builder) => {
+    // Reset multiCart to initialState when the user logs out.
+    // This fixes a race condition in logoutSession: clearAllTenantData dispatches
+    // resetMultiCart() before clearing AsyncStorage, which can trigger Phase 1
+    // hydration (accessToken still set) to re-load stale cache and set isHydrated=true.
+    // By also resetting on logout(), we guarantee isHydrated=false AFTER auth is cleared,
+    // so Phase 1 always re-fetches from backend on the next login.
+    builder.addCase(logout, () => initialState);
   },
 });
 
@@ -670,6 +691,7 @@ export const {
   syncCartsFromBackend,
   updateCartBackendId,
   resetMultiCart,
+  clearMultiCartInMemory,
 } = multiCartSlice.actions;
 
 // Selectors
@@ -762,33 +784,31 @@ export const selectActiveCartHasPrices = (state: RootState): boolean => {
 
 /**
  * Get all carts created today
- * Compares cart createdAt date with today's date
+ * Plain selector (not memoized) so new Date() is always fresh.
+ * createSelector would cache the date computation and return stale results
+ * if the carts array reference does not change across midnight.
  */
-export const selectTodaysCarts = createSelector(
-  [selectAllCarts],
-  (carts): ManagedCart[] => {
-    const today = new Date().toDateString();
-    return carts.filter(
-      (cart) => new Date(cart.createdAt).toDateString() === today
-    );
-  }
-);
+export const selectTodaysCarts = (state: RootState): ManagedCart[] => {
+  const today = new Date().toDateString();
+  return state.multiCart.carts.filter(
+    (cart) => new Date(cart.createdAt).toDateString() === today
+  );
+};
 
 /**
  * Get all carts created yesterday
- * Compares cart createdAt date with yesterday's date
+ * Plain selector (not memoized) so new Date() is always fresh.
+ * createSelector would cache the date computation and return stale results
+ * if the carts array reference does not change across midnight.
  */
-export const selectYesterdaysCarts = createSelector(
-  [selectAllCarts],
-  (carts): ManagedCart[] => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toDateString();
-    return carts.filter(
-      (cart) => new Date(cart.createdAt).toDateString() === yesterdayStr
-    );
-  }
-);
+export const selectYesterdaysCarts = (state: RootState): ManagedCart[] => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+  return state.multiCart.carts.filter(
+    (cart) => new Date(cart.createdAt).toDateString() === yesterdayStr
+  );
+};
 
 /**
  * Get all carts within a specific date range (inclusive)
@@ -853,10 +873,13 @@ export const selectTodaysMetrics = createSelector(
     totalQuantity: number;
     totalSales: number;
   } => {
-    const totalItems = todaysCarts.reduce(
-      (sum, cart) => sum + cart.items.length,
-      0
-    );
+    const uniqueItems = new Set<string>();
+    todaysCarts.forEach((cart) => {
+      cart.items.forEach((item) => {
+        uniqueItems.add(item.item.id);
+      });
+    });
+    const totalItems = uniqueItems.size;
 
     const totalQuantity = todaysCarts.reduce(
       (sum, cart) =>

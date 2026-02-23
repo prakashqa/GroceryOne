@@ -12,6 +12,7 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -46,6 +47,10 @@ import {
   createCart,
 } from '../../../store/slices/multiCartSlice';
 import { selectTenant } from '../../../store/slices/tenantSlice';
+import {
+  selectHasPendingOperations,
+} from '../../../store/slices/cartOperationsSlice';
+import type { RootState } from '../../../store/rootReducer';
 import { loadOrSeedCatalog } from '../../../utils/storage/catalogStorage';
 import { API_CONFIG } from '../../../core/config/api.config';
 import AddQuantityModal from './AddQuantityModal';
@@ -85,6 +90,7 @@ const PickingScreen: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [newCartModalVisible, setNewCartModalVisible] = useState(false);
   const [createCartModalVisible, setCreateCartModalVisible] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Multi-cart selectors
   const activeCart = useSelector(selectActiveCart);
@@ -94,6 +100,10 @@ const PickingScreen: React.FC = () => {
   const todaysCarts = useSelector(selectTodaysCarts);
   const todaysCartCount = todaysCarts.length;
   const allCarts = useSelector(selectAllCarts);
+
+  // Cart operations selectors (loading spinners)
+  const pendingItems = useSelector((state: RootState) => state.cartOperations.pendingItems);
+  const isSyncing = useSelector(selectHasPendingOperations);
 
   // Known default cart names in all supported languages
   const DEFAULT_CART_NAMES = ['Default Cart', 'డిఫాల్ట్ కార్ట్'];
@@ -152,6 +162,20 @@ const PickingScreen: React.FC = () => {
       setCatalogError(msg);
     } finally {
       setIsCatalogRetrying(false);
+    }
+  }, [tenant?.slug, dispatch]);
+
+  // Pull-to-refresh handler: re-fetches catalog from backend
+  const handleRefresh = useCallback(async () => {
+    if (!tenant?.slug) return;
+    setIsRefreshing(true);
+    try {
+      const catalogData = await loadOrSeedCatalog(tenant.slug);
+      dispatch(initializeCatalog(catalogData));
+    } catch {
+      // Swallow — user can retry again
+    } finally {
+      setIsRefreshing(false);
     }
   }, [tenant?.slug, dispatch]);
 
@@ -288,12 +312,16 @@ const PickingScreen: React.FC = () => {
               {catalogError}
             </Text>
           ) : null}
-          <Text style={[styles.debugInfo, { color: theme.colors.textSecondary }]}>
-            {`Server: ${API_CONFIG.BASE_URL}`}
-          </Text>
-          <Text style={[styles.debugInfo, { color: theme.colors.textSecondary }]}>
-            {`Tenant: ${tenant?.slug || 'not set'}`}
-          </Text>
+          {__DEV__ && (
+            <>
+              <Text style={[styles.debugInfo, { color: theme.colors.textSecondary }]}>
+                {`Server: ${API_CONFIG.BASE_URL}`}
+              </Text>
+              <Text style={[styles.debugInfo, { color: theme.colors.textSecondary }]}>
+                {`Tenant: ${tenant?.slug || 'not set'}`}
+              </Text>
+            </>
+          )}
           <TouchableOpacity
             style={[styles.retryButton, { backgroundColor: theme.colors.buttonPrimary, borderRadius: theme.borderRadius.md }]}
             onPress={handleCatalogRetry}
@@ -385,6 +413,9 @@ const PickingScreen: React.FC = () => {
         onDecrementItem={handleDecrement}
         onItemPress={handleItemPress}
         hasCartItems={itemCount > 0}
+        refreshing={isRefreshing}
+        onRefresh={handleRefresh}
+        pendingItems={pendingItems}
         testID="product-grid"
       />
 
@@ -393,6 +424,7 @@ const PickingScreen: React.FC = () => {
         <CartFooter
           itemCount={itemCount}
           onViewCart={handleGoToCart}
+          isSyncing={isSyncing}
           testID="cart-footer"
         />
       )}

@@ -48,7 +48,13 @@ interface BackendCartItem {
   item?: {
     id: string;
     categoryId: string;
-    category?: { slug: string };
+    category?: {
+      id: string;
+      slug: string;
+      name: string;
+      nameTe?: string;
+      icon: string;
+    } | null;
     name: string;
     nameTe?: string;
     unit: 'kg' | 'gm' | 'pcs' | 'L' | 'ml';

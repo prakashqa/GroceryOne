@@ -16,7 +16,7 @@ import Constants from 'expo-constants';
  *
  * Note: Constants.isDevice can be unreliable in Expo dev builds, so .env is preferred.
  */
-const LOCAL_MACHINE_IP = '192.168.0.104'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
+const LOCAL_MACHINE_IP = '192.168.0.100'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
 
 // Cloud Run production API URL
 const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1';
@@ -31,21 +31,36 @@ const getDevBaseUrl = (): string => {
     return CLOUD_API_URL;
   }
 
-  // Priority 1: Explicit IP from .env — most reliable for physical devices
+  // Detect Android emulator: check Build.FINGERPRINT for "sdk" or "emulator" markers.
+  // Constants.isDevice is unreliable in Expo dev client builds (returns true for emulators).
+  // Android emulators can't reach the host's LAN IP — they must use 10.0.2.2.
+  const androidConstants = Platform.OS === 'android' ? (Platform as any).constants : null;
+  const fingerprint: string = androidConstants?.Fingerprint ?? '';
+  const isAndroidEmulator =
+    Platform.OS === 'android' &&
+    (fingerprint.includes('sdk') ||
+      fingerprint.includes('emulator') ||
+      fingerprint.includes('generic'));
+
+  // Priority 1: Android emulator always uses 10.0.2.2
+  // 10.0.2.2 is a special alias that routes to the host machine's loopback.
+  if (isAndroidEmulator) {
+    return 'http://10.0.2.2:3000/api/v1';
+  }
+
+  // Priority 2: Explicit IP from .env — most reliable for physical devices on LAN
   const envIp = Constants.expoConfig?.extra?.localApiIp;
   if (envIp) {
     return `http://${envIp}:3000/api/v1`;
   }
 
-  // Priority 2: Physical device detection (may be unreliable in Expo dev builds)
+  // Priority 3: Physical device without .env IP — use hardcoded LAN IP fallback
   if (Constants.isDevice) {
     return `http://${LOCAL_MACHINE_IP}:3000/api/v1`;
   }
 
-  // Priority 3: Emulator/simulator defaults
-  // Android emulator uses 10.0.2.2 as a special alias to the host machine's loopback.
-  // localhost on Android emulator refers to the emulator itself, not the host.
-  // iOS simulator can reach the host via localhost directly.
+  // Priority 4: iOS simulator can reach the host via localhost directly.
+  // Android emulator without matching fingerprint falls through here too.
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:3000/api/v1';
   }

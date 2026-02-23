@@ -9,8 +9,11 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
   Index,
 } from 'typeorm';
+import { Tenant } from '../../../tenant/entities/tenant.entity';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type PrinterConnectionType = 'bluetooth' | 'network' | 'none';
@@ -44,6 +47,14 @@ export interface PrinterSettings {
 export class UserSettings {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'tenant_id', type: 'uuid' })
+  @Index()
+  tenantId: string;
+
+  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   @Index()

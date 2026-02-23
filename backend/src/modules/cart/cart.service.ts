@@ -191,6 +191,7 @@ export class CartService {
 
     const cartItem = this.cartItemRepository.create({
       cartId,
+      tenantId,
       ...addCartItemDto,
     });
     const saved = await this.cartItemRepository.save(cartItem);

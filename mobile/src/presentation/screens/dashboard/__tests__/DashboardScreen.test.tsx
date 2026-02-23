@@ -303,6 +303,7 @@ jest.mock('../../../../store/slices/multiCartSlice', () => ({
   selectActiveCartGrandTotal: jest.fn(),
   selectRecentCarts: jest.fn(),
   selectTodaysCarts: jest.fn(),
+  selectCartsSortedByDate: jest.fn(),
   selectMostRecentDraftCart: jest.fn(),
   selectAllCarts: jest.fn(),
   createCart: jest.fn(() => ({ type: 'multiCart/createCart' })),
@@ -319,6 +320,7 @@ import {
   selectActiveCartGrandTotal,
   selectRecentCarts,
   selectTodaysCarts,
+  selectCartsSortedByDate,
   selectMostRecentDraftCart,
   selectAllCarts,
   setActiveCart,
@@ -416,45 +418,41 @@ describe('DashboardScreen', () => {
     updatedAt: new Date('2025-01-01'),
   };
 
+  // === Selector mock helper ===
+  const setupSelectorMock = (overrides: Record<string, any> = {}) => {
+    const m = {
+      tenant: mockTenant, currentUser: mockCurrentUser, todaysMetrics: mockTodaysMetrics,
+      statusCounts: mockStatusCounts, activeCart: mockActiveCart, itemCount: 5, categoryCount: 3,
+      totalQuantity: 12.5, grandTotal: 1250, sortedCarts: mockRecentCarts,
+      mostRecentDraft: mockMostRecentDraft, allCarts: [...mockRecentCarts, mockActiveCart],
+      ...overrides,
+    };
+    mockUseSelector.mockImplementation((selector: any) => {
+      if (selector === selectTenant) return m.tenant;
+      if (selector === selectCurrentUser) return m.currentUser;
+      if (selector === selectTodaysMetrics) return m.todaysMetrics;
+      if (selector === selectCartsByStatus) return m.statusCounts;
+      if (selector === selectActiveCart) return m.activeCart;
+      if (selector === selectActiveCartItemCount) return m.itemCount;
+      if (selector === selectActiveCartCategoryCount) return m.categoryCount;
+      if (selector === selectActiveCartTotalQuantity) return m.totalQuantity;
+      if (selector === selectActiveCartGrandTotal) return m.grandTotal;
+      if (selector === selectCartsSortedByDate) return m.sortedCarts;
+      if (selector === selectTodaysCarts) return m.sortedCarts;
+      if (selector === selectMostRecentDraftCart) return m.mostRecentDraft;
+      if (selector === selectAllCarts) return m.allCarts;
+      if (typeof selector === 'function') {
+        try { return selector({ multiCart: { carts: m.sortedCarts } }); } catch { return m.sortedCarts; }
+      }
+      return m.sortedCarts;
+    });
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockNavigate.mockClear();
     mockDispatch.mockClear();
-
-    // Setup default selector returns
-    (selectTodaysMetrics as jest.Mock).mockReturnValue(mockTodaysMetrics);
-    (selectCartsByStatus as jest.Mock).mockReturnValue(mockStatusCounts);
-    (selectActiveCart as jest.Mock).mockReturnValue(mockActiveCart);
-    (selectActiveCartItemCount as jest.Mock).mockReturnValue(5);
-    (selectActiveCartCategoryCount as jest.Mock).mockReturnValue(3);
-    (selectActiveCartTotalQuantity as jest.Mock).mockReturnValue(12.5);
-    (selectActiveCartGrandTotal as jest.Mock).mockReturnValue(1250);
-    (selectRecentCarts as jest.Mock).mockImplementation((_state: any, _limit?: number) => mockRecentCarts);
-    (selectTodaysCarts as jest.Mock).mockReturnValue(mockRecentCarts);
-    (selectMostRecentDraftCart as jest.Mock).mockReturnValue(mockMostRecentDraft);
-    (selectAllCarts as jest.Mock).mockReturnValue([...mockRecentCarts, mockActiveCart]);
-    (selectTenant as jest.Mock).mockReturnValue(mockTenant);
-    (selectCurrentUser as jest.Mock).mockReturnValue(mockCurrentUser);
-
-    mockUseSelector.mockImplementation((selector) => {
-      if (selector === selectTenant) return mockTenant;
-      if (selector === selectCurrentUser) return mockCurrentUser;
-      if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-      if (selector === selectCartsByStatus) return mockStatusCounts;
-      if (selector === selectActiveCart) return mockActiveCart;
-      if (selector === selectActiveCartItemCount) return 5;
-      if (selector === selectActiveCartCategoryCount) return 3;
-      if (selector === selectActiveCartTotalQuantity) return 12.5;
-      if (selector === selectActiveCartGrandTotal) return 1250;
-      if (selector === selectTodaysCarts) return mockRecentCarts;
-      if (selector === selectMostRecentDraftCart) return mockMostRecentDraft;
-      if (selector === selectAllCarts) return [...mockRecentCarts, mockActiveCart];
-      // Handle inline selectors like (state) => selectRecentCarts(state, 3)
-      if (typeof selector === 'function') {
-        try { return selector({ multiCart: { carts: mockRecentCarts } }); } catch { return mockRecentCarts; }
-      }
-      return mockRecentCarts;
-    });
+    setupSelectorMock();
   });
 
   describe('Rendering', () => {
@@ -523,25 +521,7 @@ describe('DashboardScreen', () => {
 
   describe('Without Active Cart', () => {
     it('hides active cart preview when no active cart', () => {
-      (selectActiveCart as jest.Mock).mockReturnValue(null);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectMostRecentDraftCart) return mockMostRecentDraft;
-        if (selector === selectAllCarts) return mockRecentCarts;
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: mockRecentCarts } }); } catch { return mockRecentCarts; }
-        }
-        return mockRecentCarts;
-      });
-
+      setupSelectorMock({ activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0 });
       const { queryByText } = render(<DashboardScreen />);
       expect(queryByText('Morning Order')).toBeNull();
     });
@@ -644,24 +624,9 @@ describe('DashboardScreen', () => {
         status: 'paid' as const,
       };
 
-      (selectTodaysCarts as jest.Mock).mockReturnValue([cartWithGmItems]);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectTodaysCarts) return [cartWithGmItems];
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectAllCarts) return [cartWithGmItems];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: [cartWithGmItems] } }); } catch { return [cartWithGmItems]; }
-        }
-        return [cartWithGmItems];
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: [cartWithGmItems], mostRecentDraft: null, allCarts: [cartWithGmItems],
       });
 
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
@@ -687,24 +652,9 @@ describe('DashboardScreen', () => {
         status: 'paid' as const,
       };
 
-      (selectTodaysCarts as jest.Mock).mockReturnValue([cartWithKgItems]);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectTodaysCarts) return [cartWithKgItems];
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectAllCarts) return [cartWithKgItems];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: [cartWithKgItems] } }); } catch { return [cartWithKgItems]; }
-        }
-        return [cartWithKgItems];
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: [cartWithKgItems], mostRecentDraft: null, allCarts: [cartWithKgItems],
       });
 
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
@@ -730,50 +680,15 @@ describe('DashboardScreen', () => {
     });
 
     it('should not display store name when tenant is null', () => {
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return null;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return mockActiveCart;
-        if (selector === selectActiveCartItemCount) return 5;
-        if (selector === selectActiveCartCategoryCount) return 3;
-        if (selector === selectActiveCartTotalQuantity) return 12.5;
-        if (selector === selectActiveCartGrandTotal) return 1250;
-        if (selector === selectMostRecentDraftCart) return mockMostRecentDraft;
-        if (selector === selectAllCarts) return [...mockRecentCarts, mockActiveCart];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: mockRecentCarts } }); } catch { return mockRecentCarts; }
-        }
-        return mockRecentCarts;
-      });
-
+      setupSelectorMock({ tenant: null });
       const { queryByTestId } = render(<DashboardScreen testID="dashboard" />);
       expect(queryByTestId('dashboard-store-name')).toBeNull();
     });
 
     it('should show only store name without role when user is null', () => {
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return null;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return mockActiveCart;
-        if (selector === selectActiveCartItemCount) return 5;
-        if (selector === selectActiveCartCategoryCount) return 3;
-        if (selector === selectActiveCartTotalQuantity) return 12.5;
-        if (selector === selectActiveCartGrandTotal) return 1250;
-        if (selector === selectMostRecentDraftCart) return mockMostRecentDraft;
-        if (selector === selectAllCarts) return [...mockRecentCarts, mockActiveCart];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: mockRecentCarts } }); } catch { return mockRecentCarts; }
-        }
-        return mockRecentCarts;
-      });
-
+      setupSelectorMock({ currentUser: null });
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
-      const storeNameElement = getByTestId('dashboard-store-name');
-      expect(storeNameElement).toBeTruthy();
+      expect(getByTestId('dashboard-store-name')).toBeTruthy();
     });
   });
 
@@ -831,24 +746,9 @@ describe('DashboardScreen', () => {
         },
       ];
 
-      (selectTodaysCarts as jest.Mock).mockReturnValue(fiveTodayCarts);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectTodaysCarts) return fiveTodayCarts;
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectAllCarts) return fiveTodayCarts;
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: fiveTodayCarts } }); } catch { return fiveTodayCarts; }
-        }
-        return fiveTodayCarts;
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: fiveTodayCarts, mostRecentDraft: null, allCarts: fiveTodayCarts,
       });
 
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
@@ -875,24 +775,9 @@ describe('DashboardScreen', () => {
         paidAt: new Date().toISOString(),
       };
 
-      (selectTodaysCarts as jest.Mock).mockReturnValue([paidCart]);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectTodaysCarts) return [paidCart];
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectAllCarts) return [paidCart];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: [paidCart] } }); } catch { return [paidCart]; }
-        }
-        return [paidCart];
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: [paidCart], mostRecentDraft: null, allCarts: [paidCart],
       });
 
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
@@ -915,30 +800,91 @@ describe('DashboardScreen', () => {
         paidItemCount: 5,
       };
 
-      (selectTodaysCarts as jest.Mock).mockReturnValue([paidCartNoItems]);
-      mockUseSelector.mockImplementation((selector) => {
-        if (selector === selectTenant) return mockTenant;
-        if (selector === selectCurrentUser) return mockCurrentUser;
-        if (selector === selectTodaysMetrics) return mockTodaysMetrics;
-        if (selector === selectCartsByStatus) return mockStatusCounts;
-        if (selector === selectActiveCart) return null;
-        if (selector === selectActiveCartItemCount) return 0;
-        if (selector === selectActiveCartCategoryCount) return 0;
-        if (selector === selectActiveCartTotalQuantity) return 0;
-        if (selector === selectActiveCartGrandTotal) return 0;
-        if (selector === selectTodaysCarts) return [paidCartNoItems];
-        if (selector === selectMostRecentDraftCart) return null;
-        if (selector === selectAllCarts) return [paidCartNoItems];
-        if (typeof selector === 'function') {
-          try { return selector({ multiCart: { carts: [paidCartNoItems] } }); } catch { return [paidCartNoItems]; }
-        }
-        return [paidCartNoItems];
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: [paidCartNoItems], mostRecentDraft: null, allCarts: [paidCartNoItems],
       });
 
       const { getByText } = render(<DashboardScreen testID="dashboard" />);
 
       // Should show "5 items" (from paidItemCount), not "0 items" (from items.length)
       expect(getByText(/^5\s/)).toBeTruthy();
+    });
+
+    it('should show carts from previous days in Recent Carts section', () => {
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
+      const mixedDateCarts = [
+        {
+          id: 'cart-today',
+          name: 'Today Cart',
+          items: [{ item: { unit: 'kg' }, quantity: 1, addedAt: '', priceSnapshot: 100 }],
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+          status: 'paid' as const,
+          paidAmount: 100,
+        },
+        {
+          id: 'cart-yesterday',
+          name: 'Yesterday Cart',
+          items: [{ item: { unit: 'kg' }, quantity: 2, addedAt: '', priceSnapshot: 200 }],
+          createdAt: yesterday.toISOString(),
+          updatedAt: yesterday.toISOString(),
+          status: 'paid' as const,
+          paidAmount: 400,
+        },
+        {
+          id: 'cart-old',
+          name: 'Old Cart',
+          items: [{ item: { unit: 'pcs' }, quantity: 3, addedAt: '', priceSnapshot: 50 }],
+          createdAt: twoDaysAgo.toISOString(),
+          updatedAt: twoDaysAgo.toISOString(),
+          status: 'paid' as const,
+          paidAmount: 150,
+        },
+      ];
+
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: mixedDateCarts, mostRecentDraft: null, allCarts: mixedDateCarts,
+      });
+
+      const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
+
+      // All carts from all dates should be visible
+      expect(getByTestId('recent-cart-cart-today')).toBeTruthy();
+      expect(getByTestId('recent-cart-cart-yesterday')).toBeTruthy();
+      expect(getByTestId('recent-cart-cart-old')).toBeTruthy();
+    });
+
+    it('should limit Recent Carts to 10 most recent', () => {
+      const now = new Date();
+      const manyCarts = Array.from({ length: 15 }, (_, i) => ({
+        id: `cart-${i}`,
+        name: `Cart ${i}`,
+        items: [],
+        createdAt: new Date(now.getTime() - i * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(now.getTime() - i * 60 * 60 * 1000).toISOString(),
+        status: 'paid' as const,
+        paidAmount: 100 + i,
+      }));
+
+      setupSelectorMock({
+        activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0,
+        sortedCarts: manyCarts, mostRecentDraft: null, allCarts: manyCarts,
+      });
+
+      const { queryByTestId } = render(<DashboardScreen testID="dashboard" />);
+
+      // First 10 should be present
+      for (let i = 0; i < 10; i++) {
+        expect(queryByTestId(`recent-cart-cart-${i}`)).toBeTruthy();
+      }
+      // 11th and beyond should NOT be present
+      expect(queryByTestId('recent-cart-cart-10')).toBeNull();
+      expect(queryByTestId('recent-cart-cart-14')).toBeNull();
     });
   });
 });

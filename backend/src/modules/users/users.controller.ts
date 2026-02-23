@@ -1,6 +1,7 @@
 /**
  * Users Controller
  * REST API endpoints for user settings management
+ * All endpoints require JWT authentication and are tenant-scoped
  */
 
 import {
@@ -12,16 +13,22 @@ import {
   Body,
   Param,
   Query,
+  Req,
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserSettingsDto, UpdateUserSettingsDto } from './dto';
 import { UserSettings } from './entities/user-settings.entity';
+import { Request } from 'express';
 
 @ApiTags('User Settings')
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'))
 @Controller('users/settings')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -29,8 +36,11 @@ export class UsersController {
   @Post()
   @ApiOperation({ summary: 'Create user settings' })
   @ApiResponse({ status: 201, description: 'Settings created successfully', type: UserSettings })
-  async create(@Body() createUserSettingsDto: CreateUserSettingsDto): Promise<UserSettings> {
-    return this.usersService.create(createUserSettingsDto);
+  async create(
+    @Body() createUserSettingsDto: CreateUserSettingsDto,
+    @Req() req: Request,
+  ): Promise<UserSettings> {
+    return this.usersService.create(createUserSettingsDto, (req as any).tenantId!);
   }
 
   @Get()
@@ -39,10 +49,11 @@ export class UsersController {
   @ApiQuery({ name: 'deviceId', required: false, description: 'Device ID' })
   @ApiResponse({ status: 200, description: 'User settings', type: UserSettings })
   async findOrCreate(
-    @Query('userId') userId?: string,
-    @Query('deviceId') deviceId?: string,
+    @Query('userId') userId: string | undefined,
+    @Query('deviceId') deviceId: string | undefined,
+    @Req() req: Request,
   ): Promise<UserSettings> {
-    return this.usersService.findOrCreate(userId, deviceId);
+    return this.usersService.findOrCreate((req as any).tenantId!, userId, deviceId);
   }
 
   @Get(':id')
@@ -50,8 +61,11 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'Settings UUID' })
   @ApiResponse({ status: 200, description: 'Settings found', type: UserSettings })
   @ApiResponse({ status: 404, description: 'Settings not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserSettings> {
-    return this.usersService.findOne(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request,
+  ): Promise<UserSettings> {
+    return this.usersService.findOne(id, (req as any).tenantId!);
   }
 
   @Put(':id')
@@ -62,8 +76,9 @@ export class UsersController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserSettingsDto: UpdateUserSettingsDto,
+    @Req() req: Request,
   ): Promise<UserSettings> {
-    return this.usersService.update(id, updateUserSettingsDto);
+    return this.usersService.update(id, updateUserSettingsDto, (req as any).tenantId!);
   }
 
   @Put('user/:userId')
@@ -73,8 +88,9 @@ export class UsersController {
   async updateByUserId(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() updateUserSettingsDto: UpdateUserSettingsDto,
+    @Req() req: Request,
   ): Promise<UserSettings> {
-    return this.usersService.updateByUserId(userId, updateUserSettingsDto);
+    return this.usersService.updateByUserId(userId, updateUserSettingsDto, (req as any).tenantId!);
   }
 
   @Put('device/:deviceId')
@@ -84,8 +100,9 @@ export class UsersController {
   async updateByDeviceId(
     @Param('deviceId') deviceId: string,
     @Body() updateUserSettingsDto: UpdateUserSettingsDto,
+    @Req() req: Request,
   ): Promise<UserSettings> {
-    return this.usersService.updateByDeviceId(deviceId, updateUserSettingsDto);
+    return this.usersService.updateByDeviceId(deviceId, updateUserSettingsDto, (req as any).tenantId!);
   }
 
   @Delete(':id')
@@ -94,7 +111,10 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'Settings UUID' })
   @ApiResponse({ status: 204, description: 'Settings deleted' })
   @ApiResponse({ status: 404, description: 'Settings not found' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.usersService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: Request,
+  ): Promise<void> {
+    return this.usersService.remove(id, (req as any).tenantId!);
   }
 }

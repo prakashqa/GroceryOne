@@ -76,6 +76,29 @@ class UsbPrinterService {
   }
 
   /**
+   * Ensure we have an active USB connection by reconnecting to the last device.
+   * USB connections can be lost if the device is unplugged or enters power save.
+   * Reconnecting creates a fresh connection, preventing stale state errors.
+   */
+  private async ensureConnected(): Promise<void> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+    try {
+      await this.ensureInitialized();
+      await USBPrinter.connectPrinter(
+        this.state.connectedDevice.vendorId,
+        this.state.connectedDevice.productId
+      );
+    } catch (error) {
+      this.updateConnectionStatus('error');
+      throw new Error(
+        'Failed to reconnect to printer: ' + (error as Error).message
+      );
+    }
+  }
+
+  /**
    * Map library device format to UsbDevice interface
    */
   private mapToUsbDevice(rawDevice: {
@@ -178,6 +201,7 @@ class UsbPrinterService {
     job.status = 'printing';
 
     try {
+      await this.ensureConnected();
       await USBPrinter.printText(content);
       job.status = 'completed';
     } catch (error: any) {
@@ -209,6 +233,7 @@ class UsbPrinterService {
     job.status = 'printing';
 
     try {
+      await this.ensureConnected();
       const hexString = Array.from(commands)
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
@@ -217,6 +242,45 @@ class UsbPrinterService {
     } catch (error: any) {
       job.status = 'failed';
       job.error = error.message || 'Raw print failed';
+    }
+
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
+  }
+
+  /**
+   * Print a base64-encoded image to the connected USB printer.
+   * Used for receipts containing non-ASCII text (e.g., Telugu) that cannot
+   * be rendered by the printer's built-in single-byte codepage fonts.
+   * Reconnects before printing to ensure the USB connection is alive.
+   *
+   * @param base64Image Base64-encoded PNG image data (no data URI prefix)
+   * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
+   */
+  async printImage(base64Image: string, imageWidth: number = 576): Promise<UsbPrintJob> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+
+    const job: UsbPrintJob = {
+      id: `print-img-${Date.now()}`,
+      content: '[IMAGE RECEIPT]',
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    this.state.printQueue.push(job);
+    job.status = 'printing';
+
+    try {
+      await this.ensureConnected();
+      await USBPrinter.printImageBase64(base64Image, {
+        imageWidth: imageWidth,
+      });
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Image print failed';
     }
 
     this.printCompleteListeners.forEach((listener) => listener(job));

@@ -7,7 +7,6 @@ import { renderHook } from '@testing-library/react-native';
 import { useResponsiveStyles } from '../useResponsiveStyles';
 import * as useDeviceTypeModule from '../useDeviceType';
 
-// Mock the useDeviceType hook instead of react-native directly
 jest.mock('../useDeviceType', () => ({
   useDeviceType: jest.fn(),
 }));
@@ -16,948 +15,178 @@ const mockUseDeviceType = useDeviceTypeModule.useDeviceType as jest.MockedFuncti
   typeof useDeviceTypeModule.useDeviceType
 >;
 
+// === Device Profiles ===
+const DEVICES = {
+  xs:          { breakpoint: 'xs' as const, isTablet: false, isLandscape: false, screenWidth: 320,  screenHeight: 568 },
+  phone:       { breakpoint: 'sm' as const, isTablet: false, isLandscape: false, screenWidth: 375,  screenHeight: 812 },
+  smallTablet: { breakpoint: 'md' as const, isTablet: true,  isLandscape: false, screenWidth: 600,  screenHeight: 900 },
+  tablet:      { breakpoint: 'lg' as const, isTablet: true,  isLandscape: false, screenWidth: 768,  screenHeight: 1024 },
+  largeTablet: { breakpoint: 'xl' as const, isTablet: true,  isLandscape: true,  screenWidth: 1024, screenHeight: 768 },
+  xlScreen:    { breakpoint: 'xl' as const, isTablet: true,  isLandscape: true,  screenWidth: 1366, screenHeight: 1024 },
+};
+
+const setupMock = (device: keyof typeof DEVICES) => {
+  mockUseDeviceType.mockReturnValue(DEVICES[device]);
+};
+
+const getStyles = () => renderHook(() => useResponsiveStyles()).result.current;
+
 describe('useResponsiveStyles', () => {
-  // Helper function to set up mock device info
-  const setupMock = (config: {
-    breakpoint: useDeviceTypeModule.Breakpoint;
-    isTablet: boolean;
-    isLandscape: boolean;
-    screenWidth: number;
-    screenHeight: number;
-  }) => {
-    mockUseDeviceType.mockReturnValue({
-      breakpoint: config.breakpoint,
-      isTablet: config.isTablet,
-      isLandscape: config.isLandscape,
-      screenWidth: config.screenWidth,
-      screenHeight: config.screenHeight,
-    });
-  };
+  // Layout properties
+  it.each([
+    ['phone',       'gridColumns', 2],
+    ['smallTablet', 'gridColumns', 3],
+    ['tablet',      'gridColumns', 4],
+    ['largeTablet', 'gridColumns', 4],
+    ['phone',       'contentPadding', 16],
+    ['tablet',      'contentPadding', 24],
+    ['largeTablet', 'contentPadding', 32],
+    ['phone',       'listColumns', 1],
+    ['tablet',      'listColumns', 2],
+    ['largeTablet', 'listColumns', 2],
+    ['phone',       'sectionSpacing', 16],
+    ['tablet',      'sectionSpacing', 24],
+    ['largeTablet', 'sectionSpacing', 32],
+    ['phone',       'gridGap', 12],
+    ['tablet',      'gridGap', 16],
+    ['largeTablet', 'gridGap', 20],
+  ] as [keyof typeof DEVICES, string, number][])(
+    'on %s, %s should be %s',
+    (device, property, expected) => {
+      setupMock(device);
+      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+    }
+  );
 
-  describe('grid columns', () => {
-    it('should return 2 columns for phone width', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
+  // Sizing properties
+  it.each([
+    ['phone',       'iconSize', 24],
+    ['smallTablet', 'iconSize', 30],
+    ['tablet',      'iconSize', 34],
+    ['largeTablet', 'iconSize', 38],
+    ['phone',       'cardMinWidth', 140],
+    ['tablet',      'cardMinWidth', 180],
+    ['largeTablet', 'cardMinWidth', 200],
+    ['xs',          'iconContainerSize', 40],
+    ['phone',       'iconContainerSize', 44],
+    ['smallTablet', 'iconContainerSize', 52],
+    ['tablet',      'iconContainerSize', 58],
+    ['largeTablet', 'iconContainerSize', 64],
+    ['phone',       'tabBarIconSize', 24],
+    ['smallTablet', 'tabBarIconSize', 30],
+    ['tablet',      'tabBarIconSize', 34],
+    ['largeTablet', 'tabBarIconSize', 38],
+  ] as [keyof typeof DEVICES, string, number][])(
+    'on %s, %s should be %s',
+    (device, property, expected) => {
+      setupMock(device);
+      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+    }
+  );
 
-      const { result } = renderHook(() => useResponsiveStyles());
+  // Typography
+  it.each([
+    ['phone',       'fontScale', 1],
+    ['smallTablet', 'fontScale', 1.35],
+    ['tablet',      'fontScale', 1.45],
+    ['largeTablet', 'fontScale', 1.55],
+    ['phone',       'tabBarLabelSize', 11],
+    ['smallTablet', 'tabBarLabelSize', 14],
+    ['tablet',      'tabBarLabelSize', 16],
+    ['largeTablet', 'tabBarLabelSize', 18],
+  ] as [keyof typeof DEVICES, string, number][])(
+    'on %s, %s should be %s',
+    (device, property, expected) => {
+      setupMock(device);
+      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+    }
+  );
 
-      expect(result.current.gridColumns).toBe(2);
-    });
+  // Border radii
+  it.each([
+    ['phone',       'cardBorderRadius', 12],
+    ['smallTablet', 'cardBorderRadius', 14],
+    ['tablet',      'cardBorderRadius', 16],
+    ['largeTablet', 'cardBorderRadius', 20],
+    ['phone',       'buttonBorderRadius', 8],
+    ['tablet',      'buttonBorderRadius', 12],
+  ] as [keyof typeof DEVICES, string, number][])(
+    'on %s, %s should be %s',
+    (device, property, expected) => {
+      setupMock(device);
+      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+    }
+  );
 
-    it('should return 3 columns for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
+  // Component padding
+  it.each([
+    ['xs',          14],
+    ['phone',       16],
+    ['smallTablet', 20],
+    ['tablet',      24],
+    ['largeTablet', 28],
+  ] as [keyof typeof DEVICES, number][])(
+    'on %s, componentPadding should be %s',
+    (device, expected) => {
+      setupMock(device);
+      expect(getStyles().componentPadding).toBe(expected);
+    }
+  );
 
-      const { result } = renderHook(() => useResponsiveStyles());
+  // Touch targets
+  it.each([
+    ['phone',       48],
+    ['smallTablet', 54],
+    ['tablet',      58],
+    ['largeTablet', 64],
+  ] as [keyof typeof DEVICES, number][])(
+    'on %s, touchTargetMinSize should be %s',
+    (device, expected) => {
+      setupMock(device);
+      expect(getStyles().touchTargetMinSize).toBe(expected);
+    }
+  );
 
-      expect(result.current.gridColumns).toBe(3);
-    });
-
-    it('should return 4 columns for tablet portrait', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.gridColumns).toBe(4);
-    });
-
-    it('should return 4 columns for tablet landscape', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.gridColumns).toBe(4);
-    });
+  it('touchTargetMinSize should be at least 48 for all screen sizes (accessibility)', () => {
+    for (const device of ['xs', 'phone', 'tablet'] as const) {
+      setupMock(device);
+      expect(getStyles().touchTargetMinSize).toBeGreaterThanOrEqual(48);
+    }
   });
 
-  describe('content padding', () => {
-    it('should return 16 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentPadding).toBe(16);
-    });
-
-    it('should return 24 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentPadding).toBe(24);
-    });
-
-    it('should return 32 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentPadding).toBe(32);
-    });
-  });
-
-  describe('content max width', () => {
+  // Content max width
+  describe('contentMaxWidth', () => {
     it('should return undefined for phone (full width)', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentMaxWidth).toBeUndefined();
+      setupMock('phone');
+      expect(getStyles().contentMaxWidth).toBeUndefined();
     });
 
     it('should return undefined for regular tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentMaxWidth).toBeUndefined();
+      setupMock('tablet');
+      expect(getStyles().contentMaxWidth).toBeUndefined();
     });
 
     it('should return max width for very large screens', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1366,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.contentMaxWidth).toBe(1200);
+      setupMock('xlScreen');
+      expect(getStyles().contentMaxWidth).toBe(1200);
     });
   });
 
-  describe('icon size', () => {
-    it('should return 24 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconSize).toBe(24);
-    });
-
-    it('should return 30 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconSize).toBe(30);
-    });
-
-    it('should return 34 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconSize).toBe(34);
-    });
-
-    it('should return 38 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconSize).toBe(38);
-    });
-  });
-
-  describe('font scale', () => {
-    it('should return 1 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.fontScale).toBe(1);
-    });
-
-    it('should return 1.35 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.fontScale).toBe(1.35);
-    });
-
-    it('should return 1.45 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.fontScale).toBe(1.45);
-    });
-
-    it('should return 1.55 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.fontScale).toBe(1.55);
-    });
-  });
-
-  describe('card min width', () => {
-    it('should return 140 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardMinWidth).toBe(140);
-    });
-
-    it('should return 180 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardMinWidth).toBe(180);
-    });
-
-    it('should return 200 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardMinWidth).toBe(200);
-    });
-  });
-
-  describe('list columns', () => {
-    it('should return 1 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.listColumns).toBe(1);
-    });
-
-    it('should return 2 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.listColumns).toBe(2);
-    });
-
-    it('should return 2 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.listColumns).toBe(2);
-    });
-  });
-
-  describe('touchTargetMinSize', () => {
-    it('should return at least 48 for all screen sizes (accessibility)', () => {
-      // Test on small phone
-      setupMock({
-        breakpoint: 'xs',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 320,
-        screenHeight: 568,
-      });
-
-      const { result: smallPhoneResult } = renderHook(() => useResponsiveStyles());
-      expect(smallPhoneResult.current.touchTargetMinSize).toBeGreaterThanOrEqual(48);
-
-      // Test on regular phone
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result: phoneResult } = renderHook(() => useResponsiveStyles());
-      expect(phoneResult.current.touchTargetMinSize).toBeGreaterThanOrEqual(48);
-
-      // Test on tablet
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result: tabletResult } = renderHook(() => useResponsiveStyles());
-      expect(tabletResult.current.touchTargetMinSize).toBeGreaterThanOrEqual(48);
-    });
-
-    it('should return 48 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.touchTargetMinSize).toBe(48);
-    });
-
-    it('should return 54 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.touchTargetMinSize).toBe(54);
-    });
-
-    it('should return 58 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.touchTargetMinSize).toBe(58);
-    });
-
-    it('should return 64 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.touchTargetMinSize).toBe(64);
-    });
-  });
-
-  describe('componentPadding', () => {
-    it('should return 14 for small phone', () => {
-      setupMock({
-        breakpoint: 'xs',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 320,
-        screenHeight: 568,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.componentPadding).toBe(14);
-    });
-
-    it('should return 16 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.componentPadding).toBe(16);
-    });
-
-    it('should return 20 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.componentPadding).toBe(20);
-    });
-
-    it('should return 24 for tablet portrait', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.componentPadding).toBe(24);
-    });
-
-    it('should return 28 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.componentPadding).toBe(28);
-    });
-  });
-
-  describe('iconContainerSize', () => {
-    it('should return 40 for small phone', () => {
-      setupMock({
-        breakpoint: 'xs',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 320,
-        screenHeight: 568,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconContainerSize).toBe(40);
-    });
-
-    it('should return 44 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconContainerSize).toBe(44);
-    });
-
-    it('should return 52 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconContainerSize).toBe(52);
-    });
-
-    it('should return 58 for tablet portrait', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconContainerSize).toBe(58);
-    });
-
-    it('should return 64 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.iconContainerSize).toBe(64);
-    });
-  });
-
-  describe('cardBorderRadius', () => {
-    it('should return 12 (md) for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardBorderRadius).toBe(12);
-    });
-
-    it('should return 14 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardBorderRadius).toBe(14);
-    });
-
-    it('should return 16 (lg) for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardBorderRadius).toBe(16);
-    });
-
-    it('should return 20 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.cardBorderRadius).toBe(20);
-    });
-  });
-
-  describe('buttonBorderRadius', () => {
-    it('should return 8 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.buttonBorderRadius).toBe(8);
-    });
-
-    it('should return 12 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.buttonBorderRadius).toBe(12);
-    });
-  });
-
+  // Modal width (uses calculations)
   describe('modalWidth', () => {
     it('should return screenWidth - 32 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.modalWidth).toBe(375 - 32);
+      setupMock('phone');
+      expect(getStyles().modalWidth).toBe(375 - 32);
     });
 
     it('should return 60% of width (max 500) for tablet portrait', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.modalWidth).toBe(Math.min(768 * 0.6, 500));
+      setupMock('tablet');
+      expect(getStyles().modalWidth).toBe(Math.min(768 * 0.6, 500));
     });
 
     it('should return 50% of width (max 600) for tablet landscape', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      // Landscape uses 50% width, max 600
-      expect(result.current.modalWidth).toBe(Math.min(1024 * 0.5, 600));
-    });
-  });
-
-  describe('sectionSpacing', () => {
-    it('should return 16 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.sectionSpacing).toBe(16);
-    });
-
-    it('should return 24 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.sectionSpacing).toBe(24);
-    });
-
-    it('should return 32 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.sectionSpacing).toBe(32);
-    });
-  });
-
-  describe('gridGap', () => {
-    it('should return 12 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.gridGap).toBe(12);
-    });
-
-    it('should return 16 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.gridGap).toBe(16);
-    });
-
-    it('should return 20 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.gridGap).toBe(20);
-    });
-  });
-
-  describe('tabBarIconSize (tablet-optimized)', () => {
-    it('should return 24 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarIconSize).toBe(24);
-    });
-
-    it('should return 30 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarIconSize).toBe(30);
-    });
-
-    it('should return 34 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarIconSize).toBe(34);
-    });
-
-    it('should return 38 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarIconSize).toBe(38);
-    });
-  });
-
-  describe('tabBarLabelSize (tablet-optimized)', () => {
-    it('should return 11 for phone', () => {
-      setupMock({
-        breakpoint: 'sm',
-        isTablet: false,
-        isLandscape: false,
-        screenWidth: 375,
-        screenHeight: 812,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarLabelSize).toBe(11);
-    });
-
-    it('should return 14 for small tablet', () => {
-      setupMock({
-        breakpoint: 'md',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 600,
-        screenHeight: 900,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarLabelSize).toBe(14);
-    });
-
-    it('should return 16 for tablet', () => {
-      setupMock({
-        breakpoint: 'lg',
-        isTablet: true,
-        isLandscape: false,
-        screenWidth: 768,
-        screenHeight: 1024,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarLabelSize).toBe(16);
-    });
-
-    it('should return 18 for large tablet', () => {
-      setupMock({
-        breakpoint: 'xl',
-        isTablet: true,
-        isLandscape: true,
-        screenWidth: 1024,
-        screenHeight: 768,
-      });
-
-      const { result } = renderHook(() => useResponsiveStyles());
-
-      expect(result.current.tabBarLabelSize).toBe(18);
+      setupMock('largeTablet');
+      expect(getStyles().modalWidth).toBe(Math.min(1024 * 0.5, 600));
     });
   });
 });

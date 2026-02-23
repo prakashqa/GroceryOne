@@ -10,12 +10,18 @@ import CartFooter from '../CartFooter';
 // Mock react-i18next
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: { count?: number }) => {
+    t: (key: string, options?: { count?: number; defaultValue?: string }) => {
       if (key === 'picking.itemsAdded') {
         return options?.count === 1 ? '1 item added' : `${options?.count} items added`;
       }
       if (key === 'picking.viewCart') {
         return 'View Cart';
+      }
+      if (key === 'picking.syncing') {
+        return 'Syncing...';
+      }
+      if (key === 'picking.viewCartAccessibility') {
+        return `View cart with ${options?.count} items`;
       }
       return key;
     },
@@ -29,6 +35,7 @@ jest.mock('../../../theme', () => ({
       background: '#f5f5f5',
       surface: '#ffffff',
       text: '#212121',
+      textSecondary: '#757575',
       textInverse: '#ffffff',
       buttonPrimary: '#4CAF50',
       buttonPrimaryText: '#ffffff',
@@ -37,14 +44,17 @@ jest.mock('../../../theme', () => ({
     spacing: {
       xs: 4,
       sm: 8,
+      smd: 12,
       md: 16,
       lg: 24,
+      xl: 32,
     },
     typography: {
       fontSize: {
         sm: 12,
         md: 14,
         lg: 16,
+        xl: 18,
       },
       fontWeight: {
         medium: '500',
@@ -161,5 +171,87 @@ describe('CartFooter', () => {
     );
 
     expect(getByTestId('cart-footer-chevron')).toBeTruthy();
+  });
+
+  describe('Syncing State (isSyncing)', () => {
+    it('shows sync indicator when isSyncing is true', () => {
+      const { getByTestId } = render(
+        <CartFooter
+          itemCount={3}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+          isSyncing={true}
+        />
+      );
+
+      expect(getByTestId('cart-footer-sync-indicator')).toBeTruthy();
+    });
+
+    it('does not show sync indicator when isSyncing is false', () => {
+      const { queryByTestId } = render(
+        <CartFooter
+          itemCount={3}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+          isSyncing={false}
+        />
+      );
+
+      expect(queryByTestId('cart-footer-sync-indicator')).toBeNull();
+    });
+
+    it('does not show sync indicator when isSyncing is not provided', () => {
+      const { queryByTestId } = render(
+        <CartFooter
+          itemCount={3}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+        />
+      );
+
+      expect(queryByTestId('cart-footer-sync-indicator')).toBeNull();
+    });
+
+    it('shows syncing text alongside sync indicator', () => {
+      const { getByText } = render(
+        <CartFooter
+          itemCount={3}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+          isSyncing={true}
+        />
+      );
+
+      expect(getByText('Syncing...')).toBeTruthy();
+    });
+  });
+
+  describe('Accessibility', () => {
+    it('has accessibility label with item count on View Cart button', () => {
+      const { getByTestId } = render(
+        <CartFooter
+          itemCount={5}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+        />
+      );
+
+      const button = getByTestId('cart-footer-button');
+      expect(button.props.accessibilityLabel).toBe('View cart with 5 items');
+      expect(button.props.accessibilityRole).toBe('button');
+    });
+
+    it('has correct accessibility label for single item', () => {
+      const { getByTestId } = render(
+        <CartFooter
+          itemCount={1}
+          onViewCart={mockOnViewCart}
+          testID="cart-footer"
+        />
+      );
+
+      const button = getByTestId('cart-footer-button');
+      expect(button.props.accessibilityLabel).toBe('View cart with 1 items');
+    });
   });
 });

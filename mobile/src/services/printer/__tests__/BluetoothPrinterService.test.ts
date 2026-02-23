@@ -267,6 +267,95 @@ describe('BluetoothPrinterService', () => {
     });
   });
 
+  describe('printImage', () => {
+    it('should print base64 image when connected', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      const printJob = await service.printImage('iVBORw0KGgoAAAANSUhEUg==');
+
+      expect(printJob).toHaveProperty('id');
+      expect(printJob).toHaveProperty('status', 'completed');
+      expect(printJob).toHaveProperty('createdAt');
+    });
+
+    it('should call BLEPrinter.printImageBase64 with base64 data and default width', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData');
+
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledWith(
+        'base64ImageData',
+        expect.objectContaining({ imageWidth: 576 })
+      );
+    });
+
+    it('should use custom image width when provided', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      await service.printImage('base64ImageData', 384);
+
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledWith(
+        'base64ImageData',
+        expect.objectContaining({ imageWidth: 384 })
+      );
+    });
+
+    it('should throw error when not connected', async () => {
+      await expect(service.printImage('base64ImageData')).rejects.toThrow(
+        'No printer connected'
+      );
+    });
+
+    it('should return failed job when printImageBase64 throws', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      (BLEPrinter.printImageBase64 as jest.Mock).mockRejectedValueOnce(
+        new Error('Image print error')
+      );
+
+      const printJob = await service.printImage('base64ImageData');
+      expect(printJob.status).toBe('failed');
+      expect(printJob.error).toBe('Image print error');
+    });
+
+    it('should reconnect before printing image', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData');
+
+      // Should have reconnected before printing
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+    });
+
+    it('should notify print complete listeners', async () => {
+      const printListener = jest.fn();
+      service.onPrintComplete(printListener);
+
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      await service.printImage('base64ImageData');
+
+      expect(printListener).toHaveBeenCalled();
+      expect(printListener.mock.calls[0][0]).toHaveProperty('status', 'completed');
+    });
+  });
+
   describe('permission handling', () => {
     beforeEach(() => {
       // Simulate Android 12+ (API 31) where BLUETOOTH_CONNECT is required

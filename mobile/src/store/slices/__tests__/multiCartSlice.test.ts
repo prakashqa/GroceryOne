@@ -18,6 +18,7 @@ import multiCartReducer, {
   hydrateMultiCart,
   refreshActiveCartPrices,
   resetMultiCart,
+  clearMultiCartInMemory,
   syncCartsFromBackend,
   // Payment actions
   markActiveCartAsPaid,
@@ -81,6 +82,146 @@ describe('multiCartSlice', () => {
     isHydrated: false,
     lastSyncedAt: null,
   };
+
+  // === Shared Mock Items ===
+  const mockItemWithPrice: Item = {
+    id: 'priced-1',
+    categoryId: 'test-category',
+    name: 'Priced Item',
+    unit: 'kg',
+    defaultQuantity: 1,
+    price: 100.0,
+  };
+
+  const mockItemWithPrice2: Item = {
+    id: 'priced-2',
+    categoryId: 'test-category',
+    name: 'Another Priced Item',
+    unit: 'kg',
+    defaultQuantity: 1,
+    price: 50.0,
+  };
+
+  const mockItemNoPrice: Item = {
+    id: 'no-price-1',
+    categoryId: 'test-category',
+    name: 'Item Without Price',
+    unit: 'pcs',
+    defaultQuantity: 1,
+  };
+
+  // === Date Helpers ===
+  const todayISO = () => new Date().toISOString();
+
+  const yesterdayISO = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString();
+  };
+
+  const twoDaysAgoISO = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 2);
+    return date.toISOString();
+  };
+
+  // === Factory Functions ===
+  const createMockCartItem = (
+    item: Item,
+    quantity: number,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    item,
+    quantity,
+    addedAt: new Date().toISOString(),
+    ...(item.price != null ? { priceSnapshot: item.price } : {}),
+    ...overrides,
+  });
+
+  const createMockCart = (
+    id: string,
+    name: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    id,
+    name,
+    items: [] as Array<{ item: Item; quantity: number; addedAt: string; priceSnapshot?: number }>,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    status: 'draft' as const,
+    ...overrides,
+  });
+
+  const createMockState = (overrides: Partial<MultiCartState> = {}): MultiCartState => ({
+    ...initialState,
+    isHydrated: true,
+    ...overrides,
+  });
+
+  const stateWithOneActiveCart = (
+    cartOverrides: Record<string, unknown> = {},
+    stateOverrides: Partial<MultiCartState> = {},
+  ): MultiCartState => createMockState({
+    carts: [createMockCart('cart-1', 'Cart 1', cartOverrides)],
+    activeCartId: 'cart-1',
+    ...stateOverrides,
+  });
+
+  const createRootState = (multiCartOverrides: Partial<MultiCartState> = {}) => ({
+    multiCart: createMockState(multiCartOverrides),
+  });
+
+  // Helper for backend cart payloads (syncCartsFromBackend action format)
+  const createBackendCart = (id: string, name: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    name,
+    status: 'draft' as const,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [] as unknown[],
+    ...overrides,
+  });
+
+  // Helper for backend item payloads
+  const createBackendItem = (
+    itemId: string,
+    name: string,
+    overrides: Record<string, unknown> = {},
+  ) => ({
+    itemId,
+    quantity: 1,
+    priceSnapshot: 60,
+    addedAt: new Date().toISOString(),
+    item: {
+      id: itemId,
+      categoryId: 'cat-1',
+      name,
+      unit: 'kg' as const,
+      defaultQuantity: 1,
+      price: 60,
+    },
+    ...overrides,
+  });
+
+  // Factory for paid cart states used in syncCartsFromBackend tests
+  const createPaidCartState = (
+    cartId: string,
+    items: Array<{ item: Item; quantity: number; addedAt: string; priceSnapshot?: number }>,
+    overrides: Record<string, unknown> = {},
+  ): MultiCartState => createMockState({
+    carts: [{
+      id: cartId,
+      name: 'Paid Cart',
+      items,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'paid' as const,
+      paidAt: new Date().toISOString(),
+      paidAmount: 240,
+      ...overrides,
+    } as MultiCartState['carts'][0]],
+    activeCartId: cartId,
+  });
 
   describe('createCart', () => {
     it('should create a new cart with unique ID', () => {
@@ -906,45 +1047,7 @@ describe('multiCartSlice', () => {
   });
 
   describe('pricing functionality', () => {
-    const mockItemWithPrice: Item = {
-      id: 'priced-1',
-      categoryId: 'test-category',
-      name: 'Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 100.0,
-    };
-
-    const mockItemWithPrice2: Item = {
-      id: 'priced-2',
-      categoryId: 'test-category',
-      name: 'Another Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 50.0,
-    };
-
-    const mockItemNoPrice: Item = {
-      id: 'no-price-1',
-      categoryId: 'test-category',
-      name: 'Item Without Price',
-      unit: 'pcs',
-      defaultQuantity: 1,
-    };
-
-    const stateWithActiveCart: MultiCartState = {
-      carts: [{
-        id: 'cart-1',
-        name: 'Cart 1',
-        items: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: 'draft',
-      }],
-      activeCartId: 'cart-1',
-      isHydrated: true,
-      lastSyncedAt: null,
-    };
+    const stateWithActiveCart = stateWithOneActiveCart();
 
     describe('addItemToActiveCart with price', () => {
       it('should capture priceSnapshot when adding item with price', () => {
@@ -1757,76 +1860,17 @@ describe('multiCartSlice', () => {
    * TDD tests for dashboard metrics and filtering
    */
   describe('dashboard selectors', () => {
-    const mockItemWithPrice: Item = {
-      id: 'priced-1',
-      categoryId: 'test-category',
-      name: 'Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 100.0,
-    };
-
-    const mockItemWithPrice2: Item = {
-      id: 'priced-2',
-      categoryId: 'test-category',
-      name: 'Another Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 50.0,
-    };
-
-    // Helper to create a date string for today
-    const todayISO = () => new Date().toISOString();
-
-    // Helper to create a date string for yesterday
-    const yesterdayISO = () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday.toISOString();
-    };
-
-    // Helper to create a date string for 2 days ago
-    const twoDaysAgoISO = () => {
-      const date = new Date();
-      date.setDate(date.getDate() - 2);
-      return date.toISOString();
-    };
-
     describe('selectTodaysCarts', () => {
       it('should return only carts created today', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today-1',
-                name: 'Today Cart 1',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-today-2',
-                name: 'Today Cart 2',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'completed' as const,
-              },
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-today-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const yday = yesterdayISO();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-today-1', 'Today Cart 1'),
+            createMockCart('cart-today-2', 'Today Cart 2', { status: 'completed' }),
+            createMockCart('cart-yesterday', 'Yesterday Cart', { createdAt: yday, updatedAt: yday }),
+          ],
+          activeCartId: 'cart-today-1',
+        });
 
         const todaysCarts = selectTodaysCarts(state);
         expect(todaysCarts).toHaveLength(2);
@@ -1834,60 +1878,33 @@ describe('multiCartSlice', () => {
       });
 
       it('should return empty array when no carts created today', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-yesterday',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const todaysCarts = selectTodaysCarts(state);
-        expect(todaysCarts).toHaveLength(0);
+        const yday = yesterdayISO();
+        const state = createRootState({
+          carts: [createMockCart('cart-yesterday', 'Yesterday Cart', { createdAt: yday, updatedAt: yday })],
+          activeCartId: 'cart-yesterday',
+        });
+        expect(selectTodaysCarts(state)).toHaveLength(0);
       });
 
       it('should return empty array when no carts exist', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const todaysCarts = selectTodaysCarts(state);
-        expect(todaysCarts).toHaveLength(0);
+        const state = createRootState({ carts: [], activeCartId: null });
+        expect(selectTodaysCarts(state)).toHaveLength(0);
       });
     });
 
     describe('selectCartsByStatus', () => {
       it('should count carts by status correctly', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              { id: '1', name: 'C1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-              { id: '2', name: 'C2', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-              { id: '3', name: 'C3', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'printed' as const },
-              { id: '4', name: 'C4', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const },
-              { id: '5', name: 'C5', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const },
-              { id: '6', name: 'C6', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const },
-            ],
-            activeCartId: '1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('1', 'C1'),
+            createMockCart('2', 'C2'),
+            createMockCart('3', 'C3', { status: 'printed' }),
+            createMockCart('4', 'C4', { status: 'completed' }),
+            createMockCart('5', 'C5', { status: 'completed' }),
+            createMockCart('6', 'C6', { status: 'completed' }),
+          ],
+          activeCartId: '1',
+        });
 
         const statusCounts = selectCartsByStatus(state);
         expect(statusCounts.draft).toBe(2);
@@ -1896,14 +1913,7 @@ describe('multiCartSlice', () => {
       });
 
       it('should return zeros when no carts exist', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({ carts: [], activeCartId: null });
 
         const statusCounts = selectCartsByStatus(state);
         expect(statusCounts.draft).toBe(0);
@@ -1933,95 +1943,44 @@ describe('multiCartSlice', () => {
 
     describe('selectTodaysMetrics', () => {
       it('should calculate all metrics for today\'s carts correctly', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [
-                  { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-                  { item: mockItemWithPrice2, quantity: 3, addedAt: todayISO(), priceSnapshot: 50 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'completed' as const,
-              },
-              {
-                id: 'cart-2',
-                name: 'Cart 2',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'printed' as const,
-              },
-              {
-                id: 'cart-3',
-                name: 'Cart 3 (draft - not in sales)',
-                items: [
-                  { item: mockItemWithPrice2, quantity: 5, addedAt: todayISO(), priceSnapshot: 50 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart (not counted)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 10, addedAt: yesterdayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'completed' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const yday = yesterdayISO();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-1', 'Cart 1', {
+              items: [createMockCartItem(mockItemWithPrice, 2), createMockCartItem(mockItemWithPrice2, 3)],
+              status: 'completed',
+            }),
+            createMockCart('cart-2', 'Cart 2', {
+              items: [createMockCartItem(mockItemWithPrice, 1)],
+              status: 'printed',
+            }),
+            createMockCart('cart-3', 'Cart 3 (draft - not in sales)', {
+              items: [createMockCartItem(mockItemWithPrice2, 5)],
+            }),
+            createMockCart('cart-yesterday', 'Yesterday Cart (not counted)', {
+              items: [createMockCartItem(mockItemWithPrice, 10)],
+              createdAt: yday, updatedAt: yday, status: 'completed',
+            }),
+          ],
+          activeCartId: 'cart-1',
+        });
 
         const metrics = selectTodaysMetrics(state);
-
-        // 3 carts created today (cart-1, cart-2, cart-3)
         expect(metrics.cartsCreated).toBe(3);
-
-        // Total items: 2 items in cart-1 + 1 in cart-2 + 1 in cart-3 = 4
-        expect(metrics.itemsPicked).toBe(4);
-
-        // Total quantity: (2+3) + 1 + 5 = 11
-        expect(metrics.totalQuantity).toBe(11);
-
-        // Sales only from completed and printed carts (not draft):
-        // Cart 1 (completed): (2 * 100) + (3 * 50) = 200 + 150 = 350
-        // Cart 2 (printed): 1 * 100 = 100
-        // Total: 450
-        expect(metrics.totalSales).toBe(450);
+        expect(metrics.itemsPicked).toBe(2); // 2 unique items
+        expect(metrics.totalQuantity).toBe(11); // (2+3) + 1 + 5
+        expect(metrics.totalSales).toBe(450); // completed: 350 + printed: 100
       });
 
       it('should return zeros when no carts created today', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [
-                  { item: mockItemWithPrice, quantity: 10, addedAt: yesterdayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'completed' as const,
-              },
-            ],
-            activeCartId: 'cart-yesterday',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const yday = yesterdayISO();
+        const state = createRootState({
+          carts: [createMockCart('cart-yesterday', 'Yesterday Cart', {
+            items: [createMockCartItem(mockItemWithPrice, 10)],
+            createdAt: yday, updatedAt: yday, status: 'completed',
+          })],
+          activeCartId: 'cart-yesterday',
+        });
 
         const metrics = selectTodaysMetrics(state);
         expect(metrics.cartsCreated).toBe(0);
@@ -2031,97 +1990,72 @@ describe('multiCartSlice', () => {
       });
 
       it('should handle draft carts not contributing to sales', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-draft',
-                name: 'Draft Cart',
-                items: [
-                  { item: mockItemWithPrice, quantity: 5, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-draft',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [createMockCart('cart-draft', 'Draft Cart', {
+            items: [createMockCartItem(mockItemWithPrice, 5)],
+          })],
+          activeCartId: 'cart-draft',
+        });
 
         const metrics = selectTodaysMetrics(state);
         expect(metrics.cartsCreated).toBe(1);
         expect(metrics.itemsPicked).toBe(1);
         expect(metrics.totalQuantity).toBe(5);
-        // Draft carts don't count toward sales
         expect(metrics.totalSales).toBe(0);
       });
 
       it('should handle items without priceSnapshot in sales calculation', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [
-                  { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-                  { item: mockItemWithPrice2, quantity: 3, addedAt: todayISO() }, // No priceSnapshot
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'completed' as const,
-              },
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', {
+            items: [
+              createMockCartItem(mockItemWithPrice, 2),
+              { item: mockItemWithPrice2, quantity: 3, addedAt: todayISO() }, // No priceSnapshot
             ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+            status: 'completed',
+          })],
+          activeCartId: 'cart-1',
+        });
 
         const metrics = selectTodaysMetrics(state);
         // Only priced item contributes: 2 * 100 = 200
         expect(metrics.totalSales).toBe(200);
       });
+
+      it('should count unique items across carts (not total line entries)', () => {
+        const sharedItem: Item = { id: 'shared-item', categoryId: 'test-category', name: 'Shared Product', unit: 'kg', defaultQuantity: 1, price: 75.0 };
+
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-a', 'Cart A', {
+              items: [createMockCartItem(sharedItem, 2), createMockCartItem(mockItemWithPrice, 1)],
+              status: 'completed',
+            }),
+            createMockCart('cart-b', 'Cart B', {
+              items: [createMockCartItem(sharedItem, 3), createMockCartItem(mockItemWithPrice2, 1)],
+              status: 'printed',
+            }),
+          ],
+          activeCartId: 'cart-a',
+        });
+
+        const metrics = selectTodaysMetrics(state);
+        expect(metrics.itemsPicked).toBe(3); // 3 unique products, NOT 4 line entries
+        expect(metrics.totalQuantity).toBe(7); // 2 + 1 + 3 + 1
+      });
     });
 
     describe('selectRecentCarts', () => {
       it('should return carts sorted by updatedAt descending', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-old',
-                name: 'Old Cart',
-                items: [],
-                createdAt: twoDaysAgoISO(),
-                updatedAt: twoDaysAgoISO(),
-                status: 'completed' as const,
-              },
-              {
-                id: 'cart-newest',
-                name: 'Newest Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-middle',
-                name: 'Middle Cart',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'printed' as const,
-              },
-            ],
-            activeCartId: 'cart-newest',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const yday = yesterdayISO();
+        const twoDay = twoDaysAgoISO();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-old', 'Old Cart', { createdAt: twoDay, updatedAt: twoDay, status: 'completed' }),
+            createMockCart('cart-newest', 'Newest Cart'),
+            createMockCart('cart-middle', 'Middle Cart', { createdAt: yday, updatedAt: yday, status: 'printed' }),
+          ],
+          activeCartId: 'cart-newest',
+        });
 
         const recentCarts = selectRecentCarts(state);
         expect(recentCarts.map(c => c.id)).toEqual(['cart-newest', 'cart-middle', 'cart-old']);
@@ -2130,132 +2064,54 @@ describe('multiCartSlice', () => {
       it('should limit to 5 carts by default', () => {
         const carts = Array.from({ length: 10 }, (_, i) => {
           const date = new Date();
-          date.setMinutes(date.getMinutes() - i); // Each cart 1 minute older
-          return {
-            id: `cart-${i}`,
-            name: `Cart ${i}`,
-            items: [],
-            createdAt: date.toISOString(),
-            updatedAt: date.toISOString(),
-            status: 'draft' as const,
-          };
+          date.setMinutes(date.getMinutes() - i);
+          return createMockCart(`cart-${i}`, `Cart ${i}`, { createdAt: date.toISOString(), updatedAt: date.toISOString() });
         });
 
-        const state = {
-          multiCart: {
-            carts,
-            activeCartId: 'cart-0',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({ carts, activeCartId: 'cart-0' });
 
         const recentCarts = selectRecentCarts(state);
         expect(recentCarts).toHaveLength(5);
-        // Most recent first
         expect(recentCarts[0].id).toBe('cart-0');
         expect(recentCarts[4].id).toBe('cart-4');
       });
 
       it('should respect custom limit parameter', () => {
-        const carts = Array.from({ length: 10 }, (_, i) => ({
-          id: `cart-${i}`,
-          name: `Cart ${i}`,
-          items: [],
-          createdAt: todayISO(),
-          updatedAt: todayISO(),
-          status: 'draft' as const,
-        }));
-
-        const state = {
-          multiCart: {
-            carts,
-            activeCartId: 'cart-0',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const carts = Array.from({ length: 10 }, (_, i) =>
+          createMockCart(`cart-${i}`, `Cart ${i}`)
+        );
+        const state = createRootState({ carts, activeCartId: 'cart-0' });
 
         const recentCarts = selectRecentCarts(state, 3);
         expect(recentCarts).toHaveLength(3);
       });
 
       it('should return all carts when less than limit', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-2',
-                name: 'Cart 2',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1'), createMockCart('cart-2', 'Cart 2')],
+          activeCartId: 'cart-1',
+        });
 
         const recentCarts = selectRecentCarts(state, 5);
         expect(recentCarts).toHaveLength(2);
       });
 
       it('should return empty array when no carts exist', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const recentCarts = selectRecentCarts(state);
-        expect(recentCarts).toHaveLength(0);
+        const state = createRootState({ carts: [], activeCartId: null });
+        expect(selectRecentCarts(state)).toHaveLength(0);
       });
     });
 
     describe('selectMostRecentDraftCart', () => {
       it('should return null when no draft carts exist', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-completed',
-                name: 'Completed Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'completed' as const,
-              },
-              {
-                id: 'cart-printed',
-                name: 'Printed Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'printed' as const,
-              },
-            ],
-            activeCartId: 'cart-completed',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const draftCart = selectMostRecentDraftCart(state);
-        expect(draftCart).toBeNull();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-completed', 'Completed Cart', { status: 'completed' }),
+            createMockCart('cart-printed', 'Printed Cart', { status: 'printed' }),
+          ],
+          activeCartId: 'cart-completed',
+        });
+        expect(selectMostRecentDraftCart(state)).toBeNull();
       });
 
       it('should return the most recently updated draft cart', () => {
@@ -2264,31 +2120,13 @@ describe('multiCartSlice', () => {
         const newDate = new Date();
         newDate.setHours(newDate.getHours() - 1);
 
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-old-draft',
-                name: 'Old Draft',
-                items: [],
-                createdAt: oldDate.toISOString(),
-                updatedAt: oldDate.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-new-draft',
-                name: 'New Draft',
-                items: [],
-                createdAt: newDate.toISOString(),
-                updatedAt: newDate.toISOString(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-old-draft',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-old-draft', 'Old Draft', { createdAt: oldDate.toISOString(), updatedAt: oldDate.toISOString() }),
+            createMockCart('cart-new-draft', 'New Draft', { createdAt: newDate.toISOString(), updatedAt: newDate.toISOString() }),
+          ],
+          activeCartId: 'cart-old-draft',
+        });
 
         const draftCart = selectMostRecentDraftCart(state);
         expect(draftCart).not.toBeNull();
@@ -2301,31 +2139,13 @@ describe('multiCartSlice', () => {
         oldDate.setHours(oldDate.getHours() - 2);
         const newDate = new Date();
 
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-draft',
-                name: 'Draft Cart',
-                items: [],
-                createdAt: oldDate.toISOString(),
-                updatedAt: oldDate.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-completed',
-                name: 'Completed Cart (newer)',
-                items: [],
-                createdAt: newDate.toISOString(),
-                updatedAt: newDate.toISOString(),
-                status: 'completed' as const,
-              },
-            ],
-            activeCartId: 'cart-completed',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-draft', 'Draft Cart', { createdAt: oldDate.toISOString(), updatedAt: oldDate.toISOString() }),
+            createMockCart('cart-completed', 'Completed Cart (newer)', { createdAt: newDate.toISOString(), updatedAt: newDate.toISOString(), status: 'completed' }),
+          ],
+          activeCartId: 'cart-completed',
+        });
 
         const draftCart = selectMostRecentDraftCart(state);
         expect(draftCart).not.toBeNull();
@@ -2333,63 +2153,24 @@ describe('multiCartSlice', () => {
       });
 
       it('should return null when no carts exist', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const draftCart = selectMostRecentDraftCart(state);
-        expect(draftCart).toBeNull();
+        const state = createRootState({ carts: [], activeCartId: null });
+        expect(selectMostRecentDraftCart(state)).toBeNull();
       });
     });
 
     describe('selectYesterdaysCarts', () => {
       it('should return only carts created yesterday', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-yesterday-1',
-                name: 'Yesterday Cart 1',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'paid' as const,
-              },
-              {
-                id: 'cart-yesterday-2',
-                name: 'Yesterday Cart 2',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-old',
-                name: 'Old Cart',
-                items: [],
-                createdAt: twoDaysAgoISO(),
-                updatedAt: twoDaysAgoISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const yday = yesterdayISO();
+        const twoDay = twoDaysAgoISO();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-today', 'Today Cart'),
+            createMockCart('cart-yesterday-1', 'Yesterday Cart 1', { createdAt: yday, updatedAt: yday, status: 'paid' }),
+            createMockCart('cart-yesterday-2', 'Yesterday Cart 2', { createdAt: yday, updatedAt: yday }),
+            createMockCart('cart-old', 'Old Cart', { createdAt: twoDay, updatedAt: twoDay }),
+          ],
+          activeCartId: 'cart-today',
+        });
 
         const yesterdaysCarts = selectYesterdaysCarts(state);
         expect(yesterdaysCarts).toHaveLength(2);
@@ -2397,26 +2178,11 @@ describe('multiCartSlice', () => {
       });
 
       it('should return empty array when no carts created yesterday', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
-        const yesterdaysCarts = selectYesterdaysCarts(state);
-        expect(yesterdaysCarts).toHaveLength(0);
+        const state = createRootState({
+          carts: [createMockCart('cart-today', 'Today Cart')],
+          activeCartId: 'cart-today',
+        });
+        expect(selectYesterdaysCarts(state)).toHaveLength(0);
       });
     });
 
@@ -2430,49 +2196,16 @@ describe('multiCartSlice', () => {
         const fiveDaysAgo = new Date(today);
         fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: today.toISOString(),
-                updatedAt: today.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [],
-                createdAt: yesterday.toISOString(),
-                updatedAt: yesterday.toISOString(),
-                status: 'paid' as const,
-              },
-              {
-                id: 'cart-3days',
-                name: '3 Days Ago Cart',
-                items: [],
-                createdAt: threeDaysAgo.toISOString(),
-                updatedAt: threeDaysAgo.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-5days',
-                name: '5 Days Ago Cart',
-                items: [],
-                createdAt: fiveDaysAgo.toISOString(),
-                updatedAt: fiveDaysAgo.toISOString(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-today', 'Today Cart', { createdAt: today.toISOString(), updatedAt: today.toISOString() }),
+            createMockCart('cart-yesterday', 'Yesterday Cart', { createdAt: yesterday.toISOString(), updatedAt: yesterday.toISOString(), status: 'paid' }),
+            createMockCart('cart-3days', '3 Days Ago Cart', { createdAt: threeDaysAgo.toISOString(), updatedAt: threeDaysAgo.toISOString() }),
+            createMockCart('cart-5days', '5 Days Ago Cart', { createdAt: fiveDaysAgo.toISOString(), updatedAt: fiveDaysAgo.toISOString() }),
+          ],
+          activeCartId: 'cart-today',
+        });
 
-        // Get carts from 3 days ago to yesterday (inclusive)
         const startDate = threeDaysAgo.toISOString();
         const endDate = yesterday.toISOString();
 
@@ -2488,23 +2221,10 @@ describe('multiCartSlice', () => {
         const fifteenDaysAgo = new Date(today);
         fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
 
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: today.toISOString(),
-                updatedAt: today.toISOString(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [createMockCart('cart-today', 'Today Cart', { createdAt: today.toISOString(), updatedAt: today.toISOString() })],
+          activeCartId: 'cart-today',
+        });
 
         const cartsInRange = selectCartsByDateRange(
           state,
@@ -2515,39 +2235,14 @@ describe('multiCartSlice', () => {
       });
 
       it('should include carts on boundary dates', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Start of day',
-                items: [],
-                createdAt: '2024-06-15T00:00:00.000Z',
-                updatedAt: '2024-06-15T00:00:00.000Z',
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-2',
-                name: 'End of day',
-                items: [],
-                createdAt: '2024-06-15T23:59:59.999Z',
-                updatedAt: '2024-06-15T23:59:59.999Z',
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-outside',
-                name: 'Day before',
-                items: [],
-                createdAt: '2024-06-14T12:00:00.000Z',
-                updatedAt: '2024-06-14T12:00:00.000Z',
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-1', 'Start of day', { createdAt: '2024-06-15T00:00:00.000Z', updatedAt: '2024-06-15T00:00:00.000Z' }),
+            createMockCart('cart-2', 'End of day', { createdAt: '2024-06-15T23:59:59.999Z', updatedAt: '2024-06-15T23:59:59.999Z' }),
+            createMockCart('cart-outside', 'Day before', { createdAt: '2024-06-14T12:00:00.000Z', updatedAt: '2024-06-14T12:00:00.000Z' }),
+          ],
+          activeCartId: 'cart-1',
+        });
 
         const cartsInRange = selectCartsByDateRange(
           state,
@@ -2567,39 +2262,14 @@ describe('multiCartSlice', () => {
         const threeDaysAgo = new Date(today);
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
 
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-3days',
-                name: '3 Days Ago Cart',
-                items: [],
-                createdAt: threeDaysAgo.toISOString(),
-                updatedAt: threeDaysAgo.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: today.toISOString(),
-                updatedAt: today.toISOString(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [],
-                createdAt: yesterday.toISOString(),
-                updatedAt: yesterday.toISOString(),
-                status: 'paid' as const,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-3days', '3 Days Ago Cart', { createdAt: threeDaysAgo.toISOString(), updatedAt: threeDaysAgo.toISOString() }),
+            createMockCart('cart-today', 'Today Cart', { createdAt: today.toISOString(), updatedAt: today.toISOString() }),
+            createMockCart('cart-yesterday', 'Yesterday Cart', { createdAt: yesterday.toISOString(), updatedAt: yesterday.toISOString(), status: 'paid' }),
+          ],
+          activeCartId: 'cart-today',
+        });
 
         const sortedCarts = selectCartsSortedByDate(state);
         expect(sortedCarts).toHaveLength(3);
@@ -2615,59 +2285,19 @@ describe('multiCartSlice', () => {
    * TDD tests for payment done functionality
    */
   describe('payment feature', () => {
-    const mockItemWithPrice: Item = {
-      id: 'priced-1',
-      categoryId: 'test-category',
-      name: 'Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 100.0,
-    };
-
-    const mockItemWithPrice2: Item = {
-      id: 'priced-2',
-      categoryId: 'test-category',
-      name: 'Another Priced Item',
-      unit: 'kg',
-      defaultQuantity: 1,
-      price: 50.0,
-    };
-
-    // Helper to create a date string for today
-    const todayISO = () => new Date().toISOString();
-
-    // Helper to create a date string for yesterday
-    const yesterdayISO = () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday.toISOString();
-    };
-
     describe('markActiveCartAsPaid', () => {
       // Helper to create a mock cash payment info
       const mockCashPaymentInfo = createCashPaymentInfo(200, 0);
 
       it('should mark active cart as paid with timestamp, amount, and paymentInfo', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const draftCartWithItem = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+        });
 
         const paymentInfo = createCashPaymentInfo(200, 0);
         const beforePaid = new Date().toISOString();
         const action = markActiveCartAsPaid({ amount: 200, paymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
+        const state = multiCartReducer(draftCartWithItem, action);
         const afterPaid = new Date().toISOString();
 
         expect(state.carts[0].status).toBe('paid');
@@ -2679,159 +2309,65 @@ describe('multiCartSlice', () => {
         expect(state.carts[0].paymentInfo?.method).toBe('cash');
       });
 
-      it('should store cash payment details correctly', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
-
-        const paymentInfo = createCashPaymentInfo(250, 50);
-        const action = markActiveCartAsPaid({ amount: 200, paymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
-
-        expect(state.carts[0].paymentInfo?.method).toBe('cash');
-        expect(state.carts[0].paymentInfo?.details).toEqual({
-          method: 'cash',
-          receivedAmount: 250,
-          changeGiven: 50,
+      it.each([
+        {
+          method: 'cash' as const,
+          createPayment: () => createCashPaymentInfo(250, 50),
+          expectedDetails: { method: 'cash', receivedAmount: 250, changeGiven: 50 },
+        },
+        {
+          method: 'upi' as const,
+          createPayment: () => createUpiPaymentInfo('merchant@upi', 'TXN123456'),
+          expectedDetails: { method: 'upi', upiId: 'merchant@upi', transactionRef: 'TXN123456' },
+        },
+        {
+          method: 'card' as const,
+          createPayment: () => createCardPaymentInfo('4242'),
+          expectedDetails: { method: 'card', lastFourDigits: '4242' },
+        },
+      ])('should store $method payment details correctly', ({ method, createPayment, expectedDetails }) => {
+        const draftCartWithItem = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
         });
-      });
 
-      it('should store UPI payment details correctly', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
-
-        const paymentInfo = createUpiPaymentInfo('merchant@upi', 'TXN123456');
+        const paymentInfo = createPayment();
         const action = markActiveCartAsPaid({ amount: 200, paymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
+        const state = multiCartReducer(draftCartWithItem, action);
 
-        expect(state.carts[0].paymentInfo?.method).toBe('upi');
-        expect(state.carts[0].paymentInfo?.details).toEqual({
-          method: 'upi',
-          upiId: 'merchant@upi',
-          transactionRef: 'TXN123456',
-        });
-      });
-
-      it('should store card payment details correctly', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
-
-        const paymentInfo = createCardPaymentInfo('4242');
-        const action = markActiveCartAsPaid({ amount: 200, paymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
-
-        expect(state.carts[0].paymentInfo?.method).toBe('card');
-        expect(state.carts[0].paymentInfo?.details).toEqual({
-          method: 'card',
-          lastFourDigits: '4242',
-        });
+        expect(state.carts[0].paymentInfo?.method).toBe(method);
+        expect(state.carts[0].paymentInfo?.details).toEqual(expectedDetails);
       });
 
       it('should not mark already paid cart', () => {
-        const stateWithPaidCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'paid',
-            paidAt: todayISO(),
-            paidAmount: 200,
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const paidCart = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+          status: 'paid', paidAt: todayISO(), paidAmount: 200,
+        });
 
         const action = markActiveCartAsPaid({ amount: 500, paymentInfo: mockCashPaymentInfo });
-        const state = multiCartReducer(stateWithPaidCart, action);
+        const state = multiCartReducer(paidCart, action);
 
         // Should remain unchanged
         expect(state.carts[0].paidAmount).toBe(200);
       });
 
       it('should not mark empty cart as paid', () => {
-        const stateWithEmptyCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const emptyCart = stateWithOneActiveCart();
 
         const action = markActiveCartAsPaid({ amount: 100, paymentInfo: mockCashPaymentInfo });
-        const state = multiCartReducer(stateWithEmptyCart, action);
+        const state = multiCartReducer(emptyCart, action);
 
         expect(state.carts[0].status).toBe('draft');
         expect(state.carts[0].paidAt).toBeUndefined();
       });
 
       it('should not mark cart with 0 amount as paid', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const draftCartWithItem = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+        });
 
         const action = markActiveCartAsPaid({ amount: 0, paymentInfo: mockCashPaymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
+        const state = multiCartReducer(draftCartWithItem, action);
 
         expect(state.carts[0].status).toBe('draft');
         expect(state.carts[0].paidAt).toBeUndefined();
@@ -2839,44 +2375,23 @@ describe('multiCartSlice', () => {
 
       it('should update cart updatedAt timestamp when marking paid', () => {
         const oldTime = '2024-01-01T00:00:00.000Z';
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: oldTime,
-            updatedAt: oldTime,
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const draftCartWithItem = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+          createdAt: oldTime,
+          updatedAt: oldTime,
+        });
 
         const action = markActiveCartAsPaid({ amount: 200, paymentInfo: mockCashPaymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
+        const state = multiCartReducer(draftCartWithItem, action);
 
         expect(state.carts[0].updatedAt).not.toBe(oldTime);
       });
 
       it('should do nothing if no active cart', () => {
-        const stateNoActive: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: null,
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const stateNoActive = stateWithOneActiveCart(
+          { items: [createMockCartItem(mockItemWithPrice, 2)] },
+          { activeCartId: null },
+        );
 
         const action = markActiveCartAsPaid({ amount: 200, paymentInfo: mockCashPaymentInfo });
         const state = multiCartReducer(stateNoActive, action);
@@ -2916,33 +2431,13 @@ describe('multiCartSlice', () => {
       const mockUpiPaymentInfo = createUpiPaymentInfo('merchant@upi');
 
       it('should mark specific cart as paid by cartId with paymentInfo', () => {
-        const stateWithCarts: MultiCartState = {
+        const stateWithCarts = createMockState({
           carts: [
-            {
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [
-                { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-              ],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft',
-            },
-            {
-              id: 'cart-2',
-              name: 'Cart 2',
-              items: [
-                { item: mockItemWithPrice2, quantity: 3, addedAt: todayISO(), priceSnapshot: 50 },
-              ],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft',
-            },
+            createMockCart('cart-1', 'Cart 1', { items: [createMockCartItem(mockItemWithPrice, 2)] }),
+            createMockCart('cart-2', 'Cart 2', { items: [createMockCartItem(mockItemWithPrice2, 3)] }),
           ],
           activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        });
 
         const action = markCartAsPaid({ cartId: 'cart-2', amount: 150, paymentInfo: mockUpiPaymentInfo });
         const state = multiCartReducer(stateWithCarts, action);
@@ -2957,45 +2452,23 @@ describe('multiCartSlice', () => {
       });
 
       it('should not mark non-existent cart', () => {
-        const stateWithCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const draftCartWithItem = stateWithOneActiveCart({
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+        });
 
         const action = markCartAsPaid({ cartId: 'non-existent', amount: 100, paymentInfo: mockUpiPaymentInfo });
-        const state = multiCartReducer(stateWithCart, action);
+        const state = multiCartReducer(draftCartWithItem, action);
 
         expect(state.carts[0].status).toBe('draft');
       });
 
       it('should save paidItemCount equal to items.length when marking cart as paid by id', () => {
-        const stateWithItems: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-              { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 50 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'draft',
-          }],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
+        const stateWithItems = stateWithOneActiveCart({
+          items: [
+            createMockCartItem(mockItemWithPrice, 2),
+            createMockCartItem(mockItemWithPrice, 1, { priceSnapshot: 50 }),
+          ],
+        });
 
         const action = markCartAsPaid({ cartId: 'cart-1', amount: 250, paymentInfo: mockUpiPaymentInfo });
         const state = multiCartReducer(stateWithItems, action);
@@ -3008,26 +2481,13 @@ describe('multiCartSlice', () => {
     describe('selectActiveCartPaymentInfo', () => {
       it('should return payment info for paid cart', () => {
         const paymentInfo = createCashPaymentInfo(200, 0);
-        const stateWithPaidCart: MultiCartState = {
-          carts: [{
-            id: 'cart-1',
-            name: 'Cart 1',
-            items: [
-              { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-            ],
-            createdAt: todayISO(),
-            updatedAt: todayISO(),
-            status: 'paid',
-            paidAt: todayISO(),
-            paidAmount: 200,
-            paymentInfo,
-          }],
+        const rootState = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', {
+            items: [createMockCartItem(mockItemWithPrice, 2)],
+            status: 'paid', paidAt: todayISO(), paidAmount: 200, paymentInfo,
+          })],
           activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
-
-        const rootState = { multiCart: stateWithPaidCart };
+        });
         const result = selectActiveCartPaymentInfo(rootState as any);
 
         expect(result).toBeDefined();
@@ -3058,14 +2518,7 @@ describe('multiCartSlice', () => {
       });
 
       it('should return null when no active cart', () => {
-        const stateNoActive: MultiCartState = {
-          carts: [],
-          activeCartId: null,
-          isHydrated: true,
-          lastSyncedAt: null,
-        };
-
-        const rootState = { multiCart: stateNoActive };
+        const rootState = createRootState({ carts: [], activeCartId: null });
         const result = selectActiveCartPaymentInfo(rootState as any);
 
         expect(result).toBeNull();
@@ -3073,71 +2526,29 @@ describe('multiCartSlice', () => {
     });
 
     describe('paid cart protection', () => {
-      const stateWithPaidCart: MultiCartState = {
-        carts: [{
-          id: 'cart-1',
-          name: 'Cart 1',
-          items: [
-            { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-          ],
-          createdAt: todayISO(),
-          updatedAt: todayISO(),
-          status: 'paid',
-          paidAt: todayISO(),
-          paidAmount: 200,
-        }],
-        activeCartId: 'cart-1',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const stateWithPaidCart = stateWithOneActiveCart({
+        items: [createMockCartItem(mockItemWithPrice, 2)],
+        status: 'paid',
+        paidAt: todayISO(),
+        paidAmount: 200,
+      });
 
-      it('should prevent adding items to paid cart', () => {
-        const action = addItemToActiveCart({ item: mockItemWithPrice2, quantity: 1 });
-        const state = multiCartReducer(stateWithPaidCart, action);
+      it.each([
+        { operation: 'adding items', action: () => addItemToActiveCart({ item: mockItemWithPrice2, quantity: 1 }) },
+        { operation: 'removing items', action: () => removeItemFromActiveCart('priced-1') },
+        { operation: 'quantity updates', action: () => updateItemQuantityInActiveCart({ itemId: 'priced-1', quantity: 10 }) },
+        { operation: 'incrementing item', action: () => incrementItemInActiveCart('priced-1') },
+        { operation: 'decrementing item', action: () => decrementItemInActiveCart('priced-1') },
+        { operation: 'clearing cart', action: () => clearActiveCart() },
+      ])('should prevent $operation on paid cart', ({ action }) => {
+        const state = multiCartReducer(stateWithPaidCart, action());
 
         expect(state.carts[0].items).toHaveLength(1);
-        expect(state.carts[0].items[0].item.id).toBe('priced-1');
-      });
-
-      it('should prevent removing items from paid cart', () => {
-        const action = removeItemFromActiveCart('priced-1');
-        const state = multiCartReducer(stateWithPaidCart, action);
-
-        expect(state.carts[0].items).toHaveLength(1);
-      });
-
-      it('should prevent quantity updates on paid cart', () => {
-        const action = updateItemQuantityInActiveCart({ itemId: 'priced-1', quantity: 10 });
-        const state = multiCartReducer(stateWithPaidCart, action);
-
         expect(state.carts[0].items[0].quantity).toBe(2);
-      });
-
-      it('should prevent incrementing item in paid cart', () => {
-        const action = incrementItemInActiveCart('priced-1');
-        const state = multiCartReducer(stateWithPaidCart, action);
-
-        expect(state.carts[0].items[0].quantity).toBe(2);
-      });
-
-      it('should prevent decrementing item in paid cart', () => {
-        const action = decrementItemInActiveCart('priced-1');
-        const state = multiCartReducer(stateWithPaidCart, action);
-
-        expect(state.carts[0].items[0].quantity).toBe(2);
-      });
-
-      it('should prevent clearing paid cart', () => {
-        const action = clearActiveCart();
-        const state = multiCartReducer(stateWithPaidCart, action);
-
-        expect(state.carts[0].items).toHaveLength(1);
-        expect(state.carts[0].status).toBe('paid');
       });
 
       it('should prevent deleting paid cart', () => {
-        const action = deleteCart('cart-1');
-        const state = multiCartReducer(stateWithPaidCart, action);
+        const state = multiCartReducer(stateWithPaidCart, deleteCart('cart-1'));
 
         expect(state.carts).toHaveLength(1);
         expect(state.carts[0].id).toBe('cart-1');
@@ -3146,393 +2557,151 @@ describe('multiCartSlice', () => {
 
     describe('selectActiveCartIsPaid', () => {
       it('should return true when active cart status is paid', () => {
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'paid' as const,
-              paidAt: todayISO(),
-              paidAmount: 100,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', { status: 'paid', paidAt: todayISO(), paidAmount: 100 })],
+          activeCartId: 'cart-1',
+        });
         expect(selectActiveCartIsPaid(state)).toBe(true);
       });
 
       it('should return false for draft cart', () => {
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft' as const,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1')],
+          activeCartId: 'cart-1',
+        });
         expect(selectActiveCartIsPaid(state)).toBe(false);
       });
 
       it('should return false when no active cart', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({ carts: [], activeCartId: null });
         expect(selectActiveCartIsPaid(state)).toBe(false);
       });
     });
 
     describe('selectCanMarkPayment', () => {
       it('should return true for draft cart with items and valid total', () => {
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [
-                { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-              ],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft' as const,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', { items: [createMockCartItem(mockItemWithPrice, 2)] })],
+          activeCartId: 'cart-1',
+        });
         expect(selectCanMarkPayment(state)).toBe(true);
       });
 
       it('should return false for already paid cart', () => {
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [
-                { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-              ],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'paid' as const,
-              paidAt: todayISO(),
-              paidAmount: 200,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', {
+            items: [createMockCartItem(mockItemWithPrice, 2)],
+            status: 'paid', paidAt: todayISO(), paidAmount: 200,
+          })],
+          activeCartId: 'cart-1',
+        });
         expect(selectCanMarkPayment(state)).toBe(false);
       });
 
       it('should return false for empty cart', () => {
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft' as const,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1')],
+          activeCartId: 'cart-1',
+        });
         expect(selectCanMarkPayment(state)).toBe(false);
       });
 
       it('should return false for cart with 0 total (no priced items)', () => {
-        const mockItemNoPrice: Item = {
-          id: 'no-price',
-          categoryId: 'test',
-          name: 'No Price Item',
-          unit: 'pcs',
-          defaultQuantity: 1,
-        };
-
-        const state = {
-          multiCart: {
-            carts: [{
-              id: 'cart-1',
-              name: 'Cart 1',
-              items: [
-                { item: mockItemNoPrice, quantity: 2, addedAt: todayISO() },
-              ],
-              createdAt: todayISO(),
-              updatedAt: todayISO(),
-              status: 'draft' as const,
-            }],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', { items: [createMockCartItem(mockItemNoPrice, 2)] })],
+          activeCartId: 'cart-1',
+        });
         expect(selectCanMarkPayment(state)).toBe(false);
       });
 
       it('should return false when no active cart', () => {
-        const state = {
-          multiCart: {
-            carts: [],
-            activeCartId: null,
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({ carts: [], activeCartId: null });
         expect(selectCanMarkPayment(state)).toBe(false);
       });
     });
 
     describe('selectTodaysPaidAmount', () => {
       it('should sum paidAmount from all paid carts created today', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 200,
-              },
-              {
-                id: 'cart-2',
-                name: 'Cart 2',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 300,
-              },
-              {
-                id: 'cart-3',
-                name: 'Cart 3 (draft)',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-1', 'Cart 1', { status: 'paid', paidAt: todayISO(), paidAmount: 200 }),
+            createMockCart('cart-2', 'Cart 2', { status: 'paid', paidAt: todayISO(), paidAmount: 300 }),
+            createMockCart('cart-3', 'Cart 3 (draft)'),
+          ],
+          activeCartId: 'cart-1',
+        });
         expect(selectTodaysPaidAmount(state)).toBe(500);
       });
 
       it('should return 0 when no paid carts today', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1')],
+          activeCartId: 'cart-1',
+        });
         expect(selectTodaysPaidAmount(state)).toBe(0);
       });
 
       it('should exclude carts from previous days', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-today',
-                name: 'Today Cart',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 100,
-              },
-              {
-                id: 'cart-yesterday',
-                name: 'Yesterday Cart',
-                items: [],
-                createdAt: yesterdayISO(),
-                updatedAt: yesterdayISO(),
-                status: 'paid' as const,
-                paidAt: yesterdayISO(),
-                paidAmount: 500,
-              },
-            ],
-            activeCartId: 'cart-today',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const yday = yesterdayISO();
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-today', 'Today Cart', { status: 'paid', paidAt: todayISO(), paidAmount: 100 }),
+            createMockCart('cart-yesterday', 'Yesterday Cart', {
+              createdAt: yday, updatedAt: yday, status: 'paid', paidAt: yday, paidAmount: 500,
+            }),
+          ],
+          activeCartId: 'cart-today',
+        });
         expect(selectTodaysPaidAmount(state)).toBe(100);
       });
     });
 
     describe('selectPendingPaymentsCount', () => {
-      it('should count non-paid carts with items', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1 (draft with items)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-2',
-                name: 'Cart 2 (printed with items)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'printed' as const,
-              },
-              {
-                id: 'cart-3',
-                name: 'Cart 3 (paid)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 100,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+      const oneItem = [createMockCartItem(mockItemWithPrice, 1)];
 
+      it('should count non-paid carts with items', () => {
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-1', 'Cart 1 (draft with items)', { items: oneItem }),
+            createMockCart('cart-2', 'Cart 2 (printed with items)', { items: oneItem, status: 'printed' }),
+            createMockCart('cart-3', 'Cart 3 (paid)', { items: oneItem, status: 'paid', paidAt: todayISO(), paidAmount: 100 }),
+          ],
+          activeCartId: 'cart-1',
+        });
         expect(selectPendingPaymentsCount(state)).toBe(2);
       });
 
       it('should exclude empty carts', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1 (draft with items)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-              {
-                id: 'cart-2',
-                name: 'Cart 2 (empty draft)',
-                items: [],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-1', 'Cart 1 (draft with items)', { items: oneItem }),
+            createMockCart('cart-2', 'Cart 2 (empty draft)'),
+          ],
+          activeCartId: 'cart-1',
+        });
         expect(selectPendingPaymentsCount(state)).toBe(1);
       });
 
       it('should return 0 when all carts are paid', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-1',
-                name: 'Cart 1',
-                items: [
-                  { item: mockItemWithPrice, quantity: 1, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 100,
-              },
-            ],
-            activeCartId: 'cart-1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
-
+        const state = createRootState({
+          carts: [createMockCart('cart-1', 'Cart 1', { items: oneItem, status: 'paid', paidAt: todayISO(), paidAmount: 100 })],
+          activeCartId: 'cart-1',
+        });
         expect(selectPendingPaymentsCount(state)).toBe(0);
       });
     });
 
     describe('selectCartsByStatus with paid status', () => {
       it('should count paid carts separately', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              { id: '1', name: 'C1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-              { id: '2', name: 'C2', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'paid' as const, paidAt: todayISO(), paidAmount: 100 },
-              { id: '3', name: 'C3', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'paid' as const, paidAt: todayISO(), paidAmount: 200 },
-              { id: '4', name: 'C4', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const },
-            ],
-            activeCartId: '1',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('1', 'C1'),
+            createMockCart('2', 'C2', { status: 'paid', paidAt: todayISO(), paidAmount: 100 }),
+            createMockCart('3', 'C3', { status: 'paid', paidAt: todayISO(), paidAmount: 200 }),
+            createMockCart('4', 'C4', { status: 'completed' }),
+          ],
+          activeCartId: '1',
+        });
 
         const statusCounts = selectCartsByStatus(state);
         expect(statusCounts.draft).toBe(1);
@@ -3544,53 +2713,25 @@ describe('multiCartSlice', () => {
 
     describe('selectTodaysMetrics with paid carts', () => {
       it('should include paid carts in totalSales', () => {
-        const state = {
-          multiCart: {
-            carts: [
-              {
-                id: 'cart-paid',
-                name: 'Paid Cart',
-                items: [
-                  { item: mockItemWithPrice, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'paid' as const,
-                paidAt: todayISO(),
-                paidAmount: 200,
-              },
-              {
-                id: 'cart-completed',
-                name: 'Completed Cart',
-                items: [
-                  { item: mockItemWithPrice2, quantity: 2, addedAt: todayISO(), priceSnapshot: 50 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'completed' as const,
-              },
-              {
-                id: 'cart-draft',
-                name: 'Draft Cart (not in sales)',
-                items: [
-                  { item: mockItemWithPrice, quantity: 5, addedAt: todayISO(), priceSnapshot: 100 },
-                ],
-                createdAt: todayISO(),
-                updatedAt: todayISO(),
-                status: 'draft' as const,
-              },
-            ],
-            activeCartId: 'cart-paid',
-            isHydrated: true,
-            lastSyncedAt: null,
-          },
-        };
+        const state = createRootState({
+          carts: [
+            createMockCart('cart-paid', 'Paid Cart', {
+              items: [createMockCartItem(mockItemWithPrice, 2)],
+              status: 'paid', paidAt: todayISO(), paidAmount: 200,
+            }),
+            createMockCart('cart-completed', 'Completed Cart', {
+              items: [createMockCartItem(mockItemWithPrice2, 2)],
+              status: 'completed',
+            }),
+            createMockCart('cart-draft', 'Draft Cart (not in sales)', {
+              items: [createMockCartItem(mockItemWithPrice, 5)],
+            }),
+          ],
+          activeCartId: 'cart-paid',
+        });
 
         const metrics = selectTodaysMetrics(state);
-        // Paid: 2 * 100 = 200
-        // Completed: 2 * 50 = 100
-        // Draft: excluded
-        // Total: 300
+        // Paid: 2 * 100 = 200, Completed: 2 * 50 = 100, Draft: excluded → Total: 300
         expect(metrics.totalSales).toBe(300);
       });
     });
@@ -3598,92 +2739,37 @@ describe('multiCartSlice', () => {
 
   describe('selectActiveCartCategoryCount', () => {
     it('should return 0 when no active cart', () => {
-      const state = {
-        multiCart: {
-          carts: [],
-          activeCartId: null,
-          isHydrated: false,
-          lastSyncedAt: null,
-        },
-      };
+      const state = createRootState({ carts: [], activeCartId: null, isHydrated: false });
       expect(selectActiveCartCategoryCount(state)).toBe(0);
     });
 
     it('should return 0 when active cart has no items', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            {
-              id: 'cart-1',
-              name: 'Empty Cart',
-              items: [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              status: 'draft' as const,
-            },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
+      const state = createRootState({
+        carts: [createMockCart('cart-1', 'Empty Cart')],
+        activeCartId: 'cart-1',
+      });
       expect(selectActiveCartCategoryCount(state)).toBe(0);
     });
 
     it('should count unique categories from active cart items', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            {
-              id: 'cart-1',
-              name: 'Test Cart',
-              items: [
-                { item: mockItem, quantity: 1, addedAt: new Date().toISOString() },
-                { item: mockItem2, quantity: 2, addedAt: new Date().toISOString() },
-              ],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              status: 'draft' as const,
-            },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
+      const state = createRootState({
+        carts: [createMockCart('cart-1', 'Test Cart', {
+          items: [createMockCartItem(mockItem, 1), createMockCartItem(mockItem2, 2)],
+        })],
+        activeCartId: 'cart-1',
+      });
       // mockItem has categoryId 'atta-rice', mockItem2 has 'dal-pulses'
       expect(selectActiveCartCategoryCount(state)).toBe(2);
     });
 
     it('should not double-count the same category', () => {
-      const mockItem3: Item = {
-        id: 'atta-2',
-        categoryId: 'atta-rice', // Same category as mockItem
-        name: 'Maida',
-        unit: 'kg',
-        defaultQuantity: 1,
-      };
-      const state = {
-        multiCart: {
-          carts: [
-            {
-              id: 'cart-1',
-              name: 'Test Cart',
-              items: [
-                { item: mockItem, quantity: 1, addedAt: new Date().toISOString() },
-                { item: mockItem2, quantity: 2, addedAt: new Date().toISOString() },
-                { item: mockItem3, quantity: 1, addedAt: new Date().toISOString() },
-              ],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              status: 'draft' as const,
-            },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
+      const mockItem3: Item = { id: 'atta-2', categoryId: 'atta-rice', name: 'Maida', unit: 'kg', defaultQuantity: 1 };
+      const state = createRootState({
+        carts: [createMockCart('cart-1', 'Test Cart', {
+          items: [createMockCartItem(mockItem, 1), createMockCartItem(mockItem2, 2), createMockCartItem(mockItem3, 1)],
+        })],
+        activeCartId: 'cart-1',
+      });
       // 3 items but only 2 unique categories: 'atta-rice' and 'dal-pulses'
       expect(selectActiveCartCategoryCount(state)).toBe(2);
     });
@@ -3724,52 +2810,64 @@ describe('multiCartSlice', () => {
     });
   });
 
-  describe('syncCartsFromBackend', () => {
-    it('should replace all carts when replaceAll is true', () => {
-      // Setup: state has one local cart
-      let state = multiCartReducer(initialState, createCart({ name: 'Local Cart' }));
+  describe('clearMultiCartInMemory', () => {
+    it('should reset to initial state (same as resetMultiCart)', () => {
+      const stateWithCarts: MultiCartState = {
+        carts: [
+          {
+            id: 'cart-1',
+            name: 'Test Cart',
+            items: [],
+            status: 'draft',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+        activeCartId: 'cart-1',
+        isHydrated: true,
+        lastSyncedAt: new Date().toISOString(),
+      };
 
-      // Act: sync with replaceAll=true
+      const action = clearMultiCartInMemory();
+      const state = multiCartReducer(stateWithCarts, action);
+
+      expect(state.carts).toHaveLength(0);
+      expect(state.activeCartId).toBeNull();
+      expect(state.isHydrated).toBe(false);
+      expect(state.lastSyncedAt).toBeNull();
+    });
+
+    it('should be a no-op on already empty state', () => {
+      const state = multiCartReducer(initialState, clearMultiCartInMemory());
+      expect(state).toEqual(initialState);
+    });
+  });
+
+  describe('syncCartsFromBackend', () => {
+    it('should replace matched carts and preserve local-only carts when replaceAll is true', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'Local Cart' }));
+      const localCartId = state.carts[0].id;
+
       state = multiCartReducer(
         state,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-1',
-              name: 'Backend Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('backend-uuid-1', 'Backend Cart')],
           replaceAll: true,
         })
       );
 
-      expect(state.carts).toHaveLength(1);
-      expect(state.carts[0].id).toBe('backend-uuid-1');
-      expect(state.carts[0].name).toBe('Backend Cart');
+      expect(state.carts).toHaveLength(2);
+      expect(state.carts.find(c => c.id === 'backend-uuid-1')).toBeDefined();
+      expect(state.carts.find(c => c.id === localCartId)).toBeDefined();
     });
 
     it('should merge backend carts with local carts by id', () => {
-      // Setup: state has one local cart
       let state = multiCartReducer(initialState, createCart({ name: 'Local Cart' }));
 
-      // Act: sync with a different backend cart (different id)
       state = multiCartReducer(
         state,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-new',
-              name: 'New Backend Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('backend-uuid-new', 'New Backend Cart')],
           replaceAll: false,
         })
       );
@@ -3794,16 +2892,10 @@ describe('multiCartSlice', () => {
       state = multiCartReducer(
         state,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-abc', // Same as local cart's backendId
-              name: 'Test Cart',
-              status: 'draft',
-              createdAt: state.carts[0].createdAt,
-              updatedAt: state.carts[0].updatedAt,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('backend-uuid-abc', 'Test Cart', {
+            createdAt: state.carts[0].createdAt,
+            updatedAt: state.carts[0].updatedAt,
+          })],
           replaceAll: false,
         })
       );
@@ -3836,22 +2928,8 @@ describe('multiCartSlice', () => {
         state,
         syncCartsFromBackend({
           carts: [
-            {
-              id: 'uuid-a',
-              name: 'Cart A',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-            {
-              id: 'uuid-b',
-              name: 'Cart B',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
+            createBackendCart('uuid-a', 'Cart A'),
+            createBackendCart('uuid-b', 'Cart B'),
           ],
           replaceAll: false,
         })
@@ -3876,16 +2954,7 @@ describe('multiCartSlice', () => {
       state = multiCartReducer(
         state,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'uuid-123',
-              name: 'Updated Name From Backend',
-              status: 'printed',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('uuid-123', 'Updated Name From Backend', { status: 'printed' as const })],
           replaceAll: false,
         })
       );
@@ -3912,22 +2981,8 @@ describe('multiCartSlice', () => {
         state,
         syncCartsFromBackend({
           carts: [
-            {
-              id: 'uuid-existing',
-              name: 'Existing',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-            {
-              id: 'uuid-brand-new',
-              name: 'Brand New Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
+            createBackendCart('uuid-existing', 'Existing'),
+            createBackendCart('uuid-brand-new', 'Brand New Cart'),
           ],
           replaceAll: false,
         })
@@ -3948,12 +3003,11 @@ describe('multiCartSlice', () => {
       expect(state.isHydrated).toBe(true);
     });
 
-    it('replaceAll: true overwrites ALL carts — documents why App.tsx abort guard is needed', () => {
+    it('replaceAll: true preserves local carts — AbortController in App.tsx prevents stale tenant data', () => {
       // CONTEXT: When a user switches tenants, the old tenant's in-flight
       // fetchCartsFromBackend can resolve AFTER the new tenant's carts are loaded.
-      // syncCartsFromBackend({ replaceAll: true }) blindly replaces ALL carts.
-      // Without the AbortController abort guard in App.tsx, this causes
-      // old tenant carts to overwrite new tenant carts.
+      // The AbortController in App.tsx prevents this race condition.
+      // Even without abort, local carts are now preserved (not discarded).
 
       // Arrange: Simulate new tenant's carts already loaded
       let state = multiCartReducer(initialState, hydrateMultiCart({
@@ -3973,81 +3027,36 @@ describe('multiCartSlice', () => {
         replaceAll: true,
       }));
 
-      // Assert: replaceAll: true OVERWRITES everything — Tenant B's cart is gone
-      // This is the race condition that the AbortController in App.tsx prevents
-      expect(state.carts).toHaveLength(1);
-      expect(state.carts[0].name).toBe('Tenant A Cart');
-      expect(state.carts.find(c => c.name === 'Tenant B Cart')).toBeUndefined();
+      // Assert: Both carts are preserved — the AbortController in App.tsx is the
+      // primary defense against cross-tenant contamination (not the reducer)
+      expect(state.carts).toHaveLength(2);
+      expect(state.carts.find(c => c.name === 'Tenant A Cart')).toBeDefined();
+      expect(state.carts.find(c => c.name === 'Tenant B Cart')).toBeDefined();
     });
 
     it('should preserve local items for paid carts when replaceAll is true and backend returns fewer items', () => {
-      // Setup: Local state has a paid cart WITH items
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'paid-cart-uuid',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-              {
-                item: {
-                  id: 'item-2',
-                  categoryId: 'cat-2',
-                  name: 'Dal',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 120,
-                },
-                quantity: 1,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 120,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
-            paidAmount: 240,
-          },
-        ],
-        activeCartId: 'paid-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const dalItem: Item = { id: 'item-2', categoryId: 'cat-2', name: 'Dal', unit: 'kg', defaultQuantity: 1, price: 120 };
+      const paidCartState = createPaidCartState('paid-cart-uuid', [
+        createMockCartItem(riceItem, 2),
+        createMockCartItem(dalItem, 1, { priceSnapshot: 120 }),
+      ]);
 
       // Act: Backend returns the same paid cart but with EMPTY items (race condition)
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'paid-cart-uuid',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 240,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('paid-cart-uuid', 'Paid Cart', {
+            status: 'paid' as const,
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            paidAt: paidCartState.carts[0].paidAt,
+            paidAmount: 240,
+          })],
           replaceAll: true,
         })
       );
 
-      // Assert: Local items should be preserved for paid cart
       expect(state.carts).toHaveLength(1);
       expect(state.carts[0].id).toBe('paid-cart-uuid');
       expect(state.carts[0].status).toBe('paid');
@@ -4056,122 +3065,48 @@ describe('multiCartSlice', () => {
     });
 
     it('should use backend items for paid cart when backend has more items than local', () => {
-      // Setup: Local paid cart with 1 item
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'paid-cart-uuid',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
-            paidAmount: 240,
-          },
-        ],
-        activeCartId: 'paid-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const paidCartState = createPaidCartState('paid-cart-uuid', [createMockCartItem(riceItem, 2)]);
 
       // Act: Backend returns 2 items (more than local)
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'paid-cart-uuid',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 240,
-              items: [
-                {
-                  itemId: 'item-1',
-                  quantity: 2,
-                  priceSnapshot: 60,
-                  addedAt: new Date().toISOString(),
-                  item: { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 },
-                },
-                {
-                  itemId: 'item-2',
-                  quantity: 1,
-                  priceSnapshot: 120,
-                  addedAt: new Date().toISOString(),
-                  item: { id: 'item-2', categoryId: 'cat-2', name: 'Dal', unit: 'kg' as const, defaultQuantity: 1, price: 120 },
-                },
-              ],
-            },
-          ],
+          carts: [createBackendCart('paid-cart-uuid', 'Paid Cart', {
+            status: 'paid' as const,
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            paidAt: paidCartState.carts[0].paidAt,
+            paidAmount: 240,
+            items: [
+              createBackendItem('item-1', 'Rice', { quantity: 2, priceSnapshot: 60 }),
+              createBackendItem('item-2', 'Dal', { quantity: 1, priceSnapshot: 120, item: { id: 'item-2', categoryId: 'cat-2', name: 'Dal', unit: 'kg' as const, defaultQuantity: 1, price: 120 } }),
+            ],
+          })],
           replaceAll: true,
         })
       );
 
-      // Assert: Backend has more items, so use backend items
       expect(state.carts[0].items).toHaveLength(2);
     });
 
     it('should NOT preserve local items for draft carts when replaceAll is true', () => {
-      // Setup: Local draft cart with items
-      const draftCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'draft-cart-uuid',
-            name: 'Draft Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'draft',
-          },
-        ],
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1 };
+      const draftCartState = createMockState({
+        carts: [createMockCart('draft-cart-uuid', 'Draft Cart', {
+          items: [createMockCartItem(riceItem, 2)],
+        }) as MultiCartState['carts'][0]],
         activeCartId: 'draft-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      });
 
       // Act: Backend returns cart with no items
       const state = multiCartReducer(
         draftCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'draft-cart-uuid',
-              name: 'Draft Cart',
-              status: 'draft',
-              createdAt: draftCartState.carts[0].createdAt,
-              updatedAt: draftCartState.carts[0].updatedAt,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('draft-cart-uuid', 'Draft Cart', {
+            createdAt: draftCartState.carts[0].createdAt,
+            updatedAt: draftCartState.carts[0].updatedAt,
+          })],
           replaceAll: true,
         })
       );
@@ -4181,456 +3116,139 @@ describe('multiCartSlice', () => {
     });
 
     it('should preserve local items for paid carts matched by backendId when replaceAll is true', () => {
-      // Setup: Local cart has local ID (cart-xxx) and backendId (UUID)
-      // This is the real-world scenario where a locally-created cart was synced to backend
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-local-123',
-            backendId: 'backend-uuid-456',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-              {
-                item: {
-                  id: 'item-2',
-                  categoryId: 'cat-2',
-                  name: 'Dal',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 120,
-                },
-                quantity: 1,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 120,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
-            paidAmount: 240,
-          },
-        ],
-        activeCartId: 'cart-local-123',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const dalItem: Item = { id: 'item-2', categoryId: 'cat-2', name: 'Dal', unit: 'kg', defaultQuantity: 1, price: 120 };
+      const paidCartState = createPaidCartState('cart-local-123', [
+        createMockCartItem(riceItem, 2),
+        createMockCartItem(dalItem, 1, { priceSnapshot: 120 }),
+      ], { backendId: 'backend-uuid-456' });
 
-      // Act: Backend returns the cart with its UUID id (not the local id)
-      // and with EMPTY items (race condition — items not yet synced or filtered out)
+      // Act: Backend returns the cart with its UUID id (not the local id) — empty items
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-456',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 240,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('backend-uuid-456', 'Paid Cart', {
+            status: 'paid' as const,
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            paidAt: paidCartState.carts[0].paidAt,
+            paidAmount: 240,
+          })],
           replaceAll: true,
         })
       );
 
-      // Assert: Local items should be preserved even though IDs differ
-      // The match should work via backendId
       expect(state.carts).toHaveLength(1);
       expect(state.carts[0].status).toBe('paid');
       expect(state.carts[0].items).toHaveLength(2);
       expect(state.carts[0].paidAmount).toBe(240);
     });
 
-    it('should preserve paidItemCount from local paid cart when replaceAll is true and backend has no paidItemCount', () => {
-      // Setup: Local paid cart with paidItemCount captured at payment time
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'paid-cart-uuid',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
-            paidAmount: 120,
-            paidItemCount: 5, // Captured at payment time (items may have been modified since)
-          },
-        ],
-        activeCartId: 'paid-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+    it.each([
+      ['replaceAll: true', true, 5],
+      ['replaceAll: false (merge mode)', false, 3],
+    ])('should preserve paidItemCount from local paid cart when %s', (_label, replaceAll, expectedCount) => {
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const paidCartState = createPaidCartState('paid-cart-uuid', [createMockCartItem(riceItem, 2)], {
+        paidAmount: 120,
+        paidItemCount: expectedCount,
+      });
 
-      // Act: Backend returns paid cart with items but NO paidItemCount field
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'paid-cart-uuid',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 120,
-              items: [
-                {
-                  itemId: 'item-1',
-                  quantity: 2,
-                  priceSnapshot: 60,
-                  addedAt: new Date().toISOString(),
-                  item: { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 },
-                },
-              ],
-            },
-          ],
-          replaceAll: true,
-        })
-      );
-
-      // Assert: paidItemCount should be preserved from local state
-      expect(state.carts[0].paidItemCount).toBe(5);
-    });
-
-    it('should preserve paidItemCount from local paid cart when replaceAll is false (merge mode)', () => {
-      // Setup: Local paid cart with paidItemCount
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'paid-cart-uuid',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
+          carts: [createBackendCart('paid-cart-uuid', 'Paid Cart', {
+            status: 'paid' as const,
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            paidAt: paidCartState.carts[0].paidAt,
             paidAmount: 120,
-            paidItemCount: 3,
-          },
-        ],
-        activeCartId: 'paid-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
-
-      // Act: Backend sync with replaceAll: false (merge mode)
-      const state = multiCartReducer(
-        paidCartState,
-        syncCartsFromBackend({
-          carts: [
-            {
-              id: 'paid-cart-uuid',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 120,
-              items: [
-                {
-                  itemId: 'item-1',
-                  quantity: 2,
-                  priceSnapshot: 60,
-                  addedAt: new Date().toISOString(),
-                  item: { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 },
-                },
-              ],
-            },
-          ],
-          replaceAll: false,
+            items: [createBackendItem('item-1', 'Rice', { quantity: 2, priceSnapshot: 60 })],
+          })],
+          replaceAll,
         })
       );
 
-      // Assert: paidItemCount should be preserved from local state
-      expect(state.carts[0].paidItemCount).toBe(3);
+      expect(state.carts[0].paidItemCount).toBe(expectedCount);
     });
 
     it('should preserve paidItemCount AND items for paid cart when backend returns empty items (replaceAll: true)', () => {
-      // Setup: Local paid cart with items and paidItemCount
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'paid-cart-uuid',
-            name: 'Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-              {
-                item: {
-                  id: 'item-2',
-                  categoryId: 'cat-2',
-                  name: 'Dal',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 120,
-                },
-                quantity: 1,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 120,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: new Date().toISOString(),
-            paidAmount: 240,
-            paidItemCount: 2,
-          },
-        ],
-        activeCartId: 'paid-cart-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const dalItem: Item = { id: 'item-2', categoryId: 'cat-2', name: 'Dal', unit: 'kg', defaultQuantity: 1, price: 120 };
+      const paidCartState = createPaidCartState('paid-cart-uuid', [
+        createMockCartItem(riceItem, 2),
+        createMockCartItem(dalItem, 1, { priceSnapshot: 120 }),
+      ], { paidItemCount: 2 });
 
-      // Act: Backend returns paid cart with EMPTY items array
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'paid-cart-uuid',
-              name: 'Paid Cart',
-              status: 'paid',
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              paidAt: paidCartState.carts[0].paidAt,
-              paidAmount: 240,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('paid-cart-uuid', 'Paid Cart', {
+            status: 'paid' as const,
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            paidAt: paidCartState.carts[0].paidAt,
+            paidAmount: 240,
+          })],
           replaceAll: true,
         })
       );
 
-      // Assert: Both items AND paidItemCount should be preserved
       expect(state.carts[0].items).toHaveLength(2);
       expect(state.carts[0].paidItemCount).toBe(2);
     });
 
-    it('replaceAll should preserve local-only paid carts not present in backend', () => {
-      // Setup: Local state has a paid cart that was never synced to backend
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString();
+    it.each([
+      ['paid', 'cart-local-only-123', 'paid' as const, true],
+      ['draft', 'cart-local-draft-456', 'draft' as const, false],
+      ['printed', 'cart-local-printed-789', 'printed' as const, true],
+    ])('replaceAll should preserve local-only %s carts not present in backend',
+      (_label, localCartId, status, hasItems) => {
+        const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+        const items = hasItems ? [createMockCartItem(riceItem, 2)] : [];
+        const localState = createMockState({
+          carts: [createMockCart(localCartId, `${status} Cart`, {
+            items,
+            status,
+            ...(status === 'paid' ? { paidAt: yesterdayISO(), paidAmount: 120, paidItemCount: 1 } : {}),
+          }) as MultiCartState['carts'][0]],
+          activeCartId: localCartId,
+        });
 
-      const stateWithLocalPaid: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-local-only-123',
-            name: 'Yesterday Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg',
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: yesterdayISO,
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: yesterdayISO,
-            updatedAt: yesterdayISO,
-            status: 'paid',
-            paidAt: yesterdayISO,
-            paidAmount: 120,
-            paidItemCount: 1,
-          },
-        ],
-        activeCartId: 'cart-local-only-123',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+        const state = multiCartReducer(
+          localState,
+          syncCartsFromBackend({
+            carts: [createBackendCart('backend-uuid-1', 'Backend Cart')],
+            replaceAll: true,
+          })
+        );
 
-      // Act: Backend returns a DIFFERENT cart (doesn't know about the local paid cart)
-      const state = multiCartReducer(
-        stateWithLocalPaid,
-        syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-today',
-              name: 'Today Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
-          replaceAll: true,
-        })
-      );
-
-      // Assert: Both the backend cart AND the local-only paid cart should exist
-      expect(state.carts).toHaveLength(2);
-      expect(state.carts.find(c => c.id === 'backend-uuid-today')).toBeDefined();
-      expect(state.carts.find(c => c.id === 'cart-local-only-123')).toBeDefined();
-      expect(state.carts.find(c => c.id === 'cart-local-only-123')?.status).toBe('paid');
-      expect(state.carts.find(c => c.id === 'cart-local-only-123')?.items).toHaveLength(1);
-    });
-
-    it('replaceAll should NOT preserve local-only draft carts', () => {
-      // Setup: Local state has a draft cart that was never synced
-      const stateWithDraft: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-local-draft-456',
-            name: 'Unsynced Draft Cart',
-            items: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'draft',
-          },
-        ],
-        activeCartId: 'cart-local-draft-456',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
-
-      // Act: Backend returns different carts
-      const state = multiCartReducer(
-        stateWithDraft,
-        syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-1',
-              name: 'Backend Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
-          replaceAll: true,
-        })
-      );
-
-      // Assert: Draft carts should NOT be preserved — backend is source of truth
-      expect(state.carts).toHaveLength(1);
-      expect(state.carts[0].id).toBe('backend-uuid-1');
-    });
+        expect(state.carts).toHaveLength(2);
+        expect(state.carts.find(c => c.id === localCartId)).toBeDefined();
+        expect(state.carts.find(c => c.id === localCartId)?.status).toBe(status);
+        if (hasItems) {
+          expect(state.carts.find(c => c.id === localCartId)?.items).toHaveLength(1);
+        }
+      }
+    );
 
     it('replaceAll should preserve local-only paid carts with backendId when backend does not return them', () => {
-      // Scenario: Cart was synced (has backendId) and paid, but backend
-      // doesn't return it (deleted or filtered)
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString();
+      const riceItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const stateWithOrphaned = createPaidCartState('cart-local-789', [createMockCartItem(riceItem, 1)], {
+        name: 'Orphaned Paid Cart',
+        backendId: 'backend-uuid-orphaned',
+        paidAmount: 60,
+        paidItemCount: 1,
+      });
 
-      const stateWithOrphaned: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-local-789',
-            backendId: 'backend-uuid-orphaned',
-            name: 'Orphaned Paid Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Rice',
-                  unit: 'kg',
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 1,
-                addedAt: yesterdayISO,
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: yesterdayISO,
-            updatedAt: yesterdayISO,
-            status: 'paid',
-            paidAt: yesterdayISO,
-            paidAmount: 60,
-            paidItemCount: 1,
-          },
-        ],
-        activeCartId: 'cart-local-789',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
-
-      // Act: Backend returns different carts (doesn't include the orphaned paid cart)
       const state = multiCartReducer(
         stateWithOrphaned,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'backend-uuid-other',
-              name: 'Other Cart',
-              status: 'draft',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('backend-uuid-other', 'Other Cart')],
           replaceAll: true,
         })
       );
 
-      // Assert: Orphaned paid cart should be preserved
       expect(state.carts).toHaveLength(2);
       expect(state.carts.find(c => c.id === 'cart-local-789')).toBeDefined();
       expect(state.carts.find(c => c.id === 'cart-local-789')?.status).toBe('paid');
@@ -4702,76 +3320,28 @@ describe('multiCartSlice', () => {
     });
 
     it('replaceAll should preserve local paid status when backend returns draft (race condition)', () => {
-      // Setup: Local state has a cart marked as 'paid' with full payment metadata
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-paid-local',
-            backendId: 'cart-paid-uuid',
-            name: 'Test 1',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'atta-rice',
-                  name: 'Rice',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 60,
-                },
-                quantity: 2,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 60,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: '2026-02-16T10:00:00.000Z',
-            paidAmount: 832,
-            paidItemCount: 4,
-            paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 1000, change: 168 } },
-          },
-        ],
-        activeCartId: 'cart-paid-local',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const riceItem: Item = { id: 'item-1', categoryId: 'atta-rice', name: 'Rice', unit: 'kg', defaultQuantity: 1, price: 60 };
+      const paidCartState = createPaidCartState('cart-paid-local', [createMockCartItem(riceItem, 2)], {
+        name: 'Test 1',
+        backendId: 'cart-paid-uuid',
+        paidAt: '2026-02-16T10:00:00.000Z',
+        paidAmount: 832,
+        paidItemCount: 4,
+        paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 1000, change: 168 } },
+      });
 
-      // Act: Backend returns same cart but with status: 'draft' (payment sync hasn't arrived yet)
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'cart-paid-uuid',
-              name: 'Test 1',
-              status: 'draft' as const,  // ← Backend still has 'draft'
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              items: [
-                {
-                  itemId: 'item-1',
-                  quantity: 2,
-                  priceSnapshot: 60,
-                  addedAt: new Date().toISOString(),
-                  item: {
-                    id: 'item-1',
-                    categoryId: 'atta-rice',
-                    name: 'Rice',
-                    unit: 'kg' as const,
-                    defaultQuantity: 1,
-                    price: 60,
-                  },
-                },
-              ],
-            },
-          ],
+          carts: [createBackendCart('cart-paid-uuid', 'Test 1', {
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+            items: [createBackendItem('item-1', 'Rice', { quantity: 2, priceSnapshot: 60, item: { id: 'item-1', categoryId: 'atta-rice', name: 'Rice', unit: 'kg' as const, defaultQuantity: 1, price: 60 } })],
+          })],
           replaceAll: true,
         })
       );
 
-      // Assert: Local 'paid' status must be preserved, NOT overwritten by backend 'draft'
       expect(state.carts).toHaveLength(1);
       expect(state.carts[0].status).toBe('paid');
       expect(state.carts[0].paidAt).toBe('2026-02-16T10:00:00.000Z');
@@ -4784,37 +3354,22 @@ describe('multiCartSlice', () => {
     });
 
     it('replaceAll should preserve local completed status when backend returns draft', () => {
-      const completedCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-completed-uuid',
-            name: 'Completed Cart',
-            items: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'completed',
-            paidAt: '2026-02-15T08:00:00.000Z',
-            paidAmount: 500,
-          },
-        ],
+      const completedCartState = createMockState({
+        carts: [createMockCart('cart-completed-uuid', 'Completed Cart', {
+          status: 'completed' as const,
+          paidAt: '2026-02-15T08:00:00.000Z',
+          paidAmount: 500,
+        }) as MultiCartState['carts'][0]],
         activeCartId: 'cart-completed-uuid',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      });
 
       const state = multiCartReducer(
         completedCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'cart-completed-uuid',
-              name: 'Completed Cart',
-              status: 'draft' as const,
-              createdAt: completedCartState.carts[0].createdAt,
-              updatedAt: completedCartState.carts[0].updatedAt,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('cart-completed-uuid', 'Completed Cart', {
+            createdAt: completedCartState.carts[0].createdAt,
+            updatedAt: completedCartState.carts[0].updatedAt,
+          })],
           replaceAll: true,
         })
       );
@@ -4825,54 +3380,22 @@ describe('multiCartSlice', () => {
     });
 
     it('merge (replaceAll=false) should preserve local paid status when backend returns draft', () => {
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-uuid-merge',
-            name: 'Merge Test Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Sugar',
-                  unit: 'kg' as const,
-                  defaultQuantity: 1,
-                  price: 45,
-                },
-                quantity: 3,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 45,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: '2026-02-16T11:00:00.000Z',
-            paidAmount: 135,
-            paidItemCount: 1,
-            paymentInfo: { method: 'upi' as const },
-          },
-        ],
-        activeCartId: 'cart-uuid-merge',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const sugarItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Sugar', unit: 'kg', defaultQuantity: 1, price: 45 };
+      const paidCartState = createPaidCartState('cart-uuid-merge', [createMockCartItem(sugarItem, 3, { priceSnapshot: 45 })], {
+        name: 'Merge Test Cart',
+        paidAt: '2026-02-16T11:00:00.000Z',
+        paidAmount: 135,
+        paidItemCount: 1,
+        paymentInfo: { method: 'upi' as const },
+      });
 
-      // Act: replaceAll=false, backend returns 'draft' for same cart
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'cart-uuid-merge',
-              name: 'Merge Test Cart',
-              status: 'draft' as const,
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('cart-uuid-merge', 'Merge Test Cart', {
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+          })],
           replaceAll: false,
         })
       );
@@ -4882,60 +3405,27 @@ describe('multiCartSlice', () => {
       expect(state.carts[0].paidAmount).toBe(135);
       expect(state.carts[0].paidItemCount).toBe(1);
       expect(state.carts[0].paymentInfo).toEqual({ method: 'upi' });
-      // Items should be preserved (local has more)
       expect(state.carts[0].items).toHaveLength(1);
     });
 
     it('merge with backendId match should preserve local paid status when backend returns draft', () => {
-      const paidCartState: MultiCartState = {
-        carts: [
-          {
-            id: 'cart-local-123',
-            backendId: 'cart-backend-uuid-456',
-            name: 'BackendId Match Cart',
-            items: [
-              {
-                item: {
-                  id: 'item-1',
-                  categoryId: 'cat-1',
-                  name: 'Tea',
-                  unit: 'pcs' as const,
-                  defaultQuantity: 1,
-                  price: 200,
-                },
-                quantity: 1,
-                addedAt: new Date().toISOString(),
-                priceSnapshot: 200,
-              },
-            ],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            status: 'paid',
-            paidAt: '2026-02-16T12:00:00.000Z',
-            paidAmount: 200,
-            paidItemCount: 1,
-            paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 200, change: 0 } },
-          },
-        ],
-        activeCartId: 'cart-local-123',
-        isHydrated: true,
-        lastSyncedAt: null,
-      };
+      const teaItem: Item = { id: 'item-1', categoryId: 'cat-1', name: 'Tea', unit: 'pcs', defaultQuantity: 1, price: 200 };
+      const paidCartState = createPaidCartState('cart-local-123', [createMockCartItem(teaItem, 1, { priceSnapshot: 200 })], {
+        name: 'BackendId Match Cart',
+        backendId: 'cart-backend-uuid-456',
+        paidAt: '2026-02-16T12:00:00.000Z',
+        paidAmount: 200,
+        paidItemCount: 1,
+        paymentInfo: { method: 'cash' as const, cashDetails: { amountGiven: 200, change: 0 } },
+      });
 
-      // Act: Backend returns cart by UUID (matches backendId), status is 'draft'
       const state = multiCartReducer(
         paidCartState,
         syncCartsFromBackend({
-          carts: [
-            {
-              id: 'cart-backend-uuid-456',
-              name: 'BackendId Match Cart',
-              status: 'draft' as const,
-              createdAt: paidCartState.carts[0].createdAt,
-              updatedAt: paidCartState.carts[0].updatedAt,
-              items: [],
-            },
-          ],
+          carts: [createBackendCart('cart-backend-uuid-456', 'BackendId Match Cart', {
+            createdAt: paidCartState.carts[0].createdAt,
+            updatedAt: paidCartState.carts[0].updatedAt,
+          })],
           replaceAll: false,
         })
       );
@@ -4949,135 +3439,248 @@ describe('multiCartSlice', () => {
   });
 
   describe('selector memoization (referential stability)', () => {
-    const todayISO = () => new Date().toISOString();
+    it.each([
+      // Note: selectTodaysCarts and selectYesterdaysCarts are intentionally plain functions
+      // (not createSelector) so new Date() is always fresh — they do NOT have referential stability.
+      ['selectCartsSortedByDate', selectCartsSortedByDate, () => createRootState({
+        carts: [createMockCart('cart-1', 'Cart 1')],
+        activeCartId: 'cart-1',
+      })],
+      ['selectCartsByStatus', selectCartsByStatus, () => createRootState({
+        carts: [createMockCart('cart-1', 'Cart 1')],
+        activeCartId: 'cart-1',
+      })],
+      ['selectTodaysMetrics', selectTodaysMetrics, () => createRootState({
+        carts: [createMockCart('cart-1', 'Cart 1', {
+          items: [createMockCartItem(mockItemWithPrice, 2)],
+          status: 'completed' as const,
+        })],
+        activeCartId: 'cart-1',
+      })],
+      ['selectActiveCartItems', selectActiveCartItems, () => createRootState({
+        carts: [createMockCart('cart-1', 'Cart 1', {
+          items: [createMockCartItem(mockItem, 2)],
+        })],
+        activeCartId: 'cart-1',
+      })],
+    ] as [string, (state: unknown) => unknown, () => unknown][])(
+      '%s should return same reference when called with same state',
+      (_name, selector, createState) => {
+        const state = createState();
+        const result1 = selector(state);
+        const result2 = selector(state);
+        expect(result1).toBe(result2);
+      }
+    );
 
-    it('selectTodaysCarts should return same reference when called with same state', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
-
-      const result1 = selectTodaysCarts(state);
-      const result2 = selectTodaysCarts(state);
-      expect(result1).toBe(result2);
-    });
-
-    it('selectYesterdaysCarts should return same reference when called with same state', () => {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const state = {
-        multiCart: {
-          carts: [
-            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: yesterday.toISOString(), updatedAt: yesterday.toISOString(), status: 'draft' as const },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
-
-      const result1 = selectYesterdaysCarts(state);
-      const result2 = selectYesterdaysCarts(state);
-      expect(result1).toBe(result2);
-    });
-
-    it('selectCartsSortedByDate should return same reference when called with same state', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
-
-      const result1 = selectCartsSortedByDate(state);
-      const result2 = selectCartsSortedByDate(state);
-      expect(result1).toBe(result2);
-    });
-
-    it('selectCartsByStatus should return same reference when called with same state', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            { id: 'cart-1', name: 'Cart 1', items: [], createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
-
-      const result1 = selectCartsByStatus(state);
-      const result2 = selectCartsByStatus(state);
-      expect(result1).toBe(result2);
-    });
-
-    it('selectTodaysMetrics should return same reference when called with same state', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            {
-              id: 'cart-1', name: 'Cart 1',
-              items: [{ item: { id: 'i1', categoryId: 'c1', name: 'Item', unit: 'kg' as const, defaultQuantity: 1, price: 100 }, quantity: 2, addedAt: todayISO(), priceSnapshot: 100 }],
-              createdAt: todayISO(), updatedAt: todayISO(), status: 'completed' as const,
-            },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
-
-      const result1 = selectTodaysMetrics(state);
-      const result2 = selectTodaysMetrics(state);
-      expect(result1).toBe(result2);
-    });
-
-    it('selectActiveCartItems should return same reference when called with same state', () => {
-      const state = {
-        multiCart: {
-          carts: [
-            {
-              id: 'cart-1', name: 'Cart 1',
-              items: [{ item: { id: 'i1', categoryId: 'c1', name: 'Item', unit: 'kg' as const, defaultQuantity: 1 }, quantity: 2, addedAt: todayISO() }],
-              createdAt: todayISO(), updatedAt: todayISO(), status: 'draft' as const,
-            },
-          ],
-          activeCartId: 'cart-1',
-          isHydrated: true,
-          lastSyncedAt: null,
-        },
-      };
+    it('selectActiveCartItems should return same empty array reference when no active cart', () => {
+      const state = createRootState();
 
       const result1 = selectActiveCartItems(state);
       const result2 = selectActiveCartItems(state);
       expect(result1).toBe(result2);
+      expect(result1).toEqual([]);
+    });
+  });
+
+  // =========================================================================
+  // Bug Fix: logout action resets multiCart state (extraReducers)
+  // =========================================================================
+  describe('logout action integration', () => {
+    it('should reset multiCart to initialState when logout action is dispatched', () => {
+      // Set up: create a cart and hydrate so isHydrated = true
+      let state = multiCartReducer(undefined, createCart({ name: 'Test Cart' }));
+      state = multiCartReducer(state, hydrateMultiCart({ carts: state.carts, activeCartId: state.activeCartId }));
+      expect(state.isHydrated).toBe(true);
+      expect(state.carts.length).toBeGreaterThan(0);
+
+      // Dispatch logout (from authSlice)
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { logout } = require('../authSlice');
+      state = multiCartReducer(state, logout());
+
+      expect(state.carts).toEqual([]);
+      expect(state.activeCartId).toBeNull();
+      expect(state.isHydrated).toBe(false);
+      expect(state.lastSyncedAt).toBeNull();
     });
 
-    it('selectActiveCartItems should return same empty array reference when no active cart', () => {
+    it('should reset multiCart with paid carts when logout action is dispatched', () => {
+      // Set up: cart with paid status
+      let state = multiCartReducer(undefined, createCart({ name: 'Paid Cart' }));
+      const cartId = state.activeCartId!;
+      state = multiCartReducer(state, hydrateMultiCart({ carts: state.carts, activeCartId: cartId }));
+      expect(state.isHydrated).toBe(true);
+
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { logout } = require('../authSlice');
+      state = multiCartReducer(state, logout());
+
+      expect(state.carts).toEqual([]);
+      expect(state.isHydrated).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // Bug Fix: selectTodaysCarts / selectYesterdaysCarts return fresh results
+  // (not stale memoized values from createSelector)
+  // =========================================================================
+  describe('selectYesterdaysCarts freshness', () => {
+    it('should return carts created yesterday', () => {
       const state = {
         multiCart: {
-          carts: [],
+          carts: [
+            {
+              id: 'old-1',
+              name: 'Old Cart',
+              createdAt: yesterdayISO(),
+              updatedAt: yesterdayISO(),
+              status: 'paid',
+              items: [],
+            },
+          ],
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
         },
       };
 
-      const result1 = selectActiveCartItems(state);
-      const result2 = selectActiveCartItems(state);
-      expect(result1).toBe(result2);
-      expect(result1).toEqual([]);
+      const result = selectYesterdaysCarts(state as any);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('old-1');
+    });
+
+    it('should return fresh results on every call with the same state reference', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'old-1',
+              name: 'Old Cart',
+              createdAt: yesterdayISO(),
+              updatedAt: yesterdayISO(),
+              status: 'paid',
+              items: [],
+            },
+          ],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      // Both calls with same state reference should return the cart
+      const result1 = selectYesterdaysCarts(state as any);
+      const result2 = selectYesterdaysCarts(state as any);
+      expect(result1).toHaveLength(1);
+      expect(result2).toHaveLength(1);
+      expect(result2[0].id).toBe('old-1');
+    });
+
+    it('should NOT include carts from today in yesterday results', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'today-1',
+              name: 'Today Cart',
+              createdAt: todayISO(),
+              updatedAt: todayISO(),
+              status: 'draft',
+              items: [],
+            },
+          ],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result = selectYesterdaysCarts(state as any);
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('selectTodaysCarts freshness', () => {
+    it('should only return carts created today', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'today-1',
+              name: 'Today Cart',
+              createdAt: todayISO(),
+              updatedAt: todayISO(),
+              status: 'draft',
+              items: [],
+            },
+            {
+              id: 'old-1',
+              name: 'Old Cart',
+              createdAt: yesterdayISO(),
+              updatedAt: yesterdayISO(),
+              status: 'paid',
+              items: [],
+            },
+          ],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result = selectTodaysCarts(state as any);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('today-1');
+    });
+
+    it('should return fresh results on every call with the same state reference', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'today-1',
+              name: 'Today Cart',
+              createdAt: todayISO(),
+              updatedAt: todayISO(),
+              status: 'draft',
+              items: [],
+            },
+          ],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result1 = selectTodaysCarts(state as any);
+      const result2 = selectTodaysCarts(state as any);
+      expect(result1).toHaveLength(1);
+      expect(result2).toHaveLength(1);
+      expect(result2[0].id).toBe('today-1');
+    });
+
+    it('should NOT include carts from yesterday in today results', () => {
+      const state = {
+        multiCart: {
+          carts: [
+            {
+              id: 'old-1',
+              name: 'Old Cart',
+              createdAt: yesterdayISO(),
+              updatedAt: yesterdayISO(),
+              status: 'paid',
+              items: [],
+            },
+          ],
+          activeCartId: null,
+          isHydrated: true,
+          lastSyncedAt: null,
+        },
+      };
+
+      const result = selectTodaysCarts(state as any);
+      expect(result).toHaveLength(0);
     });
   });
 });

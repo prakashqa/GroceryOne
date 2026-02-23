@@ -36,6 +36,7 @@ export interface PrinterConfig {
   connectionStatus: PrinterConnectionStatus;
   lastConnectedAt: string | null;
   autoPrint: boolean;
+  imageWidthDots: number;  // Bitmap width in printer dots (576=standard 203dpi, 832=HD 300dpi)
 }
 
 // Notification preferences interface
@@ -89,6 +90,7 @@ const initialState: SettingsState = {
     connectionStatus: 'disconnected',
     lastConnectedAt: null,
     autoPrint: false,
+    imageWidthDots: 576,
   },
   payment: {
     merchantUpiId: '',
@@ -180,6 +182,11 @@ const settingsSlice = createSlice({
       state.lastUpdated = new Date().toISOString();
     },
 
+    setImageWidthDots(state, action: PayloadAction<number>) {
+      state.printer.imageWidthDots = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
+
     setPrintFormat(state, action: PayloadAction<PrintFormat>) {
       state.printer.printFormat = action.payload;
       state.lastUpdated = new Date().toISOString();
@@ -243,6 +250,7 @@ export const {
   setPrinterConnectionStatus,
   setAutoPrint,
   setPaperSize,
+  setImageWidthDots,
   setPrintFormat,
   setMerchantUpiId,
   setMerchantName,

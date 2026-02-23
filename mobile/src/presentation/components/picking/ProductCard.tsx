@@ -1,10 +1,16 @@
 /**
  * ProductCard Component
- * Individual product card for the 2-column grid picking screen
+ * Individual product card for the responsive grid picking screen
+ * Touch targets meet WCAG 48px minimum; accessibility labels for screen readers
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
+
+/**
+ * Format item price as compact INR string (₹120, not ₹120.00)
+ */
+const formatItemPrice = (price: number): string => `₹${price}`;
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
@@ -20,6 +26,8 @@ interface ProductCardProps {
   onDecrement: () => void;
   onPress: () => void;
   testID?: string;
+  /** When true, buttons are disabled and a loading indicator is shown (backend sync in progress) */
+  isPending?: boolean;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -31,6 +39,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onDecrement,
   onPress,
   testID,
+  isPending = false,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation('common');
@@ -38,6 +47,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const { isTablet } = useDeviceType();
 
   const isInCart = quantityInCart > 0;
+  const productName = getTranslatedItemName(item);
+
+  // Quantity button size: meets WCAG 48px minimum
+  const btnSize = isTablet ? 48 : 44;
+  const btnHitSlop = { top: 6, bottom: 6, left: 6, right: 6 };
 
   return (
     <View
@@ -57,6 +71,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <Pressable
         style={styles.pressable}
         onPress={onPress}
+        accessibilityLabel={productName}
+        accessibilityRole="button"
+        accessibilityHint={isInCart ? `${quantityInCart} in cart` : t('picking.add')}
         testID={testID ? `${testID}-pressable` : undefined}
       >
         {/* Product Info */}
@@ -111,7 +128,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             ]}
             numberOfLines={2}
           >
-            {getTranslatedItemName(item)}
+            {productName}
           </Text>
           <Text
             style={[
@@ -128,6 +145,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             {item.defaultQuantity} {item.unit}
           </Text>
+
+          {/* Price display */}
+          {item.price !== undefined && (
+            <View
+              style={[styles.priceRow, { marginTop: theme.spacing.xs }]}
+              testID={testID ? `${testID}-price` : undefined}
+            >
+              <Text
+                style={[
+                  styles.priceText,
+                  {
+                    color: theme.colors.primary,
+                    fontSize: isTablet
+                      ? theme.typography.fontSize.xl
+                      : theme.typography.fontSize.lg,
+                    fontWeight: theme.typography.fontWeight.bold,
+                  },
+                ]}
+              >
+                {formatItemPrice(item.price)}
+              </Text>
+              {item.mrp !== undefined && item.mrp > item.price && (
+                <Text
+                  style={[
+                    styles.mrpText,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: isTablet
+                        ? theme.typography.fontSize.md
+                        : theme.typography.fontSize.sm,
+                    },
+                  ]}
+                  testID={testID ? `${testID}-mrp` : undefined}
+                >
+                  {formatItemPrice(item.mrp)}
+                </Text>
+              )}
+            </View>
+          )}
         </View>
       </Pressable>
 
@@ -157,13 +213,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 styles.quantityBtn,
                 {
                   backgroundColor: theme.colors.surface,
-                  width: isTablet ? 36 : 32,
-                  height: isTablet ? 36 : 32,
-                  borderRadius: (isTablet ? 36 : 32) / 2,
+                  width: btnSize,
+                  height: btnSize,
+                  borderRadius: btnSize / 2,
+                  opacity: isPending ? 0.5 : 1,
                 },
               ]}
               onPress={onDecrement}
               activeOpacity={0.7}
+              hitSlop={btnHitSlop}
+              disabled={isPending}
+              accessibilityLabel={`Decrease quantity of ${productName}`}
+              accessibilityRole="button"
               testID={testID ? `${testID}-decrement` : undefined}
             >
               <Text
@@ -182,35 +243,51 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </Text>
             </TouchableOpacity>
 
-            <Text
-              style={[
-                styles.quantityValue,
-                {
-                  color: theme.colors.text,
-                  fontSize: isTablet
-                    ? theme.typography.fontSize.lg
-                    : theme.typography.fontSize.md,
-                  fontWeight: theme.typography.fontWeight.bold,
-                  minWidth: isTablet ? 40 : 32,
-                },
-              ]}
-              testID={testID ? `${testID}-quantity` : undefined}
-            >
-              {quantityInCart}
-            </Text>
+            {isPending ? (
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.text}
+                testID={testID ? `${testID}-loading` : undefined}
+                style={{ minWidth: isTablet ? 40 : 32 }}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.quantityValue,
+                  {
+                    color: theme.colors.text,
+                    fontSize: isTablet
+                      ? theme.typography.fontSize.lg
+                      : theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.bold,
+                    minWidth: isTablet ? 40 : 32,
+                  },
+                ]}
+                accessibilityLabel={`${quantityInCart} in cart`}
+                accessibilityRole="text"
+                testID={testID ? `${testID}-quantity` : undefined}
+              >
+                {quantityInCart}
+              </Text>
+            )}
 
             <TouchableOpacity
               style={[
                 styles.quantityBtn,
                 {
                   backgroundColor: theme.colors.buttonPrimary,
-                  width: isTablet ? 36 : 32,
-                  height: isTablet ? 36 : 32,
-                  borderRadius: (isTablet ? 36 : 32) / 2,
+                  width: btnSize,
+                  height: btnSize,
+                  borderRadius: btnSize / 2,
+                  opacity: isPending ? 0.5 : 1,
                 },
               ]}
               onPress={onIncrement}
               activeOpacity={0.7}
+              hitSlop={btnHitSlop}
+              disabled={isPending}
+              accessibilityLabel={`Increase quantity of ${productName}`}
+              accessibilityRole="button"
               testID={testID ? `${testID}-increment` : undefined}
             >
               <Text
@@ -238,26 +315,38 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 borderRadius: theme.borderRadius.xl,
                 paddingVertical: theme.spacing.sm,
                 paddingHorizontal: theme.spacing.lg,
+                opacity: isPending ? 0.5 : 1,
               },
             ]}
             onPress={onAdd}
             activeOpacity={0.8}
+            disabled={isPending}
+            accessibilityLabel={`Add ${productName} to cart`}
+            accessibilityRole="button"
             testID={testID ? `${testID}-add-button` : undefined}
           >
-            <Text
-              style={[
-                styles.addButtonText,
-                {
-                  color: theme.colors.buttonPrimaryText,
-                  fontSize: isTablet
-                    ? theme.typography.fontSize.lg
-                    : theme.typography.fontSize.md,
-                  fontWeight: theme.typography.fontWeight.semibold,
-                },
-              ]}
-            >
-              {t('picking.add')}
-            </Text>
+            {isPending ? (
+              <ActivityIndicator
+                size="small"
+                color={theme.colors.buttonPrimaryText}
+                testID={testID ? `${testID}-loading` : undefined}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.addButtonText,
+                  {
+                    color: theme.colors.buttonPrimaryText,
+                    fontSize: isTablet
+                      ? theme.typography.fontSize.lg
+                      : theme.typography.fontSize.md,
+                    fontWeight: theme.typography.fontWeight.semibold,
+                  },
+                ]}
+              >
+                {t('picking.add')}
+              </Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
@@ -300,6 +389,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButtonText: {},
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  priceText: {},
+  mrpText: {
+    textDecorationLine: 'line-through',
+    opacity: 0.7,
+  },
 });
 
 export default ProductCard;

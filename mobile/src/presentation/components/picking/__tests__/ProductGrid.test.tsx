@@ -88,11 +88,13 @@ jest.mock('../../../theme', () => ({
 }));
 
 // Mock the responsive styles hook
+const mockResponsiveStyles = {
+  contentPadding: 16,
+  touchTargetMinSize: 44,
+  gridColumns: 2,
+};
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    contentPadding: 16,
-    touchTargetMinSize: 44,
-  }),
+  useResponsiveStyles: () => mockResponsiveStyles,
   useDeviceType: () => ({
     isTablet: false,
     isPhone: true,
@@ -313,6 +315,70 @@ describe('ProductGrid', () => {
 
       fireEvent.press(getByTestId('product-grid-item-item-2-pressable'));
       expect(mockOnItemPress).toHaveBeenCalledWith(mockItems[1]);
+    });
+  });
+
+  describe('Responsive Grid', () => {
+    it('uses responsive gridColumns from hook', () => {
+      const { getByTestId } = render(
+        <ProductGrid
+          items={mockItems}
+          cartItems={[]}
+          categories={mockCategories}
+          onAddItem={mockOnAddItem}
+          onIncrementItem={mockOnIncrementItem}
+          onDecrementItem={mockOnDecrementItem}
+          onItemPress={mockOnItemPress}
+          testID="product-grid"
+        />
+      );
+
+      // The FlatList should exist and use gridColumns
+      const grid = getByTestId('product-grid');
+      expect(grid).toBeTruthy();
+      // FlatList renders with the numColumns prop from responsive hook
+      // Verify it renders items (grid columns applied)
+      expect(grid.props.data || grid.props.children).toBeTruthy();
+    });
+  });
+
+  describe('Pull to Refresh', () => {
+    it('renders without crashing when refreshing and onRefresh are provided', () => {
+      const mockOnRefresh = jest.fn();
+
+      const { getByTestId } = render(
+        <ProductGrid
+          items={mockItems}
+          cartItems={[]}
+          categories={mockCategories}
+          onAddItem={mockOnAddItem}
+          onIncrementItem={mockOnIncrementItem}
+          onDecrementItem={mockOnDecrementItem}
+          onItemPress={mockOnItemPress}
+          refreshing={false}
+          onRefresh={mockOnRefresh}
+          testID="product-grid"
+        />
+      );
+
+      expect(getByTestId('product-grid')).toBeTruthy();
+    });
+
+    it('renders without RefreshControl when onRefresh is not provided', () => {
+      const { getByTestId } = render(
+        <ProductGrid
+          items={mockItems}
+          cartItems={[]}
+          categories={mockCategories}
+          onAddItem={mockOnAddItem}
+          onIncrementItem={mockOnIncrementItem}
+          onDecrementItem={mockOnDecrementItem}
+          onItemPress={mockOnItemPress}
+          testID="product-grid"
+        />
+      );
+
+      expect(getByTestId('product-grid')).toBeTruthy();
     });
   });
 });

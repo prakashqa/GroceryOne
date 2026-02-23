@@ -45,6 +45,9 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
           ]}
           onPress={() => onCategorySelect(item.id)}
           activeOpacity={0.7}
+          accessibilityLabel={categoryName}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: isSelected }}
           testID={testID ? `${testID}-item-${item.id}` : undefined}
         >
           <View
@@ -99,6 +102,16 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
           >
             {displayName}
           </Text>
+          {/* Selected indicator pill */}
+          <View
+            style={[
+              styles.selectedIndicator,
+              {
+                backgroundColor: isSelected ? theme.colors.primary : 'transparent',
+                marginTop: theme.spacing.xs / 2,
+              },
+            ]}
+          />
         </TouchableOpacity>
       );
     },
@@ -148,6 +161,12 @@ const styles = StyleSheet.create({
   categoryName: {
     textAlign: 'center',
     maxWidth: 70,
+  },
+  selectedIndicator: {
+    height: 3,
+    width: 20,
+    borderRadius: 2,
+    alignSelf: 'center',
   },
 });
 

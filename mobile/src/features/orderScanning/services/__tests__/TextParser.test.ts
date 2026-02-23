@@ -758,4 +758,76 @@ describe('TextParser', () => {
       expect(results[1].itemName).toBe('Sugar');
     });
   });
+
+  // ===========================================================================
+  // Two-Column Format Parsing (OCR alternating lines)
+  // Bug fix: handwritten lists with item name on left, quantity on right are
+  // OCR'd as alternating lines. The quantity-only line must be paired with the
+  // preceding item instead of being filtered out by isNonItemLine().
+  // ===========================================================================
+  describe('two-column format parsing (OCR alternating lines)', () => {
+    it('should pair quantity-only line with preceding item (Telugu item, English Kg)', () => {
+      const lines = ['కందిపప్పు', '2 Kg'];
+      const result = parser.parseLines(lines, 'te');
+      expect(result).toHaveLength(1);
+      expect(result[0].itemName).toBe('కందిపప్పు');
+      expect(result[0].quantity).toBe(2);
+      expect(result[0].unit).toBe('kg');
+    });
+
+    it('should handle full two-column Telugu list (6 items with quantities)', () => {
+      const lines = [
+        'కందిపప్పు', '2 Kg',
+        'పెసరపప్పు', '3 Kg',
+        'శెనగపప్పు', '2 Kg',
+        'మిరియాలు', '1 Kg',
+        'ధనియాలు', '1 Kg',
+        'జీల కర్ర', '1 Kg',
+      ];
+      const result = parser.parseLines(lines, 'te');
+      expect(result).toHaveLength(6);
+      expect(result[0]).toMatchObject({ quantity: 2, unit: 'kg' });
+      expect(result[1]).toMatchObject({ quantity: 3, unit: 'kg' });
+      expect(result[2]).toMatchObject({ quantity: 2, unit: 'kg' });
+      expect(result[3]).toMatchObject({ quantity: 1, unit: 'kg' });
+      expect(result[4]).toMatchObject({ quantity: 1, unit: 'kg' });
+      expect(result[5]).toMatchObject({ quantity: 1, unit: 'kg' });
+    });
+
+    it('should pair quantity-only line in English two-column list', () => {
+      const lines = ['Atta', '5 kg', 'Sugar', '500 gm', 'Oil', '1 L'];
+      const result = parser.parseLines(lines, 'en');
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({ itemName: 'Atta', quantity: 5, unit: 'kg' });
+      expect(result[1]).toMatchObject({ itemName: 'Sugar', quantity: 500, unit: 'gm' });
+      expect(result[2]).toMatchObject({ itemName: 'Oil', quantity: 1, unit: 'L' });
+    });
+
+    it('should NOT overwrite existing quantity with a trailing quantity-only line', () => {
+      // "Atta 5 kg" already has quantity; "3 kg" on next line should be discarded
+      const lines = ['Atta 5 kg', '3 kg'];
+      const result = parser.parseLines(lines, 'en');
+      expect(result).toHaveLength(1);
+      expect(result[0].quantity).toBe(5); // Original quantity preserved
+    });
+
+    it('should discard quantity-only line that has no preceding item to pair with', () => {
+      // Quantity appears before any item line — orphan, discard it
+      const lines = ['2 Kg', 'కందిపప్పు'];
+      const result = parser.parseLines(lines, 'te');
+      expect(result).toHaveLength(1);
+      expect(result[0].itemName).toBe('కందిపప్పు');
+      expect(result[0].quantity).toBeNull();
+    });
+
+    it('should handle mixed inline and two-column quantities in the same list', () => {
+      // "Atta 5 kg" inline, "Sugar" with "500 gm" on next line, "Oil 1 L" inline
+      const lines = ['Atta 5 kg', 'Sugar', '500 gm', 'Oil 1 L'];
+      const result = parser.parseLines(lines, 'en');
+      expect(result).toHaveLength(3);
+      expect(result[0]).toMatchObject({ itemName: 'Atta', quantity: 5, unit: 'kg' });
+      expect(result[1]).toMatchObject({ itemName: 'Sugar', quantity: 500, unit: 'gm' });
+      expect(result[2]).toMatchObject({ itemName: 'Oil', quantity: 1, unit: 'L' });
+    });
+  });
 });

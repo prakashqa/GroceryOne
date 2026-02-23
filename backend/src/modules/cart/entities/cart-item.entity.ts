@@ -21,6 +21,10 @@ export class CartItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  @Index()
+  tenantId?: string;
+
   @Column({ name: 'cart_id', type: 'uuid' })
   cartId: string;
 

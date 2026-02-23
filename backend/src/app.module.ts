@@ -43,7 +43,7 @@ import configuration from './core/config/configuration';
         database: configService.get<string>('database.name'),
         schema: 'public',
         autoLoadEntities: true,
-        synchronize: configService.get<string>('NODE_ENV') === 'development',
+        synchronize: ['development', 'test'].includes(configService.get<string>('NODE_ENV') || ''),
         logging: configService.get<string>('NODE_ENV') === 'development',
         ssl: configService.get<boolean>('database.ssl')
           ? { rejectUnauthorized: false }

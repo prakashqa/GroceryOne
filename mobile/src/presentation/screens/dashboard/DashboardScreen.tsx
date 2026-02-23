@@ -37,7 +37,7 @@ import {
   selectActiveCartCategoryCount,
   selectActiveCartTotalQuantity,
   selectActiveCartGrandTotal,
-  selectTodaysCarts,
+  selectCartsSortedByDate,
   selectAllCarts,
   createCart,
   setActiveCart,
@@ -158,13 +158,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   const activeCartCategoryCount = useSelector(selectActiveCartCategoryCount);
   const activeCartQuantity = useSelector(selectActiveCartTotalQuantity);
   const activeCartTotal = useSelector(selectActiveCartGrandTotal);
-  const todaysCartsUnsorted = useSelector(selectTodaysCarts);
-  const recentCarts = useMemo(() =>
-    [...todaysCartsUnsorted].sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    ),
-    [todaysCartsUnsorted]
-  );
+  const allSortedCarts = useSelector(selectCartsSortedByDate);
+  const recentCarts = useMemo(() => allSortedCarts.slice(0, 10), [allSortedCarts]);
   const allCarts = useSelector(selectAllCarts);
 
   // Derive user role display string for header
@@ -374,7 +369,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
           </Text>
           {/* On tablets, show all 4 cards in a single row; on phones, 2 rows of 2 */}
           {isTablet ? (
-            <View style={[[styles.summaryCardsRow, { gap: theme.spacing.smd, marginBottom: theme.spacing.smd }], { gap: responsiveStyles.gridGap }]}>
+            <View style={[styles.summaryCardsRow, { gap: responsiveStyles.gridGap, marginBottom: theme.spacing.smd }]}>
               <SummaryCard
                 title={t('dashboard.cartsCreated')}
                 value={todaysMetrics.cartsCreated}
@@ -520,6 +515,11 @@ const styles = StyleSheet.create({
   },
   summaryCardsRow: {
     flexDirection: 'row',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 12,
   },
 });
 

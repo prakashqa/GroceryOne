@@ -1,10 +1,10 @@
 /**
  * ProductGrid Component
- * 2-column grid container for product cards on the picking screen
+ * Responsive column grid container for product cards on the picking screen
  */
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
@@ -20,6 +20,10 @@ interface ProductGridProps {
   onDecrementItem: (itemId: string) => void;
   onItemPress: (item: Item) => void;
   hasCartItems?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
+  /** Map of itemId → pending status for showing loading spinners */
+  pendingItems?: Record<string, string>;
   testID?: string;
 }
 
@@ -32,12 +36,17 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   onDecrementItem,
   onItemPress,
   hasCartItems = false,
+  refreshing = false,
+  onRefresh,
+  pendingItems = {},
   testID,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
+
+  const numColumns = responsiveStyles.gridColumns || 2;
 
   const getItemQuantityInCart = useCallback(
     (itemId: string): number => {
@@ -69,6 +78,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
           onIncrement={() => onIncrementItem(item.id)}
           onDecrement={() => onDecrementItem(item.id)}
           onPress={() => onItemPress(item)}
+          isPending={!!pendingItems[item.id]}
           testID={testID ? `${testID}-item-${item.id}` : undefined}
         />
       );
@@ -80,6 +90,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       onIncrementItem,
       onDecrementItem,
       onItemPress,
+      pendingItems,
       testID,
     ]
   );
@@ -128,10 +139,11 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   return (
     <FlatList
+      key={`grid-${numColumns}`}
       data={items}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
-      numColumns={2}
+      numColumns={numColumns}
       contentContainerStyle={[
         styles.listContent,
         {
@@ -143,6 +155,16 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       ListEmptyComponent={renderEmptyState}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        ) : undefined
+      }
       testID={testID}
     />
   );

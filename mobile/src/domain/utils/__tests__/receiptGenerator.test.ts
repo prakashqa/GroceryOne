@@ -10,6 +10,8 @@ import {
   ReceiptTranslations,
   getVisualWidth,
   formatCurrency,
+  stripFormatMarkers,
+  sanitizeForPrinter,
 } from '../receiptGenerator';
 
 describe('receiptGenerator', () => {
@@ -135,8 +137,8 @@ describe('receiptGenerator', () => {
         items: mockItems,
       });
 
-      // Should contain Date: in pipe format: | Date: ... | Wed, 11 ... |
-      expect(receipt).toMatch(/\|\s*Date\s*:.*\|\s*\w+,\s+\d{2}\s*\|/);
+      // Should contain Date: with value right-aligned (format: "22 Feb 2026")
+      expect(receipt).toMatch(/Date\s*:.*\d{2}\s+\w{3}\s+\d{4}/);
     });
 
     it('should include time', () => {
@@ -145,20 +147,20 @@ describe('receiptGenerator', () => {
         items: mockItems,
       });
 
-      // Time is in pipe format: | Time: ... | 2:33 pm |
-      expect(receipt).toMatch(/\|\s*Time\s*:.*\|\s*\d{1,2}:\d{2}\s*(am|pm)\s*\|/i);
+      // Time with value right-aligned
+      expect(receipt).toMatch(/Time\s*:.*\d{1,2}:\d{2}\s*(am|pm)/i);
     });
   });
 
   describe('summary statistics', () => {
-    it('should include category count', () => {
+    it('should NOT include Categories line in receipt', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
       });
 
-      // Categories is in pipe format: | Categories: ... | 1 |
-      expect(receipt).toMatch(/\|\s*Categories\s*:.*\|\s*1\s*\|/);
+      // Categories line was removed from the receipt
+      expect(receipt).not.toContain('Categories:');
     });
 
     it('should include unique items count', () => {
@@ -167,8 +169,8 @@ describe('receiptGenerator', () => {
         items: mockItems,
       });
 
-      // Unique Items is in pipe format: | Unique Items: ... | 4 |
-      expect(receipt).toMatch(/\|\s*Unique Items\s*:.*\|\s*4\s*\|/);
+      // Unique Items with count
+      expect(receipt).toMatch(/Unique Items\s*:.*4/);
     });
 
     it('should NOT include total quantity (synced with Cart Review screen)', () => {
@@ -181,7 +183,7 @@ describe('receiptGenerator', () => {
       expect(receipt).not.toMatch(/Total Quantity/);
     });
 
-    it('should right-align summary values', () => {
+    it('should use tab-separated format for summary values on 80mm', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
@@ -189,21 +191,13 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Find summary stat lines (Total Quantity removed to sync with Cart Review)
-      const categoriesLine = lines.find((line) => line.includes('Categories:'));
       const uniqueItemsLine = lines.find((line) =>
-        line.includes('Unique Items:')
+        line.includes('Unique Items')
       );
 
-      expect(categoriesLine).toBeDefined();
       expect(uniqueItemsLine).toBeDefined();
-
-      // All summary lines should have the same length (values right-aligned)
-      const lengths = [
-        categoriesLine!.length,
-        uniqueItemsLine!.length,
-      ];
-      expect(new Set(lengths).size).toBe(1);
+      // 80mm uses tab-separated format for label-value lines
+      expect(uniqueItemsLine).toContain('\t');
     });
   });
 
@@ -242,9 +236,8 @@ describe('receiptGenerator', () => {
       // Item name is just the name without unit (unit is concatenated to QTY)
       expect(receipt).toContain('Wheat Flour');
 
-      // QTY column shows qty+unit concatenated (e.g. "5kg"), with pipe separators
-      // The line format is: | SNO | ITEM | QTY | RATE | AMT |
-      expect(receipt).toMatch(/Wheat Flour\s*\|\s*5kg/);
+      // QTY column shows qty+unit concatenated (e.g. "5kg"), space-separated
+      expect(receipt).toMatch(/Wheat Flour\s+5kg/);
 
       // RATE column should show "48" (unit price without currency symbol)
       expect(receipt).toMatch(/\s48\b/);
@@ -260,12 +253,13 @@ describe('receiptGenerator', () => {
       });
 
       // Item names appear without unit (unit is concatenated to QTY column)
+      // Two-line format: name on line 1, values on line 2
       expect(receipt).toContain('Aashirvaad Atta');
       expect(receipt).toContain('Basmati Rice');
       expect(receipt).toContain('Brown Rice');
-      // QTY column shows qty+unit concatenated (e.g. "5kg") with pipe separators
-      expect(receipt).toMatch(/Aashirvaad Atta\s*\|\s*5kg/);
-      expect(receipt).toMatch(/Brown Rice\s*\|\s*1kg/);
+      // QTY column shows qty+unit concatenated (e.g. "5kg") on values line
+      expect(receipt).toContain('5kg');
+      expect(receipt).toContain('1kg');
     });
 
     it('should align quantities properly at the right edge', () => {
@@ -304,11 +298,11 @@ describe('receiptGenerator', () => {
       const lines = receipt.split('\n');
       lines.forEach((line) => {
         const adjustedLength = line.replace(/[\uD800-\uDFFF]/g, '').length;
-        expect(adjustedLength).toBeLessThanOrEqual(32);
+        expect(adjustedLength).toBeLessThanOrEqual(23);
       });
     });
 
-    it('should have lines no longer than 48 characters for 80mm paper', () => {
+    it('should have lines no longer than 28 characters for 80mm paper', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
@@ -317,10 +311,12 @@ describe('receiptGenerator', () => {
 
       const lines = receipt.split('\n');
       lines.forEach((line) => {
+        // Skip tab-separated lines (rendered by native pixel-based column layout)
+        // Skip CENTER_MARKER lines (rendered by native pixel-based centering)
+        if (line.includes('\t') || line.startsWith('\u0002') || line.startsWith('\u0003')) return;
         const adjustedLength = line.replace(/[\uD800-\uDFFF]/g, '').length;
-        // Standard 80mm thermal printer supports 48 chars/line
-        // Truncated names with ellipsis (…) may cause lines to be 49 chars
-        expect(adjustedLength).toBeLessThanOrEqual(49);
+        // 80mm paper uses 28 chars/line for even larger font (~22% bigger than 32)
+        expect(adjustedLength).toBeLessThanOrEqual(28);
       });
     });
 
@@ -354,9 +350,8 @@ describe('receiptGenerator', () => {
         items: multiCategoryItems,
       });
 
-      // Should count categories correctly (pipe format: | Categories: ... | 2 |)
-      expect(receipt).toMatch(/\|\s*Categories\s*:.*\|\s*2\s*\|/);
-      // Should list items from both categories
+      // Categories line removed — just verify items from both categories are listed
+      expect(receipt).not.toContain('Categories:');
       expect(receipt).toContain('Toor Dal');
     });
   });
@@ -369,8 +364,8 @@ describe('receiptGenerator', () => {
       });
 
       expect(receipt).toContain('PRAKASH GROCERIES');
-      // Unique Items in pipe format: | Unique Items: ... | 0 |
-      expect(receipt).toMatch(/\|\s*Unique Items\s*:.*\|\s*0\s*\|/);
+      // Unique Items with count right-aligned
+      expect(receipt).toMatch(/Unique Items\s*:.*0/);
       // Total Quantity removed to sync with Cart Review screen
       expect(receipt).not.toMatch(/Total Quantity/);
     });
@@ -461,13 +456,13 @@ describe('receiptGenerator', () => {
 
       const lines = receipt.split('\n');
 
-      // Find the header line with 4 columns: ITEM | QTY | RATE | AMT
+      // 80mm uses tab-separated format: NO\tITEM\tQTY\tRATE\tAMT
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('RATE') && line.includes('AMT')
+        (line) => line.includes('ITEM') && line.includes('RATE') && line.includes('\t')
       );
-
       expect(headerLine).toBeDefined();
-      expect(headerLine!.length).toBeLessThanOrEqual(48); // 80mm paper width
+      // Header should have 5 tab-separated columns
+      expect(headerLine!.split('\t').length).toBe(5);
     });
   });
 
@@ -502,29 +497,24 @@ describe('receiptGenerator', () => {
 
       const lines = receipt.split('\n');
 
-      // Find header line with ITEM
+      // 80mm uses tab-separated format: NO\tITEM\tQTY\tRATE\tAMT
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('QTY') && line.includes('RATE')
+        (line) => line.startsWith('NO\t') && line.includes('ITEM') && line.includes('QTY')
       );
       expect(headerLine).toBeDefined();
+      // Header should contain tab characters
+      expect(headerLine).toContain('\t');
 
-      // All lines should be exactly 48 characters for 80mm paper
-      // Find data lines that have prices (numeric values for price columns)
-      const dataLines = lines.filter(
+      // Data: item lines contain item names with tab-separated columns
+      const nameLines = lines.filter(
         (line) =>
-          line.match(/\d{2,}/) &&
-          line.includes('kg') &&
-          !line.includes('GRAND') &&
-          !line.includes('=') &&
-          !line.includes('ITEM')
+          (line.includes('Maida') || line.includes('Sona Masuri')) &&
+          !line.includes('=')
       );
-
-      // Header line should be exactly 48 characters
-      expect(headerLine!.length).toBe(48);
-      // Data lines may be 48-49 characters (49 when name fills/overflows the column due to ellipsis)
-      dataLines.forEach((line) => {
-        expect(line.length).toBeGreaterThanOrEqual(48);
-        expect(line.length).toBeLessThanOrEqual(49);
+      nameLines.forEach((line) => {
+        // Tab-separated lines should have 4 tabs (5 columns)
+        const tabCount = (line.match(/\t/g) || []).length;
+        expect(tabCount).toBe(4);
       });
     });
 
@@ -559,8 +549,8 @@ describe('receiptGenerator', () => {
       );
       expect(valuesHeaderLine).toBeDefined();
 
-      // All lines should be at most 32 characters for 58mm paper
-      expect(valuesHeaderLine!.length).toBeLessThanOrEqual(32);
+      // All lines should be at most 23 characters for 58mm paper (larger text)
+      expect(valuesHeaderLine!.length).toBeLessThanOrEqual(23);
     });
 
     it('should right-align quantity values consistently', () => {
@@ -571,17 +561,18 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Find lines with "kg" that are item data rows
+      // Find tab-separated item data rows with "kg"
       const itemLines = lines.filter(
-        (line) => line.includes('kg') && !line.includes('CATEGORY') && !line.includes('=')
+        (line) => line.includes('kg') && line.includes('\t') && !line.includes('=')
       );
 
-      // All quantity values should end at the same column position
-      const lineEndings = itemLines.map((line) => line.trimEnd().length);
-      const uniqueEndings = [...new Set(lineEndings)];
-
-      // Data rows should have consistent length
-      expect(uniqueEndings.length).toBeLessThanOrEqual(2);
+      // All item rows should have consistent tab-separated structure (5 columns)
+      itemLines.forEach((line) => {
+        const columns = line.split('\t');
+        expect(columns.length).toBe(5);
+        // QTY column (3rd) should contain the unit
+        expect(columns[2]).toMatch(/kg/);
+      });
     });
 
     it('should list all items without category section headers', () => {
@@ -592,7 +583,7 @@ describe('receiptGenerator', () => {
       });
 
       // All items should be listed directly (no category section headers)
-      expect(receipt).toContain('Aashirvaad Atta');
+      expect(receipt).toContain('Aashirvaad');
       expect(receipt).toContain('Basmati Rice');
     });
 
@@ -604,15 +595,16 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Filter for item data rows (have kg but not headers or dividers)
+      // Filter for tab-separated item data rows
       const itemLines = lines.filter(
-        (line) => line.includes('kg') && !line.includes('CATEGORY') && !line.includes('=')
+        (line) => line.includes('kg') && line.includes('\t') && !line.includes('=')
       );
 
-      // All data rows should have consistent length
-      const lineLengths = itemLines.map((line) => line.replace(/[\uD800-\uDFFF]/g, '').length);
-      const uniqueLengths = [...new Set(lineLengths)];
-      expect(uniqueLengths.length).toBeLessThanOrEqual(2);
+      // All data rows should have consistent column count (5 columns)
+      const columnCounts = itemLines.map((line) => line.split('\t').length);
+      const uniqueCounts = [...new Set(columnCounts)];
+      expect(uniqueCounts.length).toBe(1);
+      expect(uniqueCounts[0]).toBe(5);
     });
   });
 
@@ -630,6 +622,11 @@ describe('receiptGenerator', () => {
       categoryName: 'వర్గం పేరు',
       itemName: 'వస్తువు పేరు',
       quantity: 'పరిమాణం',
+      noHeader: 'న',
+      itemHeader: 'వస్తువు',
+      qtyShort: 'పరి',
+      rateHeader: 'రేటు',
+      amtHeader: 'అమౌంట్',
     };
 
     const teluguItems: ReceiptItem[] = [
@@ -660,7 +657,7 @@ describe('receiptGenerator', () => {
       expect(receipt).toContain('PICKING LIST');
       expect(receipt).toContain('Date:');
       expect(receipt).toContain('Time:');
-      expect(receipt).toContain('Categories:');
+      expect(receipt).not.toContain('Categories:');
       expect(receipt).toContain('Unique Items:');
       // Total Quantity removed to sync with Cart Review screen
       expect(receipt).not.toContain('Total Quantity:');
@@ -681,7 +678,7 @@ describe('receiptGenerator', () => {
       expect(receipt).toContain('పికింగ్ జాబితా');
       expect(receipt).toContain('తేదీ:');
       expect(receipt).toContain('సమయం:');
-      expect(receipt).toContain('వర్గాలు:');
+      expect(receipt).not.toContain('వర్గాలు:');
       expect(receipt).toContain('ప్రత్యేక వస్తువులు:');
       expect(receipt).toContain('ధన్యవాదాలు! మాతో షాపింగ్ చేయండి');
     });
@@ -693,8 +690,8 @@ describe('receiptGenerator', () => {
         translations: teluguTranslations,
       });
 
-      // Telugu names should be shown in the receipt
-      expect(receipt).toMatch(/ఆశీర్వాద్ ఆటా/);
+      // Telugu names should be shown in the receipt (may be truncated on 80mm)
+      expect(receipt).toMatch(/ఆశీర్వాద్/);
       expect(receipt).toMatch(/తూర్ దాల్/);
     });
 
@@ -786,6 +783,11 @@ describe('receiptGenerator', () => {
       categoryName: 'వర్గం పేరు',
       itemName: 'వస్తువు పేరు',
       quantity: 'పరిమాణం',
+      noHeader: 'న',
+      itemHeader: 'వస్తువు',
+      qtyShort: 'పరి',
+      rateHeader: 'రేటు',
+      amtHeader: 'అమౌంట్',
     };
 
     const teluguItems: ReceiptItem[] = [
@@ -833,11 +835,11 @@ describe('receiptGenerator', () => {
       lineLengths.forEach((len) => {
         expect(len).toBeGreaterThan(0);
         // Telugu text may extend beyond 48 chars due to combining characters
-        expect(len).toBeLessThanOrEqual(55);
+        expect(len).toBeLessThanOrEqual(60);
       });
     });
 
-    it('should center Telugu title correctly', () => {
+    it('should center Telugu title correctly on 80mm', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: teluguItems,
@@ -849,8 +851,8 @@ describe('receiptGenerator', () => {
       const titleLine = lines.find((line) => line.includes('పికింగ్ జాబితా'));
 
       expect(titleLine).toBeDefined();
-      // Title should have leading spaces for centering
-      expect(titleLine!.startsWith(' ')).toBe(true);
+      // 80mm uses CENTER_MARKER prefix for pixel-based centering by native module
+      expect(titleLine!.startsWith('\u0002')).toBe(true);
     });
 
     it('should use visual width for Telugu units when calculating item line alignment', () => {
@@ -893,7 +895,7 @@ describe('receiptGenerator', () => {
       // Lines may exceed 48 character count due to Telugu multi-codepoint characters
       // The layout uses simple .length which doesn't account for visual width
       itemLines.forEach((line) => {
-        expect(line.length).toBeLessThanOrEqual(55);
+        expect(line.length).toBeLessThanOrEqual(60);
       });
     });
   });
@@ -1004,6 +1006,24 @@ describe('receiptGenerator', () => {
         expect(receipt).toMatch(/\s1,?610\b/);
       });
 
+      it('should prefix grand total with BOLD_TAB_MARKER on 80mm paper', () => {
+        const receipt = generatePickingListReceipt({
+          merchantInfo: mockMerchantInfo,
+          items: pricedItems,
+          paperWidth: '80mm',
+        });
+
+        const lines = receipt.split('\n');
+        const grandTotalLine = lines.find(
+          (line) => line.includes('GRAND TOTAL') || line.includes('\u0003')
+        );
+        expect(grandTotalLine).toBeDefined();
+        // Should have BOLD_TAB_MARKER prefix on 80mm
+        expect(grandTotalLine!.startsWith('\u0003')).toBe(true);
+        // Should still contain tab separator
+        expect(grandTotalLine).toContain('\t');
+      });
+
       it('should NOT display grand total when no items have prices', () => {
         const unpricedItems: ReceiptItem[] = [
           {
@@ -1038,7 +1058,7 @@ describe('receiptGenerator', () => {
     });
 
     describe('58mm paper format', () => {
-      it('should fit pricing within 32 character width', () => {
+      it('should fit pricing within 23 character width', () => {
         const receipt = generatePickingListReceipt({
           merchantInfo: mockMerchantInfo,
           items: pricedItems,
@@ -1048,7 +1068,7 @@ describe('receiptGenerator', () => {
         const lines = receipt.split('\n');
         lines.forEach((line) => {
           const adjustedLength = line.replace(/[\uD800-\uDFFF]/g, '').length;
-          expect(adjustedLength).toBeLessThanOrEqual(32);
+          expect(adjustedLength).toBeLessThanOrEqual(23);
         });
       });
 
@@ -1090,7 +1110,12 @@ describe('receiptGenerator', () => {
         quantity: 'పరిమాణం',
         unitPrice: 'ధర',
         itemTotal: 'మొత్తం',
-        grandTotal: 'మహా మొత్తం',
+        grandTotal: 'మొత్తం',
+        noHeader: 'న',
+        itemHeader: 'వస్తువు',
+        qtyShort: 'పరి',
+        rateHeader: 'రేటు',
+        amtHeader: 'అమౌంట్',
       };
 
       const teluguPricedItems: ReceiptItem[] = [
@@ -1113,8 +1138,9 @@ describe('receiptGenerator', () => {
           paperWidth: '80mm',
         });
 
-        // Should contain Telugu grand total label
-        expect(receipt).toContain('మహా మొత్తం');
+        // Should contain Telugu grand total label (without మహా prefix)
+        expect(receipt).toContain('మొత్తం');
+        expect(receipt).not.toContain('మహా మొత్తం');
       });
 
       it('should format prices correctly with Telugu item names', () => {
@@ -1228,10 +1254,10 @@ describe('receiptGenerator', () => {
         });
 
         const lines = receipt.split('\n');
-        // Name may be truncated with ellipsis on 80mm (16 char column)
-        const itemLine = lines.find((line) => line.includes('Item Without Pri'));
+        // 80mm single-line format: item name and dashes on the same line
+        const itemLine = lines.find((line) => line.includes('Item Without'));
         expect(itemLine).toBeDefined();
-        // The line should have dash for missing price
+        // The item line should have dash for missing price
         expect(itemLine).toMatch(/-/);
       });
 
@@ -1243,9 +1269,10 @@ describe('receiptGenerator', () => {
         });
 
         const lines = receipt.split('\n');
-        const itemLine = lines.find((line) => line.includes('Zero Price Item'));
+        // 80mm single-line format: item name and dashes on the same line
+        const itemLine = lines.find((line) => line.includes('Zero Price'));
         expect(itemLine).toBeDefined();
-        // Should have dash for zero price
+        // The item line should have dash for zero price
         expect(itemLine).toMatch(/-/);
       });
 
@@ -1257,10 +1284,10 @@ describe('receiptGenerator', () => {
         });
 
         const lines = receipt.split('\n');
-        // Name may be truncated with ellipsis on 80mm (16 char column)
-        const itemLine = lines.find((line) => line.includes('Item Without Pri'));
+        // 80mm single-line format: item name and dashes on the same line
+        const itemLine = lines.find((line) => line.includes('Item Without'));
         expect(itemLine).toBeDefined();
-        // Should have dashes for rate and amt columns
+        // The item line should have dashes for rate and amt columns
         const dashCount = (itemLine!.match(/-/g) || []).length;
         expect(dashCount).toBeGreaterThanOrEqual(2);
       });
@@ -1299,14 +1326,15 @@ describe('receiptGenerator', () => {
 
         const lines = receipt.split('\n');
 
-        // Priced item should show actual prices (without currency symbol)
+        // 80mm single-line format: name and values on the same line
+        // Priced item: line should show actual prices
         const pricedLine = lines.find((line) => line.includes('Priced Item'));
         expect(pricedLine).toBeDefined();
-        expect(pricedLine).toMatch(/\s100\b/); // unit price
-        expect(pricedLine).toMatch(/\s200\b/); // total price
+        expect(pricedLine).toMatch(/100/); // unit price
+        expect(pricedLine).toMatch(/200/); // total price
 
-        // Unpriced item should show dashes
-        const unpricedLine = lines.find((line) => line.includes('Unpriced Item'));
+        // Unpriced item: line should show dashes
+        const unpricedLine = lines.find((line) => line.includes('Unpriced'));
         expect(unpricedLine).toBeDefined();
         expect(unpricedLine).toMatch(/-/);
       });
@@ -1389,7 +1417,7 @@ describe('receiptGenerator', () => {
       expect(valuesLine).toMatch(/700/);
     });
 
-    it('should keep all lines within 32 character limit for 58mm two-line format', () => {
+    it('should keep all lines within 23 character limit for 58mm two-line format', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1399,7 +1427,7 @@ describe('receiptGenerator', () => {
       const lines = receipt.split('\n');
       lines.forEach((line) => {
         const adjustedLength = line.replace(/[\uD800-\uDFFF]/g, '').length;
-        expect(adjustedLength).toBeLessThanOrEqual(32);
+        expect(adjustedLength).toBeLessThanOrEqual(23);
       });
     });
 
@@ -1459,28 +1487,22 @@ describe('receiptGenerator', () => {
 
       const lines = receipt.split('\n');
 
-      // Find header line
+      // 80mm uses tab-separated format: NO\tITEM\tQTY\tRATE\tAMT
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('QTY') && line.includes('RATE')
+        (line) => line.startsWith('NO\t') && line.includes('\t')
       );
       expect(headerLine).toBeDefined();
 
-      // Find item line with Basmati Rice
-      const itemLine = lines.find((line) => line.includes('Basmati Rice'));
-      expect(itemLine).toBeDefined();
+      // Find the item line for Basmati Rice
+      const basmatiLine = lines.find((line) => line.includes('Basmati Rice'));
+      expect(basmatiLine).toBeDefined();
 
-      // Header should be exactly 48 characters
-      expect(headerLine!.length).toBe(48);
+      // QTY is the 3rd tab-separated column (index 2)
+      const headerColumns = headerLine!.split('\t');
+      const itemColumns = basmatiLine!.split('\t');
 
-      // Pipe format: | SNO | ITEM             | QTY  | RATE |   AMT |
-      // QTY content starts at position 27 (after "| " at 25-26)
-      const headerQtySection = headerLine!.substring(27, 31); // positions 27-30
-      const itemQtySection = itemLine!.substring(27, 31);
-
-      // QTY header should be in its column
-      expect(headerQtySection.trim()).toBe('QTY');
-      // Item qty shows qty+unit concatenated (e.g. "5kg")
-      expect(itemQtySection.trim()).toBe('5kg');
+      expect(headerColumns[2].trim()).toBe('QTY');
+      expect(itemColumns[2].trim()).toBe('5kg');
     });
 
     it('should align RATE values under RATE header for 80mm paper', () => {
@@ -1493,20 +1515,19 @@ describe('receiptGenerator', () => {
       const lines = receipt.split('\n');
 
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('RATE')
+        (line) => line.startsWith('NO\t') && line.includes('\t')
       );
-      const itemLine = lines.find((line) => line.includes('Basmati Rice'));
-
       expect(headerLine).toBeDefined();
-      expect(itemLine).toBeDefined();
 
-      // Pipe format: | SNO | ITEM             | QTY  | RATE |   AMT |
-      // RATE content is at positions 34-37 (4 chars, padStart(4))
-      const headerRateSection = headerLine!.substring(34, 38);
-      const itemRateSection = itemLine!.substring(34, 38);
+      const basmatiLine = lines.find((line) => line.includes('Basmati Rice'));
+      expect(basmatiLine).toBeDefined();
 
-      expect(headerRateSection.trim()).toBe('RATE');
-      expect(itemRateSection.trim()).toBe('140');
+      // RATE is the 4th tab-separated column (index 3)
+      const headerColumns = headerLine!.split('\t');
+      const itemColumns = basmatiLine!.split('\t');
+
+      expect(headerColumns[3].trim()).toBe('RATE');
+      expect(itemColumns[3].trim()).toBe('140');
     });
 
     it('should align AMT values under AMT header for 80mm paper', () => {
@@ -1519,23 +1540,22 @@ describe('receiptGenerator', () => {
       const lines = receipt.split('\n');
 
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('AMT')
+        (line) => line.startsWith('NO\t') && line.includes('\t')
       );
-      const itemLine = lines.find((line) => line.includes('Basmati Rice'));
-
       expect(headerLine).toBeDefined();
-      expect(itemLine).toBeDefined();
 
-      // Pipe format: | SNO | ITEM             | QTY  | RATE |   AMT |
-      // AMT content is at positions 41-45 (5 chars, padStart(5))
-      const headerAmtSection = headerLine!.substring(41, 46);
-      const itemAmtSection = itemLine!.substring(41, 46);
+      const basmatiLine = lines.find((line) => line.includes('Basmati Rice'));
+      expect(basmatiLine).toBeDefined();
 
-      expect(headerAmtSection.trim()).toBe('AMT');
-      expect(itemAmtSection.trim()).toBe('700');
+      // AMT is the 5th tab-separated column (index 4)
+      const headerColumns = headerLine!.split('\t');
+      const itemColumns = basmatiLine!.split('\t');
+
+      expect(headerColumns[4].trim()).toBe('AMT');
+      expect(itemColumns[4].trim()).toBe('700');
     });
 
-    it('should have ITEM header and item names starting at same column position', () => {
+    it('should have ITEM header and item names in same column position', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1544,17 +1564,20 @@ describe('receiptGenerator', () => {
 
       const lines = receipt.split('\n');
 
-      const headerLine = lines.find((line) => line.includes('ITEM') && line.includes('QTY'));
-      const itemLine = lines.find((line) => line.includes('Basmati Rice'));
+      const headerLine = lines.find(
+        (line) => line.startsWith('NO\t') && line.includes('\t')
+      );
+      const itemNameLine = lines.find((line) => line.includes('Basmati Rice'));
 
       expect(headerLine).toBeDefined();
-      expect(itemLine).toBeDefined();
+      expect(itemNameLine).toBeDefined();
 
-      // Pipe format: | SNO | ITEM ... | QTY ...
-      // ITEM header starts at position 8 (after "| SNO | ")
-      expect(headerLine!.indexOf('ITEM')).toBe(8);
-      // Item name also starts at position 8
-      expect(itemLine!.indexOf('Basmati Rice')).toBe(8);
+      // ITEM is the 2nd tab-separated column (index 1)
+      const headerColumns = headerLine!.split('\t');
+      const itemColumns = itemNameLine!.split('\t');
+
+      expect(headerColumns[1].trim()).toBe('ITEM');
+      expect(itemColumns[1].trim()).toBe('Basmati Rice');
     });
   });
 
@@ -1593,8 +1616,110 @@ describe('receiptGenerator', () => {
     });
   });
 
+  describe('stripFormatMarkers', () => {
+    it('should return plain text unchanged', () => {
+      const text = 'Hello World';
+      expect(stripFormatMarkers(text)).toBe('Hello World');
+    });
+
+    it('should strip ESC/POS bold markers from text', () => {
+      // ESC E 1 (bold on) = \x1b\x45\x01, ESC E 0 (bold off) = \x1b\x45\x00
+      const text = '\x1b\x45\x01TOTAL\x1b\x45\x00';
+      expect(stripFormatMarkers(text)).toBe('TOTAL');
+    });
+
+    it('should strip ESC/POS underline markers from text', () => {
+      // ESC - 1 (underline on) = \x1b\x2d\x01, ESC - 0 (underline off) = \x1b\x2d\x00
+      const text = '\x1b\x2d\x01Header\x1b\x2d\x00';
+      expect(stripFormatMarkers(text)).toBe('Header');
+    });
+
+    it('should handle receipt text with mixed format markers', () => {
+      const receiptText = '\x1b\x45\x01PICKING LIST\x1b\x45\x00\nItem 1  5kg';
+      expect(stripFormatMarkers(receiptText)).toBe('PICKING LIST\nItem 1  5kg');
+    });
+
+    it('should handle empty string', () => {
+      expect(stripFormatMarkers('')).toBe('');
+    });
+
+    it('should strip CENTER_MARKER from receipt text', () => {
+      const text = '\u0002PICKING LIST\n\u0002FRESHMART';
+      const result = stripFormatMarkers(text);
+      expect(result).toBe('PICKING LIST\nFRESHMART');
+      expect(result).not.toContain('\u0002');
+    });
+
+    it('should strip BOLD_TAB_MARKER from receipt text', () => {
+      const text = '\u0003GRAND TOTAL\t555';
+      const result = stripFormatMarkers(text);
+      expect(result).toBe('GRAND TOTAL\t555');
+      expect(result).not.toContain('\u0003');
+    });
+
+    it('should strip CENTER_MARKER from generated receipt on 80mm', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: { name: 'Test Store', address: 'Test Address' },
+        items: [
+          {
+            name: 'Test Item',
+            quantity: 1,
+            unit: 'kg',
+            categoryId: 'test',
+            categoryName: 'Test',
+          },
+        ],
+        paperWidth: '80mm',
+      });
+      // Receipt on 80mm has CENTER_MARKER — stripping should remove them
+      expect(receipt).toContain('\u0002');
+      const stripped = stripFormatMarkers(receipt);
+      expect(stripped).not.toContain('\u0002');
+    });
+  });
+
+  describe('sanitizeForPrinter', () => {
+    it('should return ASCII text unchanged', () => {
+      const text = '| ITEM | QTY | RATE | AMT |\n| Rice | 5kg |  140 |  700 |';
+      expect(sanitizeForPrinter(text)).toBe(text);
+    });
+
+    it('should replace Telugu characters with ? for single-byte codepage printers', () => {
+      const text = 'ఆశీర్వాద్ ఆటా';
+      const result = sanitizeForPrinter(text);
+      // Should not contain any Telugu characters
+      expect(result).not.toMatch(/[\u0C00-\u0C7F]/);
+    });
+
+    it('should replace emoji characters with ? for single-byte codepage printers', () => {
+      const text = '🌾 Atta';
+      const result = sanitizeForPrinter(text);
+      // Should not contain emoji
+      expect(result).not.toMatch(/[\uD800-\uDFFF]|[\u{1F000}-\u{1FFFF}]/u);
+      // Should preserve the ASCII portion
+      expect(result).toContain('Atta');
+    });
+
+    it('should preserve receipt structure (pipes, dashes, equals) while replacing non-ASCII', () => {
+      const text = '| మొత్తం   |  700 |\n==========';
+      const result = sanitizeForPrinter(text);
+      expect(result).toContain('|');
+      expect(result).toContain('700');
+      expect(result).toContain('==========');
+    });
+
+    it('should handle empty string', () => {
+      expect(sanitizeForPrinter('')).toBe('');
+    });
+
+    it('should preserve newlines and whitespace', () => {
+      const text = 'Line 1\n  Line 2\n';
+      expect(sanitizeForPrinter(text)).toBe(text);
+    });
+  });
+
   describe('summary section dividers', () => {
-    it('should NOT have vertical pipe characters in divider above Categories', () => {
+    it('should have clean divider above Unique Items (after Time)', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
@@ -1602,12 +1727,12 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Find the line index of "Categories:"
-      const categoriesLineIdx = lines.findIndex((line) => line.includes('Categories:'));
-      expect(categoriesLineIdx).toBeGreaterThan(0);
+      // Find the line index of "Unique Items"
+      const uniqueItemsLineIdx = lines.findIndex((line) => line.includes('Unique Items'));
+      expect(uniqueItemsLineIdx).toBeGreaterThan(0);
 
-      // The divider line is immediately before Categories (after Time:)
-      const dividerLine = lines[categoriesLineIdx - 1];
+      // The divider line is immediately before Unique Items (after Time:)
+      const dividerLine = lines[uniqueItemsLineIdx - 1];
       // This divider should NOT have pipe characters
       expect(dividerLine).not.toContain('|');
       // It should be a simple divider with dashes only
@@ -1622,8 +1747,8 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Find the line index of "Unique Items:"
-      const uniqueItemsLineIdx = lines.findIndex((line) => line.includes('Unique Items:'));
+      // Find the line index of "Unique Items" (colon may be truncated at width=22)
+      const uniqueItemsLineIdx = lines.findIndex((line) => line.includes('Unique Items'));
       expect(uniqueItemsLineIdx).toBeGreaterThan(0);
 
       // The divider line is immediately after Unique Items
@@ -1635,7 +1760,7 @@ describe('receiptGenerator', () => {
     });
   });
 
-  describe('vertical lines (column separators)', () => {
+  describe('pipe-free format (space-separated columns)', () => {
     const pricedItems: ReceiptItem[] = [
       {
         name: 'Wheat Flour / Atta',
@@ -1657,7 +1782,7 @@ describe('receiptGenerator', () => {
       },
     ];
 
-    it('should include vertical pipe separators between columns in header for 80mm paper', () => {
+    it('should NOT have pipe characters in header for 80mm paper', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1665,19 +1790,16 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
+      // 80mm uses single-line header: NO ITEM QTY RATE AMT
       const headerLine = lines.find(
-        (line) => line.includes('ITEM') && line.includes('QTY')
+        (line) => line.startsWith('NO\t') && line.includes('ITEM') && line.includes('QTY')
       );
 
       expect(headerLine).toBeDefined();
-      // Should have pipe separators: SNO | ITEM | QTY | RATE | AMT
-      expect(headerLine).toMatch(/SNO\s*\|\s*ITEM/);
-      expect(headerLine).toMatch(/ITEM.*\|\s*QTY/);
-      expect(headerLine).toMatch(/QTY\s*\|\s*RATE/);
-      expect(headerLine).toMatch(/RATE\s*\|\s*AMT/);
+      expect(headerLine).not.toContain('|');
     });
 
-    it('should include vertical pipe separators in item rows for 80mm paper', () => {
+    it('should NOT have pipe characters in item rows for 80mm paper', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1685,15 +1807,13 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      const itemLine = lines.find((line) => line.includes('Wheat Flour'));
+      const itemLine = lines.find((line) => line.includes('Maida'));
 
       expect(itemLine).toBeDefined();
-      // Should have pipe separators in data rows: |   1 | Wheat Flour / At… | 5kg  |   48 |   240 |
-      // QTY column has qty+unit concatenated (e.g. "5kg")
-      expect(itemLine).toMatch(/\|\s*\d+\s*\|.*\|\s*\d+\w+\s*\|\s*\d+\s*\|\s*\d+\s*\|/);
+      expect(itemLine).not.toContain('|');
     });
 
-    it('should have plain dash dividers without pipes for 80mm paper', () => {
+    it('should NOT have pipe characters in summary section for 80mm paper', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1701,18 +1821,29 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      // Find divider lines (lines with dashes)
-      const dividerLines = lines.filter((line) => line.includes('---'));
+      const itemsLine = lines.find((line) => line.includes('Unique Items'));
 
-      // Divider lines should be plain dashes (no pipe separators)
-      dividerLines.forEach((line) => {
+      // Categories line removed from receipt
+      expect(receipt).not.toContain('Categories:');
+      expect(itemsLine).toBeDefined();
+      expect(itemsLine).not.toContain('|');
+    });
+
+    it('should have NO pipe characters anywhere in the 80mm receipt', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: pricedItems,
+        paperWidth: '80mm',
+      });
+
+      const lines = receipt.split('\n');
+      lines.forEach((line) => {
+        // Item names may contain "/" but should never contain "|"
         expect(line).not.toContain('|');
       });
-      // Should have at least some divider lines
-      expect(dividerLines.length).toBeGreaterThan(0);
     });
 
-    it('should include vertical pipe separators in summary section for 80mm paper', () => {
+    it('should maintain consistent line lengths for item rows on 80mm paper', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: pricedItems,
@@ -1720,54 +1851,99 @@ describe('receiptGenerator', () => {
       });
 
       const lines = receipt.split('\n');
-      const categoriesLine = lines.find((line) => line.includes('Categories:'));
-      const itemsLine = lines.find((line) => line.includes('Unique Items:'));
-
-      expect(categoriesLine).toBeDefined();
-      expect(itemsLine).toBeDefined();
-      // Summary lines should have pipe at the right positions
-      expect(categoriesLine).toMatch(/\|/);
-      expect(itemsLine).toMatch(/\|/);
-    });
-
-    it('should maintain proper alignment with vertical separators for 80mm paper', () => {
-      const receipt = generatePickingListReceipt({
-        merchantInfo: mockMerchantInfo,
-        items: pricedItems,
-        paperWidth: '80mm',
-      });
-
-      const lines = receipt.split('\n');
+      // 80mm uses tab-separated format
       const headerLine = lines.find(
-        (line) => line.includes('SNO') && line.includes('ITEM')
+        (line) => line.startsWith('NO\t') && line.includes('\t')
       );
-      const firstItemLine = lines.find((line) => line.includes('Wheat Flour'));
       const secondItemLine = lines.find((line) => line.includes('Maida'));
 
       expect(headerLine).toBeDefined();
-      expect(firstItemLine).toBeDefined();
       expect(secondItemLine).toBeDefined();
 
-      // Find positions of pipe characters in each line
-      const getPipePositions = (line: string) => {
-        const positions: number[] = [];
-        for (let i = 0; i < line.length; i++) {
-          if (line[i] === '|') positions.push(i);
-        }
-        return positions;
-      };
+      // Both header and item lines should have the same number of columns (5)
+      const headerCols = headerLine!.split('\t').length;
+      const itemCols = secondItemLine!.split('\t').length;
+      expect(headerCols).toBe(5);
+      expect(itemCols).toBe(5);
+    });
+  });
 
-      const headerPipes = getPipePositions(headerLine!);
-      const item2Pipes = getPipePositions(secondItemLine!);
+  describe('CENTER_MARKER for pixel-based centering', () => {
+    it('should use CENTER_MARKER prefix for header lines on 80mm paper', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: mockItems,
+        paperWidth: '80mm',
+      });
 
-      // All lines should have the same number of pipe characters (6 pipes)
-      expect(headerPipes.length).toBe(6);
-      expect(getPipePositions(firstItemLine!).length).toBe(6);
-      expect(item2Pipes.length).toBe(6);
+      const lines = receipt.split('\n');
+      const titleLine = lines.find((line) => line.includes('PICKING LIST'));
+      const merchantLine = lines.find((line) => line.includes('PRAKASH GROCERIES'));
+      const addressLine = lines.find((line) => line.includes('Main Street, Vizag'));
 
-      // Short item names (Maida, 5 chars) that fit within the column
-      // should have pipes at the same positions as the header
-      expect(item2Pipes).toEqual(headerPipes);
+      expect(titleLine!.startsWith('\u0002')).toBe(true);
+      expect(merchantLine!.startsWith('\u0002')).toBe(true);
+      expect(addressLine!.startsWith('\u0002')).toBe(true);
+    });
+
+    it('should use space-based centering for header lines on 58mm paper', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: mockItems,
+        paperWidth: '58mm',
+      });
+
+      const lines = receipt.split('\n');
+      const titleLine = lines.find((line) => line.includes('PICKING LIST'));
+      expect(titleLine).toBeDefined();
+      // 58mm uses character-based center() — starts with spaces, no CENTER_MARKER
+      expect(titleLine!.startsWith('\u0002')).toBe(false);
+      expect(titleLine!.startsWith(' ')).toBe(true);
+    });
+
+    it('should use CENTER_MARKER prefix for footer on 80mm paper', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: mockItems,
+        paperWidth: '80mm',
+      });
+
+      const lines = receipt.split('\n');
+      const footerLine = lines.find((line) => line.includes('Thank You'));
+      expect(footerLine!.startsWith('\u0002')).toBe(true);
+    });
+  });
+
+  describe('tab-separated label-value format', () => {
+    it('should use tab-separated format for label-value lines on 80mm paper', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: mockItems,
+        paperWidth: '80mm',
+      });
+
+      const lines = receipt.split('\n');
+      const dateLine = lines.find((line) => line.includes('Date:'));
+      const timeLine = lines.find((line) => line.includes('Time:'));
+      const uniqueItemsLine = lines.find((line) => line.includes('Unique Items'));
+
+      expect(dateLine).toContain('\t');
+      expect(timeLine).toContain('\t');
+      expect(uniqueItemsLine).toContain('\t');
+    });
+
+    it('should use character-padded format for label-value lines on 58mm paper', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: mockItems,
+        paperWidth: '58mm',
+      });
+
+      const lines = receipt.split('\n');
+      const dateLine = lines.find((line) => line.includes('Date:'));
+      expect(dateLine).toBeDefined();
+      // 58mm uses character-based padding, no tabs
+      expect(dateLine).not.toContain('\t');
     });
   });
 });

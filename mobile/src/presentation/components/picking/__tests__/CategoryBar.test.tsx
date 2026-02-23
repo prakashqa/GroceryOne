@@ -211,4 +211,51 @@ describe('CategoryBar', () => {
       expect(queryByTestId('category-bar-item-cat-1')).toBeNull();
     });
   });
+
+  describe('Accessibility', () => {
+    it('has accessibility role tab on category items', () => {
+      const { getByTestId } = render(
+        <CategoryBar
+          categories={mockCategories}
+          selectedCategoryId="cat-1"
+          onCategorySelect={mockOnCategorySelect}
+          testID="category-bar"
+        />
+      );
+
+      const categoryItem = getByTestId('category-bar-item-cat-1');
+      expect(categoryItem.props.accessibilityRole).toBe('tab');
+    });
+
+    it('has accessibilityLabel with category name', () => {
+      const { getByTestId } = render(
+        <CategoryBar
+          categories={mockCategories}
+          selectedCategoryId="cat-1"
+          onCategorySelect={mockOnCategorySelect}
+          testID="category-bar"
+        />
+      );
+
+      const categoryItem = getByTestId('category-bar-item-cat-2');
+      expect(categoryItem.props.accessibilityLabel).toBe('Rice');
+    });
+
+    it('has accessibilityState selected for active category', () => {
+      const { getByTestId } = render(
+        <CategoryBar
+          categories={mockCategories}
+          selectedCategoryId="cat-2"
+          onCategorySelect={mockOnCategorySelect}
+          testID="category-bar"
+        />
+      );
+
+      const selectedItem = getByTestId('category-bar-item-cat-2');
+      expect(selectedItem.props.accessibilityState).toEqual({ selected: true });
+
+      const unselectedItem = getByTestId('category-bar-item-cat-1');
+      expect(unselectedItem.props.accessibilityState).toEqual({ selected: false });
+    });
+  });
 });

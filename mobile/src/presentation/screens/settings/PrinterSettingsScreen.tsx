@@ -37,6 +37,7 @@ import {
   setPrinterConnectionStatus,
   setAutoPrint,
   setPaperSize,
+  setImageWidthDots,
   setPrintFormat,
   PrinterConnectionType,
   PaperSize,
@@ -60,6 +61,7 @@ import {
 // Option values - labels and descriptions will be translated at render time
 const connectionTypeValues: PrinterConnectionType[] = ['bluetooth', 'network', 'usb'];
 const paperSizeValues: PaperSize[] = ['80mm', '58mm'];
+const imageWidthValues: number[] = [576, 832];
 const printFormatValues: PrintFormat[] = ['receipt', 'detailed', 'compact'];
 
 const PrinterSettingsScreen: React.FC = () => {
@@ -87,6 +89,14 @@ const PrinterSettingsScreen: React.FC = () => {
     label: t(`settings.printer.paperSize${value}`, value),
     description: t(`settings.printer.paperSize${value}Description`, ''),
   })), [t]);
+
+  const imageWidthOptions = useMemo(() => imageWidthValues.map((value) => ({
+    value,
+    label: value === 576 ? 'Standard (203 DPI) (Recommended)' : 'HD (300 DPI)',
+    description: value === 576
+      ? 'Most thermal printers (recommended)'
+      : 'High-resolution 300 DPI printers only',
+  })), []);
 
   const printFormatOptions = useMemo(() => printFormatValues.map((value) => ({
     value,
@@ -230,6 +240,22 @@ const PrinterSettingsScreen: React.FC = () => {
         try {
           await saveSettings({
             printer: { ...printer, paperSize: value },
+          }, tenant.slug);
+        } catch (error) {
+          console.error('Failed to save printer settings:', error);
+        }
+      }
+    },
+    [dispatch, printer, tenant?.slug]
+  );
+
+  const handleImageWidthSelect = useCallback(
+    async (value: number) => {
+      dispatch(setImageWidthDots(value));
+      if (tenant?.slug) {
+        try {
+          await saveSettings({
+            printer: { ...printer, imageWidthDots: value },
           }, tenant.slug);
         } catch (error) {
           console.error('Failed to save printer settings:', error);
@@ -791,6 +817,18 @@ const PrinterSettingsScreen: React.FC = () => {
                 selectedValue={printer.paperSize}
                 onSelect={handlePaperSizeSelect}
                 testID="paper-size"
+              />
+            </SettingsSection>
+
+            {/* Print Width (DPI) */}
+            <SettingsSection
+              title="Print Width"
+            >
+              <SettingsRadioGroup<number>
+                options={imageWidthOptions}
+                selectedValue={printer.imageWidthDots || 832}
+                onSelect={handleImageWidthSelect}
+                testID="image-width"
               />
             </SettingsSection>
 

@@ -34,3 +34,4 @@ export { SafeAreaWrapper, type SafeAreaWrapperProps, type SafeAreaEdge } from '.
 export { ListItemAnimator, type ListItemAnimatorProps, type AnimationType } from './ListItemAnimator';
 export { HeaderBar, type HeaderBarProps } from './HeaderBar';
 export { FAB, type FABProps } from './FAB';
+export { ErrorBoundary } from './ErrorBoundary';

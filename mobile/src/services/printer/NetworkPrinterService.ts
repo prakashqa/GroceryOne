@@ -74,15 +74,21 @@ const PRINT_TIMEOUT = 30000;
 const MAX_RECONNECT_ATTEMPTS = 3;
 
 /**
- * Format text for printing with proper line endings (thermal/receipt printers)
- * Different printers expect different line ending formats
+ * Format text for printing with ESC/POS commands (thermal/receipt printers)
+ * Prepends ESC @ to reset printer state, normalizes line endings to CRLF,
+ * and appends GS V 1 for partial paper cut.
  */
 const formatPrintText = (text: string): string => {
+  // ESC @ (0x1B 0x40) - Initialize/reset printer to default settings
+  const escInit = '\x1B\x40';
+
   // Normalize line endings to CR+LF (standard for most network printers)
   const normalizedText = text.replace(/\r?\n/g, '\r\n');
 
-  // Add form feed at the end to eject the page
-  return normalizedText + '\r\n\x0C';
+  // GS V 1 (0x1D 0x56 0x01) - Partial paper cut (leaves a small connection)
+  const paperCut = '\x1D\x56\x01';
+
+  return escInit + normalizedText + '\r\n' + paperCut;
 };
 
 /**
@@ -790,6 +796,26 @@ class NetworkPrinterService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * Print a base64-encoded PNG image via network printer.
+   * Falls back to text printing since raw TCP does not natively support
+   * image commands without ESC/POS raster encoding.
+   *
+   * For Telugu and other non-ASCII scripts, prefer using Bluetooth or USB
+   * printers which have native printImageBase64 support.
+   *
+   * @param base64Image Base64-encoded PNG image data (no data URI prefix)
+   * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
+   * @param printerInfo Optional printer info for direct connection
+   */
+  async printImage(base64Image: string, imageWidth: number = 576, printerInfo?: PrinterInfo): Promise<NetworkPrintJob> {
+    // Network printers via raw TCP need ESC/POS raster encoding for images.
+    // For now, send the text content via the standard print path as a fallback.
+    // TODO: Implement ESC/POS GS v 0 raster encoding for proper image printing
+    console.warn('Network printer image mode not yet supported. Using text fallback.');
+    return this.print('[Image print not supported on network printers. Please use Bluetooth.]', printerInfo);
   }
 
   /**

@@ -1,7 +1,7 @@
 /**
  * ManageCartsScreen
  * Screen for managing multiple carts with polished UI
- * Default view shows today's carts with quick filters for Yesterday and date picker
+ * Default view shows all carts with quick filters for Today, Yesterday, and date picker
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -68,8 +68,8 @@ const ManageCartsScreen: React.FC = () => {
   const [isRenameModalVisible, setIsRenameModalVisible] = useState(false);
   const [selectedCartForRename, setSelectedCartForRename] = useState<ManagedCart | null>(null);
 
-  // Date filter state - default to 'today' for faster daily operations
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  // Date filter state - default to 'all' to show complete cart history
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 

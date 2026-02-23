@@ -381,6 +381,46 @@ class BluetoothPrinterService {
   }
 
   /**
+   * Print a base64-encoded image to the connected printer.
+   * Used for receipts containing non-ASCII text (e.g., Telugu) that cannot
+   * be rendered by the printer's built-in single-byte codepage fonts.
+   * The image is pre-rendered on the device where the OS natively renders Telugu.
+   * Reconnects before printing to ensure the native BLE socket is alive.
+   *
+   * @param base64Image Base64-encoded PNG image data (no data URI prefix)
+   * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
+   */
+  async printImage(base64Image: string, imageWidth: number = 576): Promise<PrintJob> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+
+    const job: PrintJob = {
+      id: `print-img-${Date.now()}`,
+      content: '[IMAGE RECEIPT]',
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    this.state.printQueue.push(job);
+    job.status = 'printing';
+
+    try {
+      await this.ensureConnected();
+      await BLEPrinter.printImageBase64(base64Image, {
+        imageWidth: imageWidth,
+      });
+      job.status = 'completed';
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Image print failed';
+    }
+
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
+  }
+
+  /**
    * Get current connection status
    */
   getConnectionStatus(): ConnectionStatus {

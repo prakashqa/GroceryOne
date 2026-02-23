@@ -407,17 +407,25 @@ describe('NetworkPrinterService', () => {
       expect(printJob.status).toBe('completed');
     });
 
-    it('should format thermal printer content with plain text and form feed', async () => {
-      // Test that thermal printer data is plain text with form feed
+    it('should format thermal printer content with ESC/POS init, CRLF, and paper cut', async () => {
       const printer = service.addManualPrinter('192.168.0.50', 9100, 'EPSON TM-T88');
       await service.connect(printer);
 
       const testContent = 'Test line 1\nTest line 2';
       const formatted = service.formatContentForPrinter(testContent, 'EPSON TM-T88');
 
-      // Thermal printers use plain text with CRLF and form feed
-      expect(formatted).toContain('Test line 1\r\nTest line 2'); // CRLF line endings
-      expect(formatted).toContain('\x0C'); // Form feed at end
+      // Should start with ESC @ (printer init/reset)
+      expect(formatted.charCodeAt(0)).toBe(0x1B); // ESC
+      expect(formatted.charCodeAt(1)).toBe(0x40); // @
+
+      // Should contain CRLF line endings
+      expect(formatted).toContain('Test line 1\r\nTest line 2');
+
+      // Should end with GS V 1 (partial paper cut) instead of form feed
+      const lastThree = formatted.slice(-3);
+      expect(lastThree.charCodeAt(0)).toBe(0x1D); // GS
+      expect(lastThree.charCodeAt(1)).toBe(0x56); // V
+      expect(lastThree.charCodeAt(2)).toBe(0x01); // 1 (partial cut)
     });
 
     it('should print to thermal printer using explicit printer info when service state is empty', async () => {
@@ -445,6 +453,37 @@ describe('NetworkPrinterService', () => {
       };
 
       const printJob = await service.print('Test content', printerInfo);
+      expect(printJob.status).toBe('completed');
+    });
+  });
+
+  describe('printImage', () => {
+    it('should return a print job with warning for image mode (text fallback)', async () => {
+      const printer = service.addManualPrinter('192.168.1.100');
+      await service.connect(printer);
+
+      const printJob = await service.printImage('base64ImageData', 576);
+
+      // Network printer image mode falls back to text with a warning
+      expect(printJob).toHaveProperty('id');
+      expect(printJob).toHaveProperty('status', 'completed');
+      expect(printJob).toHaveProperty('createdAt');
+    });
+
+    it('should accept optional printerInfo parameter', async () => {
+      const printerInfo = { ipAddress: '192.168.0.50', name: 'EPSON TM-T88' };
+
+      const printJob = await service.printImage('base64ImageData', 576, printerInfo);
+
+      expect(printJob.status).toBe('completed');
+    });
+
+    it('should use default image width of 576 when not specified', async () => {
+      const printer = service.addManualPrinter('192.168.1.100');
+      await service.connect(printer);
+
+      // Should not throw — default width parameter is fine
+      const printJob = await service.printImage('base64ImageData');
       expect(printJob.status).toBe('completed');
     });
   });

@@ -45,12 +45,17 @@ export interface ReceiptTranslations {
   total?: string; // "TOTAL" / "మొత్తం" - column header
   unitPrice?: string; // "Price" / "ధర"
   itemTotal?: string; // "Total" / "మొత్తం"
-  grandTotal?: string; // "GRAND TOTAL" / "మహా మొత్తం"
+  grandTotal?: string; // "GRAND TOTAL" / "మొత్తం"
   // Column headers for price display
   qtyShort?: string; // "QTY" / "పరి"
   unitPriceHeader?: string; // "UNIT PRICE" / "యూనిట్ ధర"
   totalPriceHeader?: string; // "TOTAL PRICE" / "మొత్తం ధర"
   totalShort?: string; // "TOTAL" / "మొత్తం" (for 58mm paper)
+  // Column headers for 5-column layout
+  noHeader?: string; // "NO" / "నం"
+  itemHeader?: string; // "ITEM" / "వస్తువు"
+  rateHeader?: string; // "RATE" / "రేటు"
+  amtHeader?: string; // "AMT" / "అమౌంట్"
   // Payment status
   paymentStatus?: string; // "Payment Status" / "చెల్లింపు స్థితి"
   paid?: string; // "PAID" / "చెల్లించబడింది"
@@ -72,49 +77,48 @@ export interface ReceiptOptions {
 // CONSTANTS (THERMAL PRINTER)
 /////////////////////////////
 
-// Paper width in characters
+// Paper width in characters (used for non-tabular lines: dividers only on 80mm)
+// 80mm: 28 chars → always-scaled to fill 576px bitmap (even larger font, ~22% bigger than 32 chars)
+//       Tabular lines (header + items) use tab-separated format with pixel-based rendering
+//       Label-value lines (Date, Time, etc.) use tab-separated format on 80mm
+//       Header/footer use CENTER_MARKER for native pixel-based centering on 80mm
+// 58mm: 23 chars at 384px bitmap → two-line format (unchanged)
 const PAPER_WIDTHS: Record<string, number> = {
-  '58mm': 32,
-  '80mm': 48,
+  '58mm': 23,
+  '80mm': 28,
 };
 
-// Fixed column positions for quantity alignment
-// Quantity column is fixed at right side (last 12 chars for 80mm, last 8 chars for 58mm)
+// Center marker: lines prefixed with this char are pixel-centered by the native module
+// (ReceiptBitmapModule.kt renderCenteredLine). This replaces character-based center()
+// which breaks for Telugu text on 80mm paper (Telugu chars are 1.5-2x wider than ASCII).
+const CENTER_MARKER = '\u0002';
+
+// Bold tab marker: lines prefixed with this char are rendered at 1.3x font by native module.
+// Used for GRAND TOTAL on 80mm paper so both label and value stand out.
+const BOLD_TAB_MARKER = '\u0003';
+
+// Fixed column positions for label-value pair alignment
+// Right column width for Date:, Time:, GRAND TOTAL, etc.
 const QTY_COL_WIDTH: Record<string, number> = {
-  '58mm': 8,
+  '58mm': 10,
   '80mm': 12,
 };
 
-// SINGLE SOURCE OF TRUTH for 5-column layout with vertical separators
-// All header and item row formatters MUST use these values
-// Format: | SNO | ITEM                  | QTY  | RATE | AMT |
+// Column layout config (only used for 58mm character-based padding)
+// 80mm uses tab-separated format — native module handles pixel-based alignment
+// 58mm: two-line format (Line 1 = item name, Line 2 = values)
 const COLUMNS: Record<'58mm' | '80mm', { sno: number; name: number; qty: number; rate: number; amt: number }> = {
-  // 58mm uses two-line format: Line 1 = item name (32 chars), Line 2 = QTY + RATE + AMT
-  '58mm': { sno: 0, name: 32, qty: 5, rate: 10, amt: 14 },  // Line 2: 3 (indent) + 5 + 10 + 14 = 32
-  // 80mm with pipes: | sno | name | qty | rate | amt |
-  // With spacing: | SNO (5) | ITEM (24) | QTY (7) | RATE (6) | AMT (9) |
-  // Total: 5 + 24 + 7 + 6 + 9 = 51 chars (too much for 48)
-  // Adjusted: sno=4, name=20, qty=6, rate=6, amt=8 = 44 + 4 spaces = 48
-  '80mm': { sno: 4, name: 17, qty: 5, rate: 5, amt: 6 },   // Content: 3+16+4+4+5=32, +16 overhead=48 ✓
+  '58mm': { sno: 0, name: 23, qty: 5, rate: 8, amt: 8 },  // two-line format
+  '80mm': { sno: 3, name: 17, qty: 7, rate: 7, amt: 8 },  // not used for tab format
 };
 
-// Column widths for 58mm value line (second line of two-line format)
-const COLUMNS_58MM_VALUES = { indent: 3, qty: 5, rate: 10, amt: 14 };  // 3+5+10+14 = 32
+// Column widths for 58mm value lines (second line of two-line format)
+const COLUMNS_58MM_VALUES = { indent: 2, qty: 5, rate: 8, amt: 8 };  // 2+5+8+8 = 23
 
-// Dev assertion: verify column widths match paper widths
+// Dev assertion: verify 58mm column widths match paper width
+// (80mm uses tab-separated format — column widths handled by native pixel rendering)
 // eslint-disable-next-line no-undef
 if (typeof __DEV__ !== 'undefined' && __DEV__) {
-  // Verify 80mm single-line format with pipes and spacing
-  const col80 = COLUMNS['80mm'];
-  // Format: | _ | _ _ _ | _ _ | _ _ | _ _ _ |
-  // = 2 + (sno-1) + 3 + (name-1) + 3 + (qty-1) + 3 + (rate-1) + 3 + (amt-1) + 2
-  // = 16 + (sno + name + qty + rate + amt - 5) = 11 + sum
-  const overhead = 2 + 3 + 3 + 3 + 3 + 2; // 16 chars for pipes and spaces
-  const content = col80.sno - 1 + col80.name - 1 + col80.qty - 1 + col80.rate - 1 + col80.amt - 1; // -1 for each padding
-  const total80 = overhead + content;
-  if (total80 !== PAPER_WIDTHS['80mm']) {
-    console.error(`Column widths for 80mm (${total80}) != paper width (${PAPER_WIDTHS['80mm']})`);
-  }
   // Verify 58mm two-line format (values line)
   const val58 = COLUMNS_58MM_VALUES;
   const total58 = val58.indent + val58.qty + val58.rate + val58.amt;
@@ -151,6 +155,11 @@ const TRANSLATIONS: Record<string, ReceiptTranslations> = {
     unitPriceHeader: 'UNIT PRICE',
     totalPriceHeader: 'TOTAL',
     totalShort: 'TOTAL',
+    // Column headers for 5-column layout
+    noHeader: 'NO',
+    itemHeader: 'ITEM',
+    rateHeader: 'RATE',
+    amtHeader: 'AMT',
     // Payment status
     paymentStatus: 'Payment Status',
     paid: 'PAID',
@@ -173,12 +182,17 @@ const TRANSLATIONS: Record<string, ReceiptTranslations> = {
     total: 'మొత్తం',
     unitPrice: 'ధర',
     itemTotal: 'మొత్తం',
-    grandTotal: 'మహా మొత్తం',
+    grandTotal: 'మొత్తం',
     // Column headers for price display
     qtyShort: 'పరి',
     unitPriceHeader: 'యూనిట్ ధర',
     totalPriceHeader: 'మొత్తం ధర',
     totalShort: 'మొత్తం',
+    // Column headers for 5-column layout
+    noHeader: 'న',
+    itemHeader: 'వస్తువు',
+    rateHeader: 'రేటు',
+    amtHeader: 'అమౌంట్',
     // Payment status
     paymentStatus: 'చెల్లింపు స్థితి',
     paid: 'చెల్లించబడింది',
@@ -204,14 +218,7 @@ export const getVisualWidth = (text: string): number => {
 // HELPERS (FIXED COLUMNS)
 /////////////////////////////
 
-const divider = (width: number, withPipes: boolean = false, paperSize: '58mm' | '80mm' = '80mm') => {
-  if (!withPipes) {
-    return '-'.repeat(width);
-  }
-  const col = COLUMNS[paperSize];
-  return '|' + '-'.repeat(col.sno) + '|' + '-'.repeat(col.name) + '|' +
-         '-'.repeat(col.qty) + '|' + '-'.repeat(col.rate) + '|' + '-'.repeat(col.amt) + '|';
-};
+const divider = (width: number) => '-'.repeat(width);
 
 const boldDivider = (width: number) => '='.repeat(width);
 
@@ -222,38 +229,34 @@ const center = (text: string, width: number): string => {
   }
   if (text.length === width) return text;
   const pad = Math.floor((width - text.length) / 2);
-  return ' '.repeat(pad) + text;
+  // Right-pad to full width so every line renders at the same bitmap width
+  return (' '.repeat(pad) + text).padEnd(width);
 };
 
 // Fixed two-column layout: label on left, value right-aligned
-// Value column is fixed width for consistent alignment
+// 80mm: Tab-separated — native module renders at 70%/30% proportions with pixel alignment
+// 58mm: Character-based padding (unchanged)
 const formatLabelValue = (
   label: string,
   value: string,
   width: number,
   paperSize: '58mm' | '80mm',
-  withPipes: boolean = false
 ): string => {
-  if (!withPipes) {
-    const rightColWidth = QTY_COL_WIDTH[paperSize];
-    const leftColWidth = width - rightColWidth;
-    // Truncate label and value if too long
-    const truncatedLabel = label.slice(0, leftColWidth);
-    const truncatedValue = value.slice(0, rightColWidth);
-    return truncatedLabel.padEnd(leftColWidth) + truncatedValue.padStart(rightColWidth);
+  if (paperSize === '80mm') {
+    // Tab-separated: native module's renderTabColumnarLine handles pixel alignment
+    // Value column is right-aligned at 30% of bitmap width
+    return `${label}\t${value}`;
   }
-
-  // With pipes format: | label | value |
-  // Use wider value column for grand total and other values
-  const valueWidth = 8; // Enough for values like "17,500"
-  const labelWidth = width - valueWidth - 6; // 6 chars for "| " + " | " + " |"
-  const truncatedLabel = label.slice(0, labelWidth).padEnd(labelWidth);
-  const truncatedValue = value.slice(0, valueWidth).padStart(valueWidth);
-  return '| ' + truncatedLabel + '| ' + truncatedValue + ' |';
+  // 58mm: character-based padding (unchanged)
+  const rightColWidth = QTY_COL_WIDTH[paperSize];
+  const leftColWidth = width - rightColWidth;
+  const truncatedLabel = label.slice(0, leftColWidth);
+  const truncatedValue = value.slice(0, rightColWidth);
+  return truncatedLabel.padEnd(leftColWidth) + truncatedValue.padStart(rightColWidth);
 };
 
 
-// Five-column header: SNO | ITEM | QTY | RATE | AMT
+// Five-column header: SNO  ITEM  QTY  RATE  AMT
 // Uses COLUMNS config for consistent alignment
 const formatFiveColumnHeader = (
   snoHeader: string,
@@ -276,16 +279,13 @@ const formatFiveColumnHeader = (
                          amtHeader.padStart(COLUMNS_58MM_VALUES.amt);
     return itemLine + '\n' + valuesHeader;
   } else {
-    // 80mm format with vertical pipes: | SNO | ITEM | QTY | RATE | AMT |
-    return '| ' + snoHeader.slice(0, col.sno - 1).padStart(col.sno - 1) + ' | ' +
-           itemNameHeader.slice(0, col.name - 1).padEnd(col.name - 1) + ' | ' +
-           qtyHeader.slice(0, col.qty - 1).padEnd(col.qty - 1) + ' | ' +
-           rateHeader.slice(0, col.rate - 1).padStart(col.rate - 1) + ' | ' +
-           amtHeader.slice(0, col.amt - 1).padStart(col.amt - 1) + ' |';
+    // 80mm: Tab-separated columns — native module renders at proportional pixel positions
+    // This guarantees alignment for both Telugu and English text
+    return `${snoHeader}\t${itemNameHeader}\t${qtyHeader}\t${rateHeader}\t${amtHeader}`;
   }
 };
 
-// Five-column item row: SNO | ITEM | QTY | RATE | AMT
+// Five-column item row: SNO  ITEM  QTY  RATE  AMT
 // Uses COLUMNS config for consistent alignment
 // IMPORTANT: Unit is appended to item name, QTY is numeric only
 const formatFiveColumnItemRow = (
@@ -332,18 +332,10 @@ const formatFiveColumnItemRow = (
     return nameLine + '\n' + valuesLine;
   }
 
-  // 80mm format with vertical pipes: | SNO | ITEM | QTY | RATE | AMT |
-  const snoText = String(sno);
-  const displayName = fullName.length > col.name
-    ? fullName.slice(0, col.name - 1) + '…'
-    : fullName;
-
-  // Add space padding around content for readability
-  return '| ' + snoText.padStart(col.sno - 1) + ' | ' +
-         displayName.padEnd(col.name - 1) + ' | ' +
-         qtyText.padEnd(col.qty - 1) + ' | ' +
-         rateText.padStart(col.rate - 1) + ' | ' +
-         amtText.padStart(col.amt - 1) + ' |';
+  // 80mm: Tab-separated — native module handles pixel alignment and ellipsis truncation
+  // No character-based padding needed; TextUtils.ellipsize() in Kotlin respects
+  // Telugu conjunct boundaries (no mid-character breaks)
+  return `${sno}\t${fullName}\t${qtyText}\t${rateText}\t${amtText}`;
 };
 
 
@@ -422,7 +414,7 @@ export const generatePickingListReceipt = (
   } = options;
 
   // Determine paper width in characters
-  const width = PAPER_WIDTHS[paperWidth] || 48;
+  const width = PAPER_WIDTHS[paperWidth] || 28;
 
   // Determine language from locale
   const lang = getLanguageFromLocale(locale);
@@ -448,22 +440,35 @@ export const generatePickingListReceipt = (
 
   // HEADER - Use cart name if provided, else use title from translations
   const title = cartName ? cartName.toUpperCase() : t.title;
-  lines.push(center(title, width));
-  lines.push('');
-  lines.push(center(merchantInfo.name.toUpperCase(), width));
-  lines.push(center(merchantInfo.address, width));
-  if (merchantInfo.phone) {
-    lines.push(center(`Tel: ${merchantInfo.phone}`, width));
+  if (paperWidth === '80mm') {
+    // 80mm: CENTER_MARKER prefix — native module renders with pixel-based centering
+    // This works correctly for Telugu, English, and mixed text
+    lines.push(CENTER_MARKER + title);
+    lines.push('');
+    lines.push(CENTER_MARKER + merchantInfo.name.toUpperCase());
+    lines.push(CENTER_MARKER + merchantInfo.address);
+    if (merchantInfo.phone) {
+      lines.push(CENTER_MARKER + `Tel: ${merchantInfo.phone}`);
+    }
+  } else {
+    // 58mm: character-based centering (unchanged)
+    lines.push(center(title, width));
+    lines.push('');
+    lines.push(center(merchantInfo.name.toUpperCase(), width));
+    lines.push(center(merchantInfo.address, width));
+    if (merchantInfo.phone) {
+      lines.push(center(`Tel: ${merchantInfo.phone}`, width));
+    }
   }
   lines.push('');
   lines.push(boldDivider(width));
 
   // DATE / TIME - Format based on locale and paper width
   const dateLocale = locale || (lang === 'te' ? 'te-IN' : 'en-GB');
-  // Shorter format for 58mm paper
-  const dateOptions: Intl.DateTimeFormatOptions = width <= 32
+  // Shorter format for narrow paper (no weekday to prevent truncation)
+  const dateOptions: Intl.DateTimeFormatOptions = width <= 24
     ? { day: '2-digit', month: '2-digit', year: 'numeric' }
-    : { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
+    : { day: '2-digit', month: 'short', year: 'numeric' };
   const timeOptions: Intl.DateTimeFormatOptions = {
     hour: 'numeric',
     minute: '2-digit',
@@ -476,7 +481,6 @@ export const generatePickingListReceipt = (
       now.toLocaleDateString(dateLocale, dateOptions),
       width,
       paperWidth,
-      true
     )
   );
   lines.push(
@@ -485,32 +489,29 @@ export const generatePickingListReceipt = (
       now.toLocaleTimeString(dateLocale, timeOptions),
       width,
       paperWidth,
-      true
     )
   );
-  lines.push(divider(width)); // Simple divider without pipes
+  lines.push(divider(width));
 
-  // SUMMARY - synced with Cart Review screen (Categories + Unique Items only)
+  // SUMMARY - synced with Cart Review screen (Unique Items only, Categories removed)
   lines.push(
-    formatLabelValue(`${t.categories}:`, String(Object.keys(grouped).length), width, paperWidth, true)
+    formatLabelValue(`${t.uniqueItems}:`, String(items.length), width, paperWidth)
   );
-  lines.push(
-    formatLabelValue(`${t.uniqueItems}:`, String(items.length), width, paperWidth, true)
-  );
-  lines.push(divider(width)); // Simple divider without pipes
+  lines.push(divider(width));
 
-  // COLUMN HEADERS - Clean format: SNO | ITEM | QTY | RATE | AMT
+  // COLUMN HEADERS
   const paperSize: '58mm' | '80mm' = paperWidth === '58mm' ? '58mm' : '80mm';
 
-  // Use simple English headers for cleaner look (works for both languages)
-  const snoHeader = 'SNO';
+  // Use English headers for all languages (Telugu headers in tab-separated columns
+  // cause print failures on thermal printers due to Android font fallback issues)
+  const snoHeader = 'NO';
   const itemHeader = 'ITEM';
   const qtyHeader = 'QTY';
   const rateHeader = 'RATE';
   const amtHeader = 'AMT';
 
   lines.push(formatFiveColumnHeader(snoHeader, itemHeader, qtyHeader, rateHeader, amtHeader, width, paperSize));
-  lines.push(divider(width)); // Simple horizontal divider without pipes
+  lines.push(divider(width));
 
   // LIST ALL ITEMS (no category grouping for cleaner look)
   items.forEach((item, index) => {
@@ -534,7 +535,12 @@ export const generatePickingListReceipt = (
     lines.push(boldDivider(width));
     const grandTotalLabel = t.grandTotal || 'GRAND TOTAL';
     const grandTotalFormatted = formatCurrencyCompact(grandTotal);
-    lines.push(formatLabelValue(grandTotalLabel, grandTotalFormatted, width, paperWidth, true));
+    if (paperWidth === '80mm') {
+      // Bold+large tab line: BOLD_TAB_MARKER prefix triggers 1.3x rendering in native module
+      lines.push(BOLD_TAB_MARKER + `${grandTotalLabel}\t${grandTotalFormatted}`);
+    } else {
+      lines.push(formatLabelValue(grandTotalLabel, grandTotalFormatted, width, paperWidth));
+    }
   }
 
   // PAYMENT STATUS - only show if cart is paid
@@ -543,12 +549,12 @@ export const generatePickingListReceipt = (
     lines.push(boldDivider(width));
     const paymentStatusLabel = t.paymentStatus || 'Payment Status';
     const paidLabel = t.paid || 'PAID';
-    lines.push(formatLabelValue(paymentStatusLabel, paidLabel, width, paperWidth, true));
+    lines.push(formatLabelValue(paymentStatusLabel, paidLabel, width, paperWidth));
     if (paidAt) {
       const paidAtLabel = t.paidAt || 'Paid at';
       const paidDate = new Date(paidAt);
       const paidTime = paidDate.toLocaleTimeString(dateLocale, timeOptions);
-      lines.push(formatLabelValue(paidAtLabel, paidTime, width, paperWidth, true));
+      lines.push(formatLabelValue(paidAtLabel, paidTime, width, paperWidth));
     }
     lines.push(boldDivider(width));
   }
@@ -556,7 +562,11 @@ export const generatePickingListReceipt = (
   // FOOTER
   lines.push('');
   lines.push(boldDivider(width));
-  lines.push(center(t.footer, width));
+  if (paperWidth === '80mm') {
+    lines.push(CENTER_MARKER + t.footer);
+  } else {
+    lines.push(center(t.footer, width));
+  }
   lines.push(boldDivider(width));
 
   return lines.join('\n');
@@ -565,6 +575,40 @@ export const generatePickingListReceipt = (
 /////////////////////////////
 // DEFAULT MERCHANT
 /////////////////////////////
+
+/////////////////////////////
+// STRIP FORMAT MARKERS
+/////////////////////////////
+
+/**
+ * Strip ESC/POS control sequences from receipt text for display preview.
+ * Removes bold (ESC E), underline (ESC -), and other escape sequences
+ * so the text renders cleanly in a mobile preview modal.
+ */
+export const stripFormatMarkers = (text: string): string => {
+  // Remove ESC/POS escape sequences: ESC (0x1b) followed by command byte and parameter byte
+  // Also remove CENTER_MARKER (U+0002) used for native pixel-based centering
+  return text
+    .replace(/\x1b[\x20-\x7e][\x00-\xff]/g, '')
+    .replace(/[\x02\x03]/g, '');
+};
+
+/////////////////////////////
+// SANITIZE FOR PRINTER
+/////////////////////////////
+
+/**
+ * @deprecated Use image-mode printing via renderTextToImage() + printImage() instead.
+ * Sanitize receipt text for thermal printers that use single-byte codepages
+ * (CP437/Windows-1252). Replaces any non-ASCII characters (Telugu, emojis, etc.)
+ * with '?' so the printer doesn't choke on multi-byte sequences.
+ * Preserves newlines, spaces, and all printable ASCII characters.
+ */
+export const sanitizeForPrinter = (text: string): string => {
+  // Replace any character outside printable ASCII (0x20-0x7E) and common control chars
+  // (newline 0x0A, carriage return 0x0D, tab 0x09) with '?'
+  return text.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?');
+};
 
 export const DEFAULT_MERCHANT: MerchantInfo = {
   name: 'Suresh Groceries',

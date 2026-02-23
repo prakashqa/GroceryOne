@@ -14,6 +14,7 @@ import pickingCartReducer from './slices/pickingCartSlice';
 import settingsReducer from './slices/settingsSlice';
 import multiCartReducer from './slices/multiCartSlice';
 import catalogReducer from './slices/catalogSlice';
+import cartOperationsReducer from './slices/cartOperationsSlice';
 import scanReducer from '../features/orderScanning/store/scanSlice';
 import pinReducer from '../features/pinAuth/store/pinSlice';
 import reportsReducer from '../features/reports/store/reportsSlice';
@@ -31,6 +32,7 @@ export const rootReducer = combineReducers({
   settings: settingsReducer,
   multiCart: multiCartReducer,
   catalog: catalogReducer,
+  cartOperations: cartOperationsReducer,
   scan: scanReducer,
   pin: pinReducer,
   reports: reportsReducer,

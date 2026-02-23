@@ -15,10 +15,11 @@ import i18n from './i18n';
 import { TenantProvider } from './tenant';
 import { ThemeProvider } from './presentation/theme';
 import { RootNavigator } from './presentation/navigation/RootNavigator';
+import { ErrorBoundary } from './presentation/components/common';
 import { initializeCatalog, mergeCatalogFromBackend, selectIsCatalogInitialized, selectCategories } from './store/slices/catalogSlice';
 import { loadOrSeedCatalog, refreshCatalogFromBackend } from './utils/storage/catalogStorage';
 import { selectTenant } from './store/slices/tenantSlice';
-import { hydrateMultiCart, syncCartsFromBackend, resetMultiCart, selectIsMultiCartHydrated } from './store/slices/multiCartSlice';
+import { hydrateMultiCart, syncCartsFromBackend, clearMultiCartInMemory, selectIsMultiCartHydrated } from './store/slices/multiCartSlice';
 import { selectAccessToken } from './store/slices/authSlice';
 import { loadOrFetchCarts, fetchCartsFromBackend } from './utils/storage/cartHydration';
 import { processPendingSyncQueue } from './store/middleware/multiCartPersistMiddleware';
@@ -49,8 +50,10 @@ function AppContent() {
   useEffect(() => {
     if (!tenantSlug || isMultiCartHydrated) return;
 
-    // Clear any stale carts from a previous tenant before hydrating
-    dispatch(resetMultiCart());
+    // Clear stale carts from a previous tenant in Redux only (no AsyncStorage wipe).
+    // Uses clearMultiCartInMemory instead of resetMultiCart to avoid destroying the
+    // AsyncStorage cache before loadOrFetchCarts can read it.
+    dispatch(clearMultiCartInMemory());
 
     const controller = new AbortController();
 
@@ -119,7 +122,7 @@ function AppContent() {
         }));
         dispatch(syncCartsFromBackend({
           carts: backendPayload,
-          replaceAll: true, // Replace all — backend is the source of truth for tenant-isolated data
+          replaceAll: false, // Merge mode: add/update backend carts but preserve all local carts
         }));
       }
     });
@@ -192,9 +195,11 @@ function App(): React.JSX.Element {
         <I18nextProvider i18n={i18n}>
           <SafeAreaProvider>
             <ThemeProvider>
-              <TenantProvider>
-                <AppContent />
-              </TenantProvider>
+              <ErrorBoundary>
+                <TenantProvider>
+                  <AppContent />
+                </TenantProvider>
+              </ErrorBoundary>
             </ThemeProvider>
           </SafeAreaProvider>
         </I18nextProvider>

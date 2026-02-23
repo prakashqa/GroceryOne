@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../../theme';
+import { stripFormatMarkers } from '../../../domain/utils/receiptGenerator';
 
 interface ReceiptPreviewModalProps {
   visible: boolean;
@@ -109,7 +110,7 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                 { color: theme.colors.text },
               ]}
             >
-              {receiptText}
+              {stripFormatMarkers(receiptText)}
             </Text>
           </View>
         </ScrollView>
@@ -222,8 +223,8 @@ const styles = StyleSheet.create({
   receiptText: {
     // Use monospace font for proper alignment
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 19,
     letterSpacing: 0,
   },
   footer: {

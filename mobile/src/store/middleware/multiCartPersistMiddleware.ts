@@ -13,6 +13,11 @@ import {
   loadPendingSyncQueue,
 } from '../../utils/storage/multiCartStorage';
 import { updateCartBackendId } from '../slices/multiCartSlice';
+import {
+  operationStarted,
+  operationCompleted,
+  operationFailed,
+} from '../slices/cartOperationsSlice';
 import { API_CONFIG } from '../../core/config/api.config';
 import type { Item } from '../../domain/types/picking';
 
@@ -37,7 +42,6 @@ const PERSIST_ACTIONS = [
   'multiCart/clearActiveCart',
   'multiCart/setActiveCartStatus',
   'multiCart/updateCartBackendId',
-  'multiCart/resetMultiCart',
   'multiCart/markActiveCartAsPaid',
   'multiCart/markCartAsPaid',
 ];
@@ -104,7 +108,6 @@ const IMMEDIATE_PERSIST_ACTIONS = [
   'multiCart/markActiveCartAsPaid',
   'multiCart/markCartAsPaid',
   'multiCart/deleteCart',
-  'multiCart/resetMultiCart',
 ];
 
 /**
@@ -592,6 +595,10 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
 
       // Handle backend sync for cart creation
       if (SYNC_TO_BACKEND_ACTIONS.includes(actionType)) {
+        const cartId = storeAPI.getState().multiCart.activeCartId;
+        if (cartId) {
+          storeAPI.dispatch(operationStarted({ type: 'cart', id: cartId, operation: 'creating' }));
+        }
         setTimeout(async () => {
           const state = storeAPI.getState();
           const carts = state.multiCart.carts;
@@ -602,17 +609,31 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             );
 
             if (newCart) {
-              await syncCartToBackend(
-                {
+              try {
+                await syncCartToBackend(
+                  {
+                    id: newCart.id,
+                    name: newCart.name,
+                    status: newCart.status,
+                    createdAt: newCart.createdAt,
+                  },
+                  storeAPI.dispatch,
+                  storeAPI.getState
+                );
+                storeAPI.dispatch(operationCompleted({ type: 'cart', id: newCart.id }));
+              } catch (error) {
+                storeAPI.dispatch(operationFailed({
+                  type: 'cart',
                   id: newCart.id,
-                  name: newCart.name,
-                  status: newCart.status,
-                  createdAt: newCart.createdAt,
-                },
-                storeAPI.dispatch,
-                storeAPI.getState
-              );
+                  error: error instanceof Error ? error.message : 'Failed to create cart',
+                }));
+              }
+            } else if (cartId) {
+              // Cart already synced or not found
+              storeAPI.dispatch(operationCompleted({ type: 'cart', id: cartId }));
             }
+          } else if (cartId) {
+            storeAPI.dispatch(operationCompleted({ type: 'cart', id: cartId }));
           }
         }, DEBOUNCE_MS);
       }
@@ -648,32 +669,44 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
 
       // Handle backend sync for item addition
       if (ITEM_SYNC_ACTIONS.includes(actionType)) {
-        setTimeout(async () => {
-          const state = storeAPI.getState();
-          const activeCart = state.multiCart.carts.find(
-            (c) => c.id === state.multiCart.activeCartId
-          );
+        const typedAddAction = action as {
+          type: string;
+          payload: { item: { id: string }; quantity: number };
+        };
+        const addedItemId = typedAddAction.payload.item.id;
+        storeAPI.dispatch(operationStarted({ type: 'item', id: addedItemId, operation: 'adding' }));
 
-          if (activeCart && activeCart.backendId) {
-            const typedAction = action as {
-              type: string;
-              payload: { item: { id: string }; quantity: number };
-            };
-            const lastItem = activeCart.items.find(
-              (i) => i.item.id === typedAction.payload.item.id
+        setTimeout(async () => {
+          try {
+            const state = storeAPI.getState();
+            const activeCart = state.multiCart.carts.find(
+              (c) => c.id === state.multiCart.activeCartId
             );
 
-            if (lastItem) {
-              await syncCartItemToBackend(
-                activeCart.backendId,
-                {
-                  itemId: resolveBackendItemId(lastItem.item),
-                  quantity: typedAction.payload.quantity,
-                  priceSnapshot: lastItem.priceSnapshot,
-                },
-                storeAPI.getState
+            if (activeCart && activeCart.backendId) {
+              const lastItem = activeCart.items.find(
+                (i) => i.item.id === addedItemId
               );
+
+              if (lastItem) {
+                await syncCartItemToBackend(
+                  activeCart.backendId,
+                  {
+                    itemId: resolveBackendItemId(lastItem.item),
+                    quantity: typedAddAction.payload.quantity,
+                    priceSnapshot: lastItem.priceSnapshot,
+                  },
+                  storeAPI.getState
+                );
+              }
             }
+            storeAPI.dispatch(operationCompleted({ type: 'item', id: addedItemId }));
+          } catch (error) {
+            storeAPI.dispatch(operationFailed({
+              type: 'item',
+              id: addedItemId,
+              error: error instanceof Error ? error.message : 'Failed to sync item',
+            }));
           }
         }, DEBOUNCE_MS);
       }
@@ -681,8 +714,19 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
       // Handle backend sync for cart deletion (uses pre-dispatch data)
       if (DELETE_CART_ACTIONS.includes(actionType) && preDispatchData?.cartBackendId) {
         const backendId = preDispatchData.cartBackendId;
+        const deletedCartId = (action as { payload: string }).payload;
+        storeAPI.dispatch(operationStarted({ type: 'cart', id: deletedCartId, operation: 'deleting' }));
         setTimeout(async () => {
-          await deleteCartFromBackend(backendId, storeAPI.getState);
+          try {
+            await deleteCartFromBackend(backendId, storeAPI.getState);
+            storeAPI.dispatch(operationCompleted({ type: 'cart', id: deletedCartId }));
+          } catch (error) {
+            storeAPI.dispatch(operationFailed({
+              type: 'cart',
+              id: deletedCartId,
+              error: error instanceof Error ? error.message : 'Failed to delete cart',
+            }));
+          }
         }, DEBOUNCE_MS);
       }
 
@@ -714,56 +758,92 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
       // Handle backend sync for item removal (uses pre-dispatch data)
       if (REMOVE_ITEM_ACTIONS.includes(actionType) && preDispatchData?.itemId) {
         const backendCartId = preDispatchData.activeCartBackendId || preDispatchData.cartBackendId;
-        const itemId = preDispatchData.itemId;
+        const removedItemId = preDispatchData.itemId;
         if (backendCartId) {
+          storeAPI.dispatch(operationStarted({ type: 'item', id: removedItemId, operation: 'removing' }));
           setTimeout(async () => {
-            await removeCartItemFromBackend(backendCartId, itemId, storeAPI.getState);
+            try {
+              await removeCartItemFromBackend(backendCartId, removedItemId, storeAPI.getState);
+              storeAPI.dispatch(operationCompleted({ type: 'item', id: removedItemId }));
+            } catch (error) {
+              storeAPI.dispatch(operationFailed({
+                type: 'item',
+                id: removedItemId,
+                error: error instanceof Error ? error.message : 'Failed to remove item',
+              }));
+            }
           }, DEBOUNCE_MS);
         }
       }
 
       // Handle backend sync for item quantity updates
       if (UPDATE_ITEM_ACTIONS.includes(actionType)) {
+        // Extract itemId for lifecycle tracking
+        let updatedItemId: string | undefined;
+        if (actionType === 'multiCart/updateItemQuantityInActiveCart') {
+          updatedItemId = (action as { payload: { itemId: string } }).payload.itemId;
+        } else {
+          updatedItemId = (action as { payload: string }).payload;
+        }
+        if (updatedItemId) {
+          storeAPI.dispatch(operationStarted({ type: 'item', id: updatedItemId, operation: 'updating' }));
+        }
+
         setTimeout(async () => {
-          const state = storeAPI.getState();
-          const activeCart = state.multiCart.carts.find(
-            (c) => c.id === state.multiCart.activeCartId
-          );
+          try {
+            const state = storeAPI.getState();
+            const activeCart = state.multiCart.carts.find(
+              (c) => c.id === state.multiCart.activeCartId
+            );
 
-          if (!activeCart?.backendId) return;
-
-          if (actionType === 'multiCart/updateItemQuantityInActiveCart') {
-            const { itemId, quantity } = (action as { payload: { itemId: string; quantity: number } }).payload;
-            // If quantity was set to 0, the item was removed — sync as delete
-            const itemExists = activeCart.items.find((i) => i.item.id === itemId);
-            const resolvedId = itemExists ? resolveBackendItemId(itemExists.item) : itemId;
-            if (itemExists) {
-              await updateCartItemOnBackend(activeCart.backendId, resolvedId, quantity, storeAPI.getState);
-            } else {
-              await removeCartItemFromBackend(activeCart.backendId, resolvedId, storeAPI.getState);
+            if (!activeCart?.backendId) {
+              if (updatedItemId) {
+                storeAPI.dispatch(operationCompleted({ type: 'item', id: updatedItemId }));
+              }
+              return;
             }
-          }
 
-          if (actionType === 'multiCart/incrementItemInActiveCart') {
-            const itemId = (action as { payload: string }).payload;
-            const item = activeCart.items.find((i) => i.item.id === itemId);
-            if (item) {
-              const resolvedId = resolveBackendItemId(item.item);
-              await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
+            if (actionType === 'multiCart/updateItemQuantityInActiveCart') {
+              const { itemId, quantity } = (action as { payload: { itemId: string; quantity: number } }).payload;
+              const itemExists = activeCart.items.find((i) => i.item.id === itemId);
+              const resolvedId = itemExists ? resolveBackendItemId(itemExists.item) : itemId;
+              if (itemExists) {
+                await updateCartItemOnBackend(activeCart.backendId, resolvedId, quantity, storeAPI.getState);
+              } else {
+                await removeCartItemFromBackend(activeCart.backendId, resolvedId, storeAPI.getState);
+              }
             }
-          }
 
-          if (actionType === 'multiCart/decrementItemInActiveCart') {
-            const itemId = (action as { payload: string }).payload;
-            const item = activeCart.items.find((i) => i.item.id === itemId);
-            if (item) {
-              // Item still exists, update quantity
-              const resolvedId = resolveBackendItemId(item.item);
-              await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
-            } else {
-              // Item was removed (quantity went to 0), sync as delete
-              // Note: itemId here is the slug since item is already gone from state
-              await removeCartItemFromBackend(activeCart.backendId, itemId, storeAPI.getState);
+            if (actionType === 'multiCart/incrementItemInActiveCart') {
+              const itemId = (action as { payload: string }).payload;
+              const item = activeCart.items.find((i) => i.item.id === itemId);
+              if (item) {
+                const resolvedId = resolveBackendItemId(item.item);
+                await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
+              }
+            }
+
+            if (actionType === 'multiCart/decrementItemInActiveCart') {
+              const itemId = (action as { payload: string }).payload;
+              const item = activeCart.items.find((i) => i.item.id === itemId);
+              if (item) {
+                const resolvedId = resolveBackendItemId(item.item);
+                await updateCartItemOnBackend(activeCart.backendId, resolvedId, item.quantity, storeAPI.getState);
+              } else {
+                await removeCartItemFromBackend(activeCart.backendId, itemId, storeAPI.getState);
+              }
+            }
+
+            if (updatedItemId) {
+              storeAPI.dispatch(operationCompleted({ type: 'item', id: updatedItemId }));
+            }
+          } catch (error) {
+            if (updatedItemId) {
+              storeAPI.dispatch(operationFailed({
+                type: 'item',
+                id: updatedItemId,
+                error: error instanceof Error ? error.message : 'Failed to update item',
+              }));
             }
           }
         }, DEBOUNCE_MS);

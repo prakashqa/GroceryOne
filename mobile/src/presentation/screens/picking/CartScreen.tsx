@@ -52,6 +52,7 @@ import {
   bluetoothPrinterService,
   networkPrinterService,
 } from '../../../services/printer';
+import { renderTextToImage } from '../../../services/printer/receiptBitmap';
 import { useTheme, useIsDarkMode, Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import ReceiptPreviewModal from '../../components/picking/ReceiptPreviewModal';
@@ -319,12 +320,18 @@ const CartScreen: React.FC = () => {
       printerSettings.selectedPrinterId;
 
     if (isPrinterReady) {
-      // Send to actual printer based on connection type
+      // Send to actual printer using image mode for proper Telugu/non-ASCII rendering
       setIsPrinting(true);
       try {
+        // Render receipt text to bitmap image using native Android Canvas
+        // which natively supports Telugu and other Indic scripts
+        const imageWidth = printerSettings.imageWidthDots ||
+          (printerSettings.paperSize === '58mm' ? 384 : 576);
+        const base64Image = await renderTextToImage(currentPickingList, imageWidth);
+
         let printJob;
         if (printerSettings.connectionType === 'bluetooth') {
-          printJob = await bluetoothPrinterService.print(currentPickingList);
+          printJob = await bluetoothPrinterService.printImage(base64Image, imageWidth);
         } else if (printerSettings.connectionType === 'network') {
           // Pass printer info explicitly to ensure print works even if service state is lost
           const printerInfo = printerSettings.selectedPrinterAddress && printerSettings.selectedPrinterName
@@ -333,7 +340,7 @@ const CartScreen: React.FC = () => {
                 name: printerSettings.selectedPrinterName,
               }
             : undefined;
-          printJob = await networkPrinterService.print(currentPickingList, printerInfo);
+          printJob = await networkPrinterService.printImage(base64Image, imageWidth, printerInfo);
         } else {
           throw new Error('No printer connection type selected');
         }

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useTheme, useIsDarkMode } from '../../theme';
 import { useTranslation } from 'react-i18next';
-import { useDeviceType } from '../../../hooks';
+import { useDeviceType, useResponsiveStyles } from '../../../hooks';
 
 interface ActiveCartPreviewProps {
   /**
@@ -82,6 +82,15 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
   const isDarkMode = useIsDarkMode();
   const { t } = useTranslation('common');
   const { isTablet } = useDeviceType();
+  const responsiveStyles = useResponsiveStyles();
+
+  // Responsive font sizes derived from theme scale + device fontScale multiplier
+  const labelFontSize = Math.round(theme.typography.fontSize.xs * responsiveStyles.fontScale);
+  const cartNameFontSize = Math.round(theme.typography.fontSize.lg * responsiveStyles.fontScale);
+  const btnFontSize = Math.round(theme.typography.fontSize.md * responsiveStyles.fontScale);
+  const statValueFontSize = Math.round(theme.typography.fontSize.xxl * responsiveStyles.fontScale);
+  const totalValueFontSize = Math.round(theme.typography.fontSize.xl * responsiveStyles.fontScale);
+  const iconSize = responsiveStyles.iconContainerSize;
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -146,16 +155,13 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
           {
             backgroundColor: cardBgColor,
             borderColor: borderColor,
+            borderRadius: responsiveStyles.cardBorderRadius + 2,
             opacity: fadeAnim,
             transform: [
               { scale: scaleAnim },
               { translateY: slideAnim },
             ],
           },
-          // Mobile: reduce border radius by 20%
-          !isTablet && { borderRadius: 13 },
-          // Tablet: increase border radius
-          isTablet && { borderRadius: 20 },
           theme.shadows.md,
           style,
         ]}
@@ -163,32 +169,32 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
         {/* Highlight strip at top */}
         <View style={[styles.highlightStrip, { backgroundColor: highlightColor }, !isTablet && { height: 3 }, isTablet && { height: 5 }]} />
 
-        <View style={[styles.content, !isTablet && { padding: 12 }, isTablet && { padding: 20 }]}>
-          <View style={[styles.header, !isTablet && { marginBottom: 12 }, isTablet && { marginBottom: 20 }]}>
+        <View style={[styles.content, { padding: responsiveStyles.componentPadding * 0.75 }]}>
+          <View style={[styles.header, { marginBottom: responsiveStyles.componentPadding * 0.75 }]}>
             <View style={styles.headerLeft}>
               <View style={[
                 styles.cartIconContainer,
-                { backgroundColor: `${theme.colors.primary}20` },
-                !isTablet && { width: 36, height: 36, borderRadius: 10, marginRight: 10 },
-                isTablet && { width: 56, height: 56, borderRadius: 16, marginRight: 16 },
+                {
+                  backgroundColor: `${theme.colors.primary}20`,
+                  width: iconSize,
+                  height: iconSize,
+                  borderRadius: responsiveStyles.cardBorderRadius,
+                  marginRight: theme.spacing.smd,
+                },
               ]}>
-                <Text style={[styles.cartIcon, !isTablet && { fontSize: 18 }, isTablet && { fontSize: 28 }]}>🛒</Text>
+                <Text style={[styles.cartIcon, { fontSize: responsiveStyles.iconSize }]}>🛒</Text>
               </View>
               <View style={styles.headerText}>
                 <Text style={[
                   styles.label,
-                  { color: theme.colors.textSecondary },
-                  !isTablet && { fontSize: 9 },
-                  isTablet && { fontSize: 14 },
+                  { color: theme.colors.textSecondary, fontSize: labelFontSize },
                 ]}>
                   {t('dashboard.activeCart')}
                 </Text>
                 <Text
                   style={[
                     styles.cartName,
-                    { color: theme.colors.text },
-                    !isTablet && { fontSize: 14 },
-                    isTablet && { fontSize: 21 },
+                    { color: theme.colors.text, fontSize: cartNameFontSize },
                   ]}
                   numberOfLines={1}
                 >
@@ -199,25 +205,24 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
             <View
               style={[
                 styles.continueBtn,
-                { backgroundColor: theme.colors.primary },
-                !isTablet && { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 22 },
-                isTablet && { paddingHorizontal: 30, paddingVertical: 16, borderRadius: 30 },
+                {
+                  backgroundColor: theme.colors.primary,
+                  paddingHorizontal: theme.spacing.lg,
+                  paddingVertical: theme.spacing.sm,
+                  borderRadius: theme.borderRadius.full,
+                },
               ]}
               testID={testID ? `${testID}-continue-btn` : undefined}
             >
               <Text style={[
                 styles.continueBtnText,
-                { color: theme.colors.buttonPrimaryText },
-                !isTablet && { fontSize: 13 },
-                isTablet && { fontSize: 19 },
+                { color: theme.colors.buttonPrimaryText, fontSize: btnFontSize },
               ]}>
                 {t('dashboard.continue')}
               </Text>
               <Text style={[
                 styles.continueBtnArrow,
-                { color: theme.colors.buttonPrimaryText },
-                !isTablet && { fontSize: 15 },
-                isTablet && { fontSize: 22 },
+                { color: theme.colors.buttonPrimaryText, fontSize: btnFontSize + 2 },
               ]}>
                 →
               </Text>
@@ -227,73 +232,59 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
           {/* Stats Row */}
           <View style={[
             styles.statsContainer,
-            { backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)' },
-            !isTablet && { borderRadius: 10, padding: 10 },
-            isTablet && { borderRadius: 16, padding: 16 },
+            {
+              backgroundColor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+              borderRadius: responsiveStyles.cardBorderRadius,
+              padding: responsiveStyles.componentPadding * 0.65,
+            },
           ]}>
             <View style={styles.stats}>
               <View style={styles.statItem}>
                 <Text style={[
                   styles.statValue,
-                  { color: theme.colors.text },
-                  !isTablet && { fontSize: 18 },
-                  isTablet && { fontSize: 28 },
+                  { color: theme.colors.text, fontSize: statValueFontSize },
                 ]}>
                   {categoryCount}
                 </Text>
                 <Text style={[
                   styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                  !isTablet && { fontSize: 9 },
-                  isTablet && { fontSize: 14 },
+                  { color: theme.colors.textSecondary, fontSize: labelFontSize },
                 ]}>
                   {t('dashboard.categories')}
                 </Text>
               </View>
               <View style={[
                 styles.statDivider,
-                { backgroundColor: borderColor },
-                !isTablet && { height: 28 },
-                isTablet && { height: 44 },
+                { backgroundColor: borderColor, height: Math.round(iconSize * 0.65) },
               ]} />
               <View style={styles.statItem}>
                 <Text style={[
                   styles.statValue,
-                  { color: theme.colors.text },
-                  !isTablet && { fontSize: 18 },
-                  isTablet && { fontSize: 28 },
+                  { color: theme.colors.text, fontSize: statValueFontSize },
                 ]}>
                   {itemCount}
                 </Text>
                 <Text style={[
                   styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                  !isTablet && { fontSize: 9 },
-                  isTablet && { fontSize: 14 },
+                  { color: theme.colors.textSecondary, fontSize: labelFontSize },
                 ]}>
                   {t('dashboard.uniqueItems')}
                 </Text>
               </View>
               <View style={[
                 styles.statDivider,
-                { backgroundColor: borderColor },
-                !isTablet && { height: 28 },
-                isTablet && { height: 44 },
+                { backgroundColor: borderColor, height: Math.round(iconSize * 0.65) },
               ]} />
               <View style={styles.statItem}>
                 <Text style={[
                   styles.statValue,
-                  { color: theme.colors.text },
-                  !isTablet && { fontSize: 18 },
-                  isTablet && { fontSize: 28 },
+                  { color: theme.colors.text, fontSize: statValueFontSize },
                 ]}>
                   {totalQuantity}
                 </Text>
                 <Text style={[
                   styles.statLabel,
-                  { color: theme.colors.textSecondary },
-                  !isTablet && { fontSize: 9 },
-                  isTablet && { fontSize: 14 },
+                  { color: theme.colors.textSecondary, fontSize: labelFontSize },
                 ]}>
                   {t('dashboard.qty')}
                 </Text>
@@ -302,25 +293,19 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
                 <>
                   <View style={[
                     styles.statDivider,
-                    { backgroundColor: borderColor },
-                    !isTablet && { height: 28 },
-                    isTablet && { height: 44 },
+                    { backgroundColor: borderColor, height: Math.round(iconSize * 0.65) },
                   ]} />
                   <View style={styles.statItem}>
                     <Text style={[
                       styles.statValue,
                       styles.totalValue,
-                      { color: theme.colors.primary },
-                      !isTablet && { fontSize: 14 },
-                      isTablet && { fontSize: 24 },
+                      { color: theme.colors.primary, fontSize: totalValueFontSize },
                     ]}>
                       {formatCurrency(totalAmount)}
                     </Text>
                     <Text style={[
                       styles.statLabel,
-                      { color: theme.colors.textSecondary },
-                      !isTablet && { fontSize: 9 },
-                      isTablet && { fontSize: 14 },
+                      { color: theme.colors.textSecondary, fontSize: labelFontSize },
                     ]}>
                       {t('dashboard.total', 'total')}
                     </Text>
@@ -331,18 +316,14 @@ export const ActiveCartPreview: React.FC<ActiveCartPreviewProps> = ({
           </View>
 
           {lastUpdated && (
-            <View style={[styles.footer, !isTablet && { marginTop: 10 }, isTablet && { marginTop: 16 }]}>
+            <View style={[styles.footer, { marginTop: theme.spacing.smd }]}>
               <View style={[
                 styles.dot,
                 { backgroundColor: theme.colors.success },
-                !isTablet && { width: 5, height: 5, borderRadius: 2.5, marginRight: 5 },
-                isTablet && { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
               ]} />
               <Text style={[
                 styles.lastUpdated,
-                { color: theme.colors.textLight },
-                !isTablet && { fontSize: 9 },
-                isTablet && { fontSize: 14 },
+                { color: theme.colors.textLight, fontSize: labelFontSize },
               ]}>
                 {lastUpdated}
               </Text>

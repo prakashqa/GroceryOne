@@ -10,6 +10,7 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Order } from './order.entity';
 
@@ -17,6 +18,10 @@ import { Order } from './order.entity';
 export class OrderItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  @Index()
+  tenantId?: string;
 
   @Column({ name: 'order_id', type: 'uuid' })
   orderId: string;

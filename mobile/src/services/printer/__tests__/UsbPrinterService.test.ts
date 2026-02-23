@@ -166,6 +166,138 @@ describe('UsbPrinterService', () => {
     });
   });
 
+  describe('ensureConnected (reconnect before print)', () => {
+    it('should reconnect to the last connected device before printing', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      // Clear mocks to track only calls made during print()
+      (USBPrinter.connectPrinter as jest.Mock).mockClear();
+
+      const printJob = await service.print('Test content');
+
+      // Should have reconnected (called connectPrinter with vendorId and productId)
+      expect(USBPrinter.connectPrinter).toHaveBeenCalledWith('1208', '0001');
+      expect(USBPrinter.printText).toHaveBeenCalled();
+      expect(printJob.status).toBe('completed');
+    });
+
+    it('should reconnect before printRaw', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      (USBPrinter.connectPrinter as jest.Mock).mockClear();
+
+      const rawCommands = new Uint8Array([0x1b, 0x40]);
+      const printJob = await service.printRaw(rawCommands);
+
+      expect(USBPrinter.connectPrinter).toHaveBeenCalledWith('1208', '0001');
+      expect(printJob.status).toBe('completed');
+    });
+
+    it('should return failed job when reconnect fails', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      // Simulate reconnect failure
+      (USBPrinter.connectPrinter as jest.Mock).mockRejectedValueOnce(
+        new Error('USB device disconnected')
+      );
+
+      const printJob = await service.print('Test content');
+
+      expect(printJob.status).toBe('failed');
+      expect(printJob.error).toContain('Failed to reconnect');
+    });
+  });
+
+  describe('printImage', () => {
+    it('should print base64 image when connected', async () => {
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      const printJob = await service.printImage('iVBORw0KGgoAAAANSUhEUg==');
+
+      expect(printJob).toHaveProperty('id');
+      expect(printJob).toHaveProperty('status', 'completed');
+      expect(printJob).toHaveProperty('createdAt');
+    });
+
+    it('should call USBPrinter.printImageBase64 with base64 data and default width', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      await service.printImage('base64ImageData');
+
+      expect(USBPrinter.printImageBase64).toHaveBeenCalledWith(
+        'base64ImageData',
+        expect.objectContaining({ imageWidth: 576 })
+      );
+    });
+
+    it('should use custom image width when provided', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      await service.printImage('base64ImageData', 384);
+
+      expect(USBPrinter.printImageBase64).toHaveBeenCalledWith(
+        'base64ImageData',
+        expect.objectContaining({ imageWidth: 384 })
+      );
+    });
+
+    it('should throw error when not connected', async () => {
+      await expect(service.printImage('base64ImageData')).rejects.toThrow(
+        'No printer connected'
+      );
+    });
+
+    it('should return failed job when printImageBase64 throws', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      (USBPrinter.printImageBase64 as jest.Mock).mockRejectedValueOnce(
+        new Error('Image print error')
+      );
+
+      const printJob = await service.printImage('base64ImageData');
+      expect(printJob.status).toBe('failed');
+      expect(printJob.error).toBe('Image print error');
+    });
+
+    it('should reconnect before printing image', async () => {
+      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      (USBPrinter.connectPrinter as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData');
+
+      expect(USBPrinter.connectPrinter).toHaveBeenCalledWith('1208', '0001');
+    });
+
+    it('should notify print complete listeners', async () => {
+      const printListener = jest.fn();
+      service.onPrintComplete(printListener);
+
+      const devices = await service.discoverDevices();
+      await service.connect(devices[0]);
+
+      await service.printImage('base64ImageData');
+
+      expect(printListener).toHaveBeenCalled();
+      expect(printListener.mock.calls[0][0]).toHaveProperty('status', 'completed');
+    });
+  });
+
   describe('event listeners', () => {
     it('should notify connection status listeners on connect', async () => {
       const listener = jest.fn();

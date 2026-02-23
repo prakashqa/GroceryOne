@@ -113,6 +113,7 @@ export class OrdersService {
       this.orderItemRepository.create({
         ...itemData,
         orderId: savedOrder.id,
+        tenantId,
       }),
     );
     await this.orderItemRepository.save(orderItems);

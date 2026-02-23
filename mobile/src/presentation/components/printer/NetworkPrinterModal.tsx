@@ -517,14 +517,14 @@ const NetworkPrinterModal: React.FC<NetworkPrinterModalProps> = ({
             {isScanning && (
               <ActivityIndicator
                 size="small"
-                color={theme.colors.primary}
+                color="#fff"
                 style={styles.scanSpinner}
               />
             )}
             <Text
               style={[
                 styles.scanButtonText,
-                { color: isScanning ? '#fff' : theme.colors.primary },
+                { color: '#fff' },
               ]}
             >
               {isScanning ? t('settings.printer.networkModal.stopScanning') : t('settings.printer.networkModal.scanNetwork')}

@@ -168,6 +168,7 @@ jest.mock('react-native-thermal-receipt-printer-image-qr', () => ({
     connectPrinter: jest.fn().mockResolvedValue(true),
     printText: jest.fn().mockResolvedValue(true),
     printRawData: jest.fn().mockResolvedValue(true),
+    printImageBase64: jest.fn().mockResolvedValue(true),
     closeConn: jest.fn().mockResolvedValue(true),
   },
   NetPrinter: {
@@ -185,6 +186,7 @@ jest.mock('react-native-thermal-receipt-printer-image-qr', () => ({
     connectPrinter: jest.fn().mockResolvedValue(true),
     printText: jest.fn().mockResolvedValue(true),
     printRawData: jest.fn().mockResolvedValue(true),
+    printImageBase64: jest.fn().mockResolvedValue(true),
     closeConn: jest.fn().mockResolvedValue(true),
   },
 }));
@@ -304,6 +306,12 @@ jest.mock('@react-native-firebase/messaging', () => ({
     getInitialNotification: jest.fn(() => Promise.resolve(null)),
   })),
 }));
+
+// Mock ReceiptBitmap native module (text-to-image for thermal printer Telugu printing)
+import { NativeModules } from 'react-native';
+NativeModules.ReceiptBitmap = {
+  renderTextToImage: jest.fn().mockResolvedValue('mock-base64-bitmap-data'),
+};
 
 // Silence specific warnings in tests
 const originalError = console.error;

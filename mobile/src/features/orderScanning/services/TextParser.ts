@@ -237,17 +237,62 @@ export class TextParser {
 
   /**
    * Parse multiple lines of text
-   * Filters out non-item lines (headers, separators, metadata) before parsing
+   * Filters out non-item lines (headers, separators, metadata) before parsing.
+   *
+   * Implements two-column pairing: handwritten grocery lists often have item
+   * names on the left and quantities on the right. Google Cloud Vision OCR
+   * returns these as alternating lines (e.g. ["కందిపప్పు", "2 Kg", ...]).
+   * Quantity-only lines are intercepted before isNonItemLine() discards them,
+   * and paired with the immediately preceding item that has no quantity yet.
    */
   parseLines(lines: string[], language: DetectedLanguage): ParsedLineItem[] {
-    return lines
-      .filter((line) => {
-        const trimmed = line.trim();
-        // Filter out empty lines and non-item lines
-        return trimmed !== '' && !this.isNonItemLine(trimmed);
-      })
-      .map((line, index) => this.parseLine(line, language, index))
-      .filter((item) => item.itemName.trim() !== '');
+    const results: ParsedLineItem[] = [];
+    let validItemIndex = 0;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      // Check for standalone quantity-only line BEFORE isNonItemLine discards it.
+      // Two-column handwritten lists (item name | quantity) are often OCR'd as
+      // alternating lines. Pair the quantity with the preceding item if that
+      // item has no quantity yet.
+      if (this.isQuantityOnlyLine(trimmed)) {
+        if (results.length > 0) {
+          const lastItem = results[results.length - 1];
+          if (lastItem.quantity === null) {
+            // parseLine on a quantity-only string returns empty itemName + quantity
+            const qtyParsed = this.parseLine(line, language, -1);
+            if (qtyParsed.quantity !== null) {
+              lastItem.quantity = qtyParsed.quantity;
+              lastItem.unit = qtyParsed.unit;
+            }
+          }
+        }
+        continue; // Never add quantity-only as a standalone item
+      }
+
+      if (this.isNonItemLine(trimmed)) continue;
+
+      const parsed = this.parseLine(line, language, validItemIndex++);
+      if (parsed.itemName.trim() !== '') {
+        results.push(parsed);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Returns true if the line contains only a quantity with unit and no item name.
+   * Used to detect two-column OCR output where quantity is on its own line.
+   */
+  private isQuantityOnlyLine(text: string): boolean {
+    const normalized = this.normalizeWhitespace(text);
+    return (
+      NON_ITEM_PATTERNS.quantityOnlyEnglish.test(normalized) ||
+      NON_ITEM_PATTERNS.quantityOnlyTelugu.test(normalized)
+    );
   }
 
   /**
