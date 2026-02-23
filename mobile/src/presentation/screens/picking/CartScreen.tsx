@@ -277,10 +277,12 @@ const CartScreen: React.FC = () => {
     // Get locale for date/time formatting based on current language
     const locale = i18n.language === 'te' ? 'te-IN' : 'en-US';
 
-    // Get merchant info - prefer tenant name from Redux (dynamic per tenant),
-    // fallback to i18n hardcoded value when tenant data is not yet available
+    // Get merchant info - use i18n tenant name by slug for locale-aware display,
+    // fallback to tenant.name (English from backend), then to generic i18n merchantName
     const merchantInfo = {
-      name: tenant?.name || t('picking.receipt.merchantName'),
+      name: (tenant?.slug
+        ? t(`picking.receipt.tenantNames.${tenant.slug}`, { defaultValue: tenant.name })
+        : null) || t('picking.receipt.merchantName'),
       address: t('picking.receipt.merchantAddress'),
       phone: tenant?.contactPhone,
     };

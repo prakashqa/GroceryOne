@@ -196,6 +196,10 @@
       "footer": "గ్రాసరీస్వన్ ద్వారా",
       "merchantName": "ప్రకాష్ గ్రాసరీస్",
       "merchantAddress": "మెయిన్ స్ట్రీట్, విశాఖపట్నం",
+      "tenantNames": {
+        "freshmart": "ఫ్రెష్ మార్ట్ గ్రాసరీస్",
+        "quickbasket": "క్విక్ బాస్కెట్ స్టోర్"
+      },
       "categoryName": "కేటగిరీ పేరు",
       "itemName": "వస్తువు పేరు",
       "quantity": "పరిమాణం",

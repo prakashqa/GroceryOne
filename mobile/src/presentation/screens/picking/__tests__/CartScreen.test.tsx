@@ -49,6 +49,13 @@ const DISCONNECTED_PRINTER_SETTINGS = {
   },
 };
 
+// Spy on generatePickingListReceipt to capture merchantInfo argument
+const mockGenerateReceipt = jest.fn().mockReturnValue('MOCK_RECEIPT');
+jest.mock('../../../../domain/utils/receiptGenerator', () => ({
+  ...jest.requireActual('../../../../domain/utils/receiptGenerator'),
+  generatePickingListReceipt: (...args: any[]) => mockGenerateReceipt(...args),
+}));
+
 describe('CartScreen', () => {
   describe('summary card display', () => {
     it('should display Categories, Unique Items, and Total Qty in summary', async () => {
@@ -244,6 +251,90 @@ describe('CartScreen', () => {
         expect(textContent).not.toContain('₹');
         expect(textContent).not.toContain('.00');
         expect(textContent).not.toContain('Mark Payment Done');
+      });
+    });
+  });
+
+  describe('tenant name translation in receipt', () => {
+    const i18n = require('../../../../i18n/i18n.config').default;
+
+    const FRESHMART_TENANT = {
+      tenant: {
+        id: 'tenant-1',
+        name: 'FreshMart Groceries',
+        slug: 'freshmart',
+        status: 'active',
+        subscriptionPlan: 'standard',
+        branding: { primaryColor: '#4CAF50', secondaryColor: '#2196F3', fontFamily: 'Roboto' },
+        defaultLanguage: 'en',
+        supportedLanguages: ['en', 'te'],
+        currency: 'INR',
+        timezone: 'Asia/Kolkata',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      config: null,
+      branding: { primaryColor: '#4CAF50', secondaryColor: '#2196F3', fontFamily: 'Roboto' },
+      currentLanguage: 'en' as const,
+      isLoading: false,
+      error: null,
+    };
+
+    const cartWithItem = createCart('Test Cart', [createCartItem(ATTA_ITEM)]);
+
+    afterEach(() => {
+      i18n.changeLanguage('en');
+      mockGenerateReceipt.mockClear();
+    });
+
+    it('should use Telugu tenant name from i18n when language is Telugu', async () => {
+      await i18n.changeLanguage('te');
+
+      const { getByTestId } = renderWithProviders(<CartScreen />, {
+        preloadedState: {
+          ...createMultiCartState(cartWithItem, { settings: CONNECTED_PRINTER_SETTINGS }),
+          tenant: FRESHMART_TENANT,
+        },
+      });
+
+      // Trigger print button to generate receipt
+      await waitFor(() => {
+        expect(getByTestId('footer-print-text')).toBeTruthy();
+      });
+
+      const { fireEvent } = require('@testing-library/react-native');
+      fireEvent.press(getByTestId('footer-print-text'));
+
+      // Verify generatePickingListReceipt was called with Telugu merchant name
+      await waitFor(() => {
+        expect(mockGenerateReceipt).toHaveBeenCalled();
+        const callArgs = mockGenerateReceipt.mock.calls[0][0];
+        expect(callArgs.merchantInfo.name).toBe('ఫ్రెష్ మార్ట్ గ్రాసరీస్');
+      });
+    });
+
+    it('should use English tenant name when language is English', async () => {
+      await i18n.changeLanguage('en');
+
+      const { getByTestId } = renderWithProviders(<CartScreen />, {
+        preloadedState: {
+          ...createMultiCartState(cartWithItem, { settings: CONNECTED_PRINTER_SETTINGS }),
+          tenant: FRESHMART_TENANT,
+        },
+      });
+
+      await waitFor(() => {
+        expect(getByTestId('footer-print-text')).toBeTruthy();
+      });
+
+      const { fireEvent } = require('@testing-library/react-native');
+      fireEvent.press(getByTestId('footer-print-text'));
+
+      // Verify generatePickingListReceipt was called with English tenant name from i18n
+      await waitFor(() => {
+        expect(mockGenerateReceipt).toHaveBeenCalled();
+        const callArgs = mockGenerateReceipt.mock.calls[0][0];
+        expect(callArgs.merchantInfo.name).toBe('FreshMart Groceries');
       });
     });
   });
