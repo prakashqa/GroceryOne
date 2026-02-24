@@ -46,6 +46,7 @@ export const PinSecureStorage = {
 
   /**
    * Clear all PIN-related data from secure storage
+   * Includes auth context and tenant name keys added for offline restoration
    */
   async clearPin(): Promise<void> {
     await Promise.all([
@@ -55,6 +56,10 @@ export const PinSecureStorage = {
       SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.CREATED_AT),
       SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG),
       SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER),
+      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
+      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
+      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
+      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_NAME),
     ]);
   },
 
@@ -107,5 +112,60 @@ export const PinSecureStorage = {
    */
   async getUserIdentifier(): Promise<string | null> {
     return SecureStore.getItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER);
+  },
+
+  /**
+   * Store auth context (user, tokens) for offline restoration after local PIN verify.
+   * All data stored in hardware-backed SecureStore (not AsyncStorage).
+   * @param user - User object to serialize
+   * @param accessToken - JWT access token
+   * @param refreshToken - JWT refresh token
+   */
+  async storeAuthContext(user: Record<string, unknown>, accessToken: string, refreshToken: string): Promise<void> {
+    await Promise.all([
+      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_USER, JSON.stringify(user)),
+      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN, accessToken),
+      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN, refreshToken),
+    ]);
+  },
+
+  /**
+   * Retrieve stored auth context for offline restoration.
+   * @returns Object with user, accessToken, refreshToken — or null if incomplete/corrupt
+   */
+  async getAuthContext(): Promise<{ user: Record<string, unknown>; accessToken: string; refreshToken: string } | null> {
+    const [userJson, accessToken, refreshToken] = await Promise.all([
+      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
+      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
+      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
+    ]);
+
+    if (!userJson || !accessToken || !refreshToken) {
+      return null;
+    }
+
+    try {
+      const user = JSON.parse(userJson);
+      return { user, accessToken, refreshToken };
+    } catch {
+      // Corrupt JSON — treat as missing
+      return null;
+    }
+  },
+
+  /**
+   * Store friendly tenant display name for offline restoration.
+   * @param name - Human-readable tenant name (e.g. "FreshMart Groceries")
+   */
+  async storeTenantName(name: string): Promise<void> {
+    await SecureStore.setItemAsync(PIN_STORAGE_KEYS.TENANT_NAME, name);
+  },
+
+  /**
+   * Retrieve stored friendly tenant display name.
+   * @returns The tenant name or null
+   */
+  async getTenantName(): Promise<string | null> {
+    return SecureStore.getItemAsync(PIN_STORAGE_KEYS.TENANT_NAME);
   },
 };

@@ -28,7 +28,8 @@ jest.mock('../../../../services/printer', () => ({
   NetworkConnectionStatus: {},
 }));
 
-describe('NetworkPrinterModal - Telugu Translation Integration', () => {
+describe('NetworkPrinterModal', () => {
+  describe('Telugu locale', () => {
   const mockOnClose = jest.fn();
   const mockOnSelect = jest.fn();
 
@@ -175,5 +176,6 @@ describe('NetworkPrinterModal - Telugu Translation Integration', () => {
       expect(queryByText('Common Ports')).toBeNull();
       expect(queryByText('Cancel')).toBeNull();
     });
+  });
   });
 });

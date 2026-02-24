@@ -261,6 +261,30 @@ describe('catalogSync', () => {
       expect(categories[0].icon).toBe('☕');
     });
 
+    it('should store backend UUID as backendId for reverse lookup', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockBackendCategory] }),
+      });
+
+      const categories = await fetchCategoriesFromBackend();
+
+      // backendId should be the UUID from backend, id should be the slug
+      expect(categories[0].backendId).toBe('uuid-cat-1');
+      expect(categories[0].id).toBe('beverages');
+    });
+
+    it('should map nameTe from backend', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockBackendCategory] }),
+      });
+
+      const categories = await fetchCategoriesFromBackend();
+
+      expect(categories[0].nameTe).toBe('టీ, కాఫీ & పానీయాలు');
+    });
+
     it('should include URL in error when fetch fails', async () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Network request failed'));
 

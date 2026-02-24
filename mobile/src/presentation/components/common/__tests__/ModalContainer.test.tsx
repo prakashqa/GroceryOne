@@ -9,78 +9,12 @@ import { ModalContainer } from '../ModalContainer';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      surface: '#FFFFFF',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      modalOverlay: 'rgba(0, 0, 0, 0.6)',
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-      error: '#D32F2F',
-      iconMuted: 'rgba(46, 125, 50, 0.1)',
-      iconDanger: 'rgba(211, 47, 47, 0.1)',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    typography: {
-      fontSize: {
-        md: 14,
-        lg: 16,
-        xl: 18,
-        xxl: 24,
-      },
-      fontWeight: {
-        bold: '700',
-      },
-    },
-    textStyles: {
-      h1: { fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
-      h2: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
-      h3: { fontSize: 18, fontWeight: '600', letterSpacing: 0 },
-      body: { fontSize: 16, fontWeight: '400' },
-      bodySmall: { fontSize: 14, fontWeight: '400' },
-      caption: { fontSize: 12, fontWeight: '400', letterSpacing: 0.2 },
-      button: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-    },
-    borderRadius: {
-      lg: 16,
-      xl: 24,
-    },
-    shadows: {
-      xl: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
-        elevation: 12,
-      },
-    },
-    animation: {
-      fast: 150,
-      normal: 200,
-      slow: 300,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 8,
-    modalWidth: 600,
-    sectionSpacing: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('ModalContainer', () => {

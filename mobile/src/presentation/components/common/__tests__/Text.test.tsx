@@ -9,35 +9,12 @@ import { Text } from '../Text';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#999999',
-      primary: '#2E7D32',
-      success: '#2E7D32',
-      warning: '#F57C00',
-      error: '#D32F2F',
-      buttonPrimaryText: '#FFFFFF',
-    },
-    textStyles: {
-      h1: { fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
-      h2: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
-      h3: { fontSize: 18, fontWeight: '600', letterSpacing: 0 },
-      body: { fontSize: 16, fontWeight: '400' },
-      bodySmall: { fontSize: 14, fontWeight: '400' },
-      caption: { fontSize: 12, fontWeight: '400', letterSpacing: 0.2 },
-      button: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-      buttonSmall: { fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Text', () => {

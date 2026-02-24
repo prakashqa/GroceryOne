@@ -19,6 +19,7 @@ import type { PaymentInfo } from './payment';
 
 export interface Category {
   id: string;
+  backendId?: string; // UUID from backend database, for reverse lookup
   name: string;
   nameTe?: string; // Telugu name
   icon: string;

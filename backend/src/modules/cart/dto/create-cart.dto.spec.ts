@@ -10,29 +10,14 @@ import { CreateCartDto } from './create-cart.dto';
 describe('CreateCartDto', () => {
   const validDto = { name: 'Test Cart' };
 
-  it('should accept status "draft"', async () => {
-    const dto = plainToInstance(CreateCartDto, { ...validDto, status: 'draft' });
-    const errors = await validate(dto);
-    expect(errors.length).toBe(0);
-  });
-
-  it('should accept status "printed"', async () => {
-    const dto = plainToInstance(CreateCartDto, { ...validDto, status: 'printed' });
-    const errors = await validate(dto);
-    expect(errors.length).toBe(0);
-  });
-
-  it('should accept status "paid"', async () => {
-    const dto = plainToInstance(CreateCartDto, { ...validDto, status: 'paid' });
-    const errors = await validate(dto);
-    expect(errors.length).toBe(0);
-  });
-
-  it('should accept status "completed"', async () => {
-    const dto = plainToInstance(CreateCartDto, { ...validDto, status: 'completed' });
-    const errors = await validate(dto);
-    expect(errors.length).toBe(0);
-  });
+  test.each(['draft', 'printed', 'paid', 'completed'])(
+    'should accept status "%s"',
+    async (status) => {
+      const dto = plainToInstance(CreateCartDto, { ...validDto, status });
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    },
+  );
 
   it('should reject invalid status', async () => {
     const dto = plainToInstance(CreateCartDto, { ...validDto, status: 'invalid' });

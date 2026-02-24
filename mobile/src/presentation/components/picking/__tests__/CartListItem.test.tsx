@@ -6,6 +6,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import CartListItem from '../CartListItem';
 import { ManagedCart } from '../../../../domain/types/picking';
+import { flattenStyle } from '../../../../__test-utils__';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -23,44 +24,12 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50', primaryLight: '#81C784', background: '#f5f5f5',
-      surface: '#ffffff', text: '#212121', textSecondary: '#757575', textLight: '#9e9e9e',
-      border: '#e0e0e0', card: '#ffffff', warning: '#FFC107', disabled: '#BDBDBD',
-      success: '#4CAF50', info: '#2196F3',
-    },
-    spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
-    typography: { fontSize: { xs: 10, sm: 12, md: 14, lg: 16, xl: 18 } },
-    textStyles: {
-      h1: { fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
-      h2: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
-      h3: { fontSize: 18, fontWeight: '600', letterSpacing: 0 },
-      body: { fontSize: 16, fontWeight: '400' },
-      bodySmall: { fontSize: 14, fontWeight: '400' },
-      caption: { fontSize: 12, fontWeight: '400', letterSpacing: 0.2 },
-      button: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-    },
-    borderRadius: { sm: 8, md: 12, lg: 16 },
-    shadows: {
-      sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-      md: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1, touchTargetMinSize: 48, componentPadding: 16, iconContainerSize: 44,
-    cardBorderRadius: 12, buttonBorderRadius: 12, modalWidth: 600, sectionSpacing: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
-
-// === Helpers ===
-const flattenStyle = (style: any): Record<string, unknown> =>
-  Array.isArray(style)
-    ? style.reduce((acc: Record<string, unknown>, s: Record<string, unknown> | undefined) => ({ ...acc, ...(s || {}) }), {})
-    : style || {};
 
 const createMockItem = (id: string, overrides: Record<string, any> = {}) => ({
   item: { id, categoryId: 'cat-1', name: `Item ${id}`, unit: 'kg', defaultQuantity: 1, ...overrides },

@@ -5,58 +5,16 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Input } from '../Input';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#999999',
-      border: '#E8E8E8',
-      error: '#D32F2F',
-      success: '#2E7D32',
-      inputBackground: '#F5F5F5',
-      inputFocus: '#2E7D32',
-      placeholder: '#9E9E9E',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-      },
-      fontWeight: {
-        medium: '500',
-      },
-    },
-    borderRadius: {
-      md: 12,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 12,
-    modalWidth: 600,
-    sectionSpacing: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Input', () => {
@@ -334,10 +292,7 @@ describe('Input', () => {
       );
 
       const clearButton = getByTestId('input-clear');
-      const styles = clearButton.props.style;
-      const flatStyle = Array.isArray(styles)
-        ? styles.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyle = flattenStyle(clearButton.props.style);
       // Minimum size should be 28px for touch-friendliness
       expect(flatStyle.width).toBeGreaterThanOrEqual(28);
       expect(flatStyle.height).toBeGreaterThanOrEqual(28);

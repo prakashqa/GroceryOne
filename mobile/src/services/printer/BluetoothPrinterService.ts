@@ -106,6 +106,60 @@ class BluetoothPrinterService {
   }
 
   /**
+   * Blocklist patterns for known non-printer Bluetooth devices.
+   * Case-insensitive match against device name.
+   * Uses a blocklist (exclude known non-printers) rather than a whitelist
+   * because thermal printer names vary widely and a whitelist would miss many.
+   */
+  private static readonly NON_PRINTER_PATTERNS: RegExp[] = [
+    // Audio devices
+    /\bJBL\b/i,
+    /\bAirPods\b/i,
+    /\bAirdopes\b/i,
+    /\bGalaxy Buds\b/i,
+    /\bBose\b/i,
+    /\bBeats\b/i,
+    /\bSony WH/i,
+    /\bSony WF/i,
+    /\bJabra\b/i,
+    /\bSennheiser\b/i,
+    /\bSoundcore\b/i,
+    // Car infotainment
+    /\bVW_MIB\b/i,
+    /\bBMW\b/i,
+    /\bMercedes\b/i,
+    /\bCar Audio\b/i,
+    /\bCarPlay\b/i,
+    // Wearables
+    /\bWatch\b/i,
+    /\bMi Band\b/i,
+    /\bFitbit\b/i,
+    /\bGarmin\b/i,
+    // Computers / tablets
+    /\bMacBook\b/i,
+    /\bLaptop\b/i,
+    /\biPad\b/i,
+  ];
+
+  /**
+   * Filter out known non-printer devices from the device list.
+   * Devices with empty/missing names ("Unknown Device") are kept since
+   * they could be printers without a proper Bluetooth name.
+   */
+  private filterPrinterDevices(devices: BluetoothDevice[]): BluetoothDevice[] {
+    return devices.filter((device) => {
+      // Keep unknown devices — they could be unnamed printers
+      if (!device.name || device.name === 'Unknown Device') {
+        return true;
+      }
+      // Exclude devices matching any non-printer pattern
+      return !BluetoothPrinterService.NON_PRINTER_PATTERNS.some(
+        (pattern) => pattern.test(device.name)
+      );
+    });
+  }
+
+  /**
    * Check and request Bluetooth permissions (Android)
    */
   async requestBluetoothPermissions(): Promise<boolean> {
@@ -196,10 +250,13 @@ class BluetoothPrinterService {
 
       const rawDevices = await BLEPrinter.getDeviceList();
 
-      const devices: BluetoothDevice[] = (rawDevices || []).map(
+      const allDevices: BluetoothDevice[] = (rawDevices || []).map(
         (d: { device_name?: string; inner_mac_address: string }) =>
           this.mapToBluetoothDevice(d)
       );
+
+      // Filter out known non-printer devices (earbuds, car audio, etc.)
+      const devices = this.filterPrinterDevices(allDevices);
 
       this.state.discoveredDevices = devices;
 
@@ -241,10 +298,11 @@ class BluetoothPrinterService {
       }
       await this.ensureInitialized();
       const rawDevices = await BLEPrinter.getDeviceList();
-      return (rawDevices || []).map(
+      const allDevices = (rawDevices || []).map(
         (d: { device_name?: string; inner_mac_address: string }) =>
           this.mapToBluetoothDevice(d)
       );
+      return this.filterPrinterDevices(allDevices);
     } catch (error) {
       console.error('Error getting paired devices:', error);
       return [];

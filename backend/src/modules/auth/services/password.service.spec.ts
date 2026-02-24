@@ -16,10 +16,6 @@ describe('PasswordService', () => {
     service = module.get<PasswordService>(PasswordService);
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
   describe('hash', () => {
     it('should hash a password with bcrypt', async () => {
       const password = 'TestPassword123!';

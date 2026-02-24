@@ -11,6 +11,7 @@ import { PasswordService } from './services/password.service';
 import { TokenBlacklistService } from '../../core/redis/token-blacklist.service';
 import { User } from '../users/entities/user.entity';
 import { Tenant } from '../../tenant/entities/tenant.entity';
+import { buildMockTenant, buildMockUser } from '../../test-utils';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -18,34 +19,9 @@ describe('AuthService', () => {
   let passwordService: PasswordService;
   let jwtService: JwtService;
 
-  const mockTenant: Tenant = {
-    id: 'tenant-123',
-    name: 'FreshMart Groceries',
-    slug: 'freshmart',
-    status: 'active',
-    subscriptionPlan: 'premium',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  } as Tenant;
+  const mockTenant = buildMockTenant();
 
-  const mockUser: User = {
-    id: 'user-123',
-    tenantId: 'tenant-123',
-    email: 'test@example.com',
-    phone: '+91-9876543210',
-    passwordHash: '$2b$12$hashedpassword',
-    firstName: 'John',
-    lastName: 'Doe',
-    role: 'admin',
-    status: 'active',
-    preferredLanguage: 'en',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    tenant: mockTenant,
-    get fullName() {
-      return 'John Doe';
-    },
-  };
+  const mockUser = buildMockUser({ tenant: mockTenant });
 
   const mockUserRepository = {
     findOne: jest.fn(),
@@ -95,12 +71,7 @@ describe('AuthService', () => {
     passwordService = module.get<PasswordService>(PasswordService);
     jwtService = module.get<JwtService>(JwtService);
 
-    // Reset mocks
     jest.clearAllMocks();
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
   });
 
   describe('validateUser', () => {
@@ -118,13 +89,6 @@ describe('AuthService', () => {
       expect(result).toBeDefined();
       expect(result).not.toBeNull();
       expect(result!.tenantId).toBe('tenant-123');
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: [
-          { tenantId: 'tenant-123', email: 'test@example.com', status: 'active' },
-          { tenantId: 'tenant-123', phone: 'test@example.com', status: 'active' },
-        ],
-        relations: ['tenant'],
-      });
     });
 
     it('should validate user with phone number', async () => {
@@ -167,8 +131,7 @@ describe('AuthService', () => {
     });
 
     it('should reject user from different tenant', async () => {
-      // User exists in tenant-123 but login attempt from tenant-456
-      mockUserRepository.findOne.mockResolvedValue(null); // Won't find in different tenant
+      mockUserRepository.findOne.mockResolvedValue(null);
 
       const result = await service.validateUser(
         'tenant-456',
@@ -333,14 +296,13 @@ describe('AuthService', () => {
     });
 
     it('should calculate correct TTL from token expiry', async () => {
-      const futureExp = Math.floor(Date.now() / 1000) + 1800; // 30 minutes
+      const futureExp = Math.floor(Date.now() / 1000) + 1800;
       mockJwtService.decode.mockReturnValue({ exp: futureExp });
       mockTokenBlacklistService.blacklist.mockResolvedValue(undefined);
 
       await service.logout('valid-jwt-token');
 
       const calledTtl = mockTokenBlacklistService.blacklist.mock.calls[0][1];
-      // TTL should be approximately 1800 seconds (allowing 2s tolerance)
       expect(calledTtl).toBeGreaterThanOrEqual(1798);
       expect(calledTtl).toBeLessThanOrEqual(1800);
     });

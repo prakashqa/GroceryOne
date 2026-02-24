@@ -9,28 +9,8 @@ import { DateFilterBar, DateFilter } from '../DateFilterBar';
 
 // Mock theme
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      surface: '#1E1E1E',
-      background: '#121212',
-      text: '#FFFFFF',
-      textSecondary: '#AAAAAA',
-      border: '#333333',
-      textInverse: '#000000',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-    },
-  }),
-  useIsDarkMode: () => true,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock i18n

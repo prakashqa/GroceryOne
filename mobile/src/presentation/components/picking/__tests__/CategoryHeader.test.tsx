@@ -21,41 +21,13 @@ jest.mock('react-i18next', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      text: '#212121',
-      textSecondary: '#757575',
-      textLight: '#9e9e9e',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-        '2xl': 20,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    contentPadding: 16,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
   useDeviceType: () => ({
     isTablet: false,
     isPhone: true,

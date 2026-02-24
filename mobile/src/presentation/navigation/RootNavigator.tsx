@@ -148,9 +148,21 @@ export function RootNavigator() {
 
       if (storedTenantSlug) {
         setHasTenantContext(true);
+
+        // Use persisted friendly name if available (instead of slug)
+        let tenantName = storedTenantSlug;
+        try {
+          const persistedName = await PinSecureStorage.getTenantName();
+          if (persistedName) {
+            tenantName = persistedName;
+          }
+        } catch {
+          // Non-fatal — fall back to slug
+        }
+
         dispatch(setTenant({
           id: '',
-          name: storedTenantSlug,
+          name: tenantName,
           slug: storedTenantSlug,
           status: 'active',
           subscriptionPlan: 'premium',

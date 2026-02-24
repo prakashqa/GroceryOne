@@ -5,6 +5,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { BottomActionBar } from '../BottomActionBar';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock Button component
 jest.mock('../Button', () => ({
@@ -30,28 +31,7 @@ jest.mock('../Button', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      surface: '#FFFFFF',
-      border: '#E8E8E8',
-      background: '#F8FAF8',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    shadows: {
-      lg: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 8,
-      },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock SafeAreaView
@@ -172,9 +152,7 @@ describe('BottomActionBar', () => {
       );
 
       const container = getByTestId('bottom-bar');
-      const flatStyle = Array.isArray(container.props.style)
-        ? container.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : container.props.style;
+      const flatStyle = flattenStyle(container.props.style);
       expect(flatStyle.position).toBe('absolute');
     });
 
@@ -189,9 +167,7 @@ describe('BottomActionBar', () => {
       );
 
       const container = getByTestId('bottom-bar');
-      const flatStyle = Array.isArray(container.props.style)
-        ? container.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : container.props.style;
+      const flatStyle = flattenStyle(container.props.style);
       expect(flatStyle.position).toBeUndefined();
     });
   });
@@ -236,9 +212,7 @@ describe('BottomActionBar', () => {
       );
 
       const container = getByTestId('bottom-bar');
-      const flatStyle = Array.isArray(container.props.style)
-        ? container.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : container.props.style;
+      const flatStyle = flattenStyle(container.props.style);
       expect(flatStyle.borderTopWidth).toBe(1);
     });
   });

@@ -16,86 +16,13 @@ jest.mock('../../../../hooks', () => ({
     screenWidth: 375,
     screenHeight: 812,
   }),
-  useResponsiveStyles: () => ({
-    contentPadding: 16,
-    fontScale: 1,
-    iconSize: 24,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 8,
-    sectionSpacing: 16,
-    touchTargetMinSize: 48,
-    gridColumns: 2,
-    listColumns: 1,
-    gridGap: 12,
-    cardMinWidth: 140,
-    tabBarHeight: 60,
-    tabBarIconSize: 24,
-    tabBarLabelSize: 11,
-    modalWidth: 343,
-    contentMaxWidth: undefined,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-      surface: '#FFFFFF',
-      card: '#FFFFFF',
-      background: '#F5F5F5',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#999999',
-      buttonPrimary: '#2E7D32',
-      buttonPrimaryText: '#FFFFFF',
-      inCartBackground: '#F1F8E9',
-      inCartBorder: '#C8E6C9',
-      success: '#2E7D32',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    animation: {
-      fast: 150,
-      normal: 200,
-      slow: 300,
-    },
-    shadows: {
-      md: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 4,
-        elevation: 3,
-      },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock useTranslation

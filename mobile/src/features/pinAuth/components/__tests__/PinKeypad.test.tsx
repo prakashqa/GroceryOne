@@ -9,43 +9,7 @@ import { PinKeypad, getKeySize } from '../PinKeypad';
 
 // Mock theme hook
 jest.mock('../../../../presentation/theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50',
-      text: '#212121',
-      textLight: '#757575',
-      border: '#E0E0E0',
-      error: '#F44336',
-      surface: '#FFFFFF',
-      background: '#F5F5F5',
-      disabled: '#BDBDBD',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    borderRadius: {
-      full: 999,
-      md: 8,
-    },
-    typography: {
-      fontSize: {
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 20,
-        xxl: 24,
-      },
-      fontWeight: {
-        regular: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 describe('PinKeypad', () => {

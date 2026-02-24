@@ -16,23 +16,24 @@ import pickingCartReducer, {
   PickingCartState,
 } from '../pickingCartSlice';
 import { Item } from '../../../domain/types/picking';
+import { buildMockItem } from '../../../__test-utils__/factories/picking-factories';
 
 describe('pickingCartSlice', () => {
-  const mockItem: Item = {
+  const mockItem: Item = buildMockItem({
     id: 'atta-1',
     categoryId: 'atta-rice',
     name: 'Aashirvaad Atta',
     unit: 'kg',
     defaultQuantity: 5,
-  };
+  });
 
-  const mockItem2: Item = {
+  const mockItem2: Item = buildMockItem({
     id: 'dal-1',
     categoryId: 'dal-pulses',
     name: 'Toor Dal',
     unit: 'kg',
     defaultQuantity: 1,
-  };
+  });
 
   const initialState: PickingCartState = {
     items: [],

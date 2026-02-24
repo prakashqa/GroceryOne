@@ -8,38 +8,7 @@ import CashPaymentSection from '../CashPaymentSection';
 
 // Mock theme
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      surface: '#F5F5F5',
-      background: '#FFFFFF',
-      border: '#E0E0E0',
-      error: '#D32F2F',
-      success: '#2E7D32',
-      placeholder: '#9E9E9E',
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-        xxl: 24,
-      },
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    borderRadius: {
-      md: 8,
-      lg: 12,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock i18n

@@ -31,4 +31,12 @@ export const PIN_STORAGE_KEYS = {
   TENANT_SLUG: 'groceryone_pin_tenant_slug',
   /** Key for storing user identifier (email/phone) for backend PIN verification */
   USER_IDENTIFIER: 'groceryone_pin_user_identifier',
+  /** Key for storing serialized user object for offline auth context restoration */
+  AUTH_USER: 'groceryone_auth_user',
+  /** Key for storing access token for offline auth context restoration */
+  AUTH_ACCESS_TOKEN: 'groceryone_auth_access_token',
+  /** Key for storing refresh token for offline auth context restoration */
+  AUTH_REFRESH_TOKEN: 'groceryone_auth_refresh_token',
+  /** Key for storing friendly tenant display name */
+  TENANT_NAME: 'groceryone_tenant_name',
 } as const;

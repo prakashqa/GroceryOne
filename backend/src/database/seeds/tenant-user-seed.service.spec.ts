@@ -107,10 +107,6 @@ describe('TenantUserSeedService', () => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
   describe('seed', () => {
     beforeEach(() => {
       // Default mock implementations

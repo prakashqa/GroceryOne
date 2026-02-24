@@ -9,102 +9,13 @@ import { SummaryCard } from '../SummaryCard';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-      surface: '#FFFFFF',
-      card: '#FFFFFF',
-      background: '#F5F5F5',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#999999',
-      success: '#2E7D32',
-      warning: '#F57C00',
-      info: '#1976D2',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 20,
-        xxl: 24,
-      },
-      fontWeight: {
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    textStyles: {
-      h1: { fontSize: 32, fontWeight: '700', letterSpacing: -0.5 },
-      h2: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3 },
-      h3: { fontSize: 18, fontWeight: '600', letterSpacing: 0 },
-      body: { fontSize: 16, fontWeight: '400' },
-      bodySmall: { fontSize: 14, fontWeight: '400' },
-      caption: { fontSize: 12, fontWeight: '400', letterSpacing: 0.2 },
-      button: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    animation: {
-      fast: 150,
-      normal: 200,
-      slow: 300,
-    },
-    shadows: {
-      sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-    },
-    opacity: {
-      disabled: 0.5,
-      pressed: 0.12,
-      overlay: 0.6,
-      muted: 0.1,
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    gridColumns: 2,
-    contentPadding: 16,
-    contentMaxWidth: undefined,
-    tabBarHeight: 60,
-    iconSize: 24,
-    fontScale: 1,
-    cardMinWidth: 140,
-    listColumns: 1,
-    gridGap: 12,
-    tabBarIconSize: 24,
-    tabBarLabelSize: 11,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 8,
-    modalWidth: 343,
-    sectionSpacing: 16,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('SummaryCard', () => {

@@ -35,34 +35,8 @@ const mockT = jest.fn((key: string, params?: Record<string, unknown>) => {
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }));
 
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50', primaryDark: '#388E3C', background: '#f5f5f5',
-      surface: '#ffffff', text: '#212121', textSecondary: '#757575', textLight: '#9e9e9e',
-      border: '#e0e0e0', card: '#ffffff', error: '#f44336', disabled: '#bdbdbd',
-      buttonPrimary: '#2E7D32', buttonPrimaryText: '#FFFFFF', buttonPrimaryPressed: '#1B5E20',
-      buttonSecondaryText: '#2E7D32', buttonDangerText: '#FFFFFF',
-      buttonGhostText: '#666666', buttonGhostPressed: 'rgba(0, 0, 0, 0.05)',
-      iconMuted: 'rgba(46, 125, 50, 0.1)', modalOverlay: 'rgba(0, 0, 0, 0.6)',
-      inputBackground: '#F5F5F5', inputFocus: '#2E7D32', placeholder: '#9E9E9E',
-    },
-    spacing: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
-    typography: {
-      fontSize: { xs: 10, sm: 12, md: 14, lg: 16, xl: 18, xxl: 24 },
-      fontWeight: { medium: '500', semibold: '600', bold: '700' },
-    },
-    borderRadius: { sm: 8, md: 12, lg: 16, xl: 24, full: 9999 },
-    shadows: { xl: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 12 } },
-    buttonHeights: { sm: 36, md: 48, lg: 56 },
-    textStyles: {
-      button: { fontSize: 16, fontWeight: '600', letterSpacing: 0.3 },
-      buttonSmall: { fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
-      h2: { fontSize: 20, fontWeight: '600' },
-    },
-  }),
-  useResponsiveStyles: () => ({
-    fontScale: 1, horizontalPadding: 16, isSmallScreen: false, isMediumScreen: true, isLargeScreen: false,
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 // === Factories ===

@@ -13,6 +13,7 @@ import {
   selectItems,
 } from '../store/slices/catalogSlice';
 import type { Category, Item } from '../domain/types/picking';
+import { findCategoryByIdOrUuid } from '../domain/utils/categoryLookup';
 
 // API response types (extended from domain types)
 interface ApiCategory extends Category {
@@ -123,9 +124,9 @@ export const useCatalog = (): UseCatalogResult => {
     [items]
   );
 
-  // Helper: Get category by ID
+  // Helper: Get category by ID or backend UUID
   const getCategoryById = useCallback(
-    (id: string) => categories.find((cat) => cat.id === id),
+    (id: string) => findCategoryByIdOrUuid(categories, id),
     [categories]
   );
 

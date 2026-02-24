@@ -13,26 +13,7 @@ import {
 
 // Mock theme
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      success: '#2E7D32',
-      text: '#000000',
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-      },
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-    },
-    borderRadius: {
-      sm: 4,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock i18n

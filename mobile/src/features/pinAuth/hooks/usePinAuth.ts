@@ -125,8 +125,87 @@ export function usePinAuth(): UsePinAuthReturn {
   );
 
   /**
+   * Restore auth context (user, tokens, tenant name) from SecureStore.
+   * Called after successful local PIN verification when backend was unreachable.
+   * This ensures Redux has the user/tokens needed for cart hydration and Settings display.
+   */
+  const restoreAuthContext = useCallback(
+    async (): Promise<void> => {
+      try {
+        const authContext = await PinSecureStorage.getAuthContext();
+        if (!authContext) {
+          if (__DEV__) {
+            console.log('[usePinAuth] No stored auth context to restore');
+          }
+          return;
+        }
+
+        const { user, accessToken, refreshToken } = authContext;
+
+        if (__DEV__) {
+          console.log('[usePinAuth] Restoring auth context from SecureStore', { userId: user.id });
+        }
+
+        // Restore tokens
+        dispatch(setTokens({
+          accessToken,
+          refreshToken,
+        }));
+
+        // Restore user credentials
+        dispatch(setCredentials({
+          user: {
+            id: (user.id as string) || '',
+            email: (user.email as string) || '',
+            firstName: (user.firstName as string) || '',
+            lastName: (user.lastName as string) || '',
+            role: ((user.role as string) || 'merchant') as 'merchant',
+            tenantId: (user.tenantId as string) || '',
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          tokens: { accessToken, refreshToken },
+          requiresPinSetup: false,
+        }));
+
+        // Restore tenant friendly name if available
+        const tenantName = await PinSecureStorage.getTenantName();
+        if (tenantName && tenant?.slug) {
+          dispatch(setTenant({
+            id: (user.tenantId as string) || '',
+            name: tenantName,
+            slug: tenant.slug,
+            status: 'active',
+            subscriptionPlan: 'premium',
+            branding: {
+              primaryColor: '#4CAF50',
+              secondaryColor: '#2196F3',
+              fontFamily: 'Roboto',
+            },
+            defaultLanguage: 'en',
+            supportedLanguages: ['en', 'te'],
+            currency: 'INR',
+            timezone: 'Asia/Kolkata',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }));
+        }
+      } catch (err) {
+        // Non-fatal — local PIN verify still succeeds even if restoration fails
+        if (__DEV__) {
+          console.error('[usePinAuth] Failed to restore auth context:', err);
+        }
+      }
+    },
+    [dispatch, tenant]
+  );
+
+  /**
    * Verify PIN locally against stored hash
-   * Used as fallback when backend is unreachable
+   * Used as fallback when backend is unreachable.
+   * On success, restores persisted auth context (user, tokens, tenant name)
+   * so that cart hydration and Settings display work correctly.
    */
   const verifyPinLocally = useCallback(
     async (pin: string): Promise<PinVerificationResult> => {
@@ -160,6 +239,10 @@ export function usePinAuth(): UsePinAuthReturn {
         }
 
         if (isValid) {
+          // Restore persisted auth context BEFORE dispatching verifyPinSuccess
+          // so that Redux has user/tokens/tenant name when cart hydration fires
+          await restoreAuthContext();
+
           dispatch(verifyPinSuccess());
           if (__DEV__) {
             console.log('[usePinAuth] PIN verified successfully! Dispatched verifyPinSuccess');
@@ -187,7 +270,7 @@ export function usePinAuth(): UsePinAuthReturn {
         };
       }
     },
-    [dispatch]
+    [dispatch, restoreAuthContext]
   );
 
   /**
@@ -289,10 +372,33 @@ export function usePinAuth(): UsePinAuthReturn {
           if (userIdentifier && responseTenantSlug) {
             await PinSecureStorage.storeTenantContext(responseTenantSlug, userIdentifier);
           }
+
+          // Persist auth context (user + tokens) for offline restoration
+          // after local PIN verify when backend is unreachable
+          await PinSecureStorage.storeAuthContext(
+            {
+              id: data.user.id,
+              email: data.user.email || '',
+              phone: data.user.phone || '',
+              firstName: data.user.firstName || '',
+              lastName: data.user.lastName || '',
+              role: data.user.role || 'merchant',
+              tenantId: data.user.tenantId || '',
+            },
+            data.accessToken,
+            data.refreshToken,
+          );
         }
 
         if (responseTenant) {
           await AsyncStorage.setItem(TENANT_ID_KEY, responseTenant);
+        }
+
+        // Persist friendly tenant name for offline display
+        const tenantName = tenant?.name;
+        if (tenantName && tenantName !== responseTenant) {
+          // Only persist if name differs from slug (i.e. it's a friendly name)
+          await PinSecureStorage.storeTenantName(tenantName);
         }
       } catch (err) {
         console.error('[usePinAuth] Failed to persist login context:', err);

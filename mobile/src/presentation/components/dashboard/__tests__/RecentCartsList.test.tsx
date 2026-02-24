@@ -9,62 +9,8 @@ import { RecentCartsList } from '../RecentCartsList';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-      surface: '#FFFFFF',
-      card: '#FFFFFF',
-      background: '#F5F5F5',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#999999',
-      success: '#2E7D32',
-      warning: '#F57C00',
-      info: '#1976D2',
-      border: '#E8E8E8',
-      divider: '#E8E8E8',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    animation: {
-      fast: 150,
-      normal: 200,
-      slow: 300,
-    },
-    shadows: {
-      sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock useTranslation

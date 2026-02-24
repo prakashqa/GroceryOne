@@ -709,6 +709,182 @@ describe('usePinAuth', () => {
     });
   });
 
+  describe('handleBackendVerifySuccess - auth context persistence (Step 3)', () => {
+    beforeEach(() => {
+      store = createTestStore(PIN_SET_STATE);
+      mockVerifySuccess();
+    });
+
+    it('should persist auth context to SecureStore on successful backend verification', async () => {
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      expect(mockPinSecureStorage.storeAuthContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'user123',
+          email: 'admin@freshmart.com',
+          role: 'merchant',
+          tenantId: 'tid',
+        }),
+        'new-access-token',
+        'new-refresh-token'
+      );
+    });
+
+    it('should not persist auth context when backend response has no user', async () => {
+      mockPinAuthApi.verifyPin.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: 'at', refreshToken: 'rt', expiresIn: 3600,
+          tenantSlug: 'freshmart', user: undefined as any,
+        },
+      });
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      expect(mockPinSecureStorage.storeAuthContext).not.toHaveBeenCalled();
+    });
+
+    it('should also persist tenant name from tenant state during backend verify', async () => {
+      store = createTestStore({
+        ...PIN_SET_STATE,
+        tenant: { tenant: { slug: 'freshmart', name: 'FreshMart Groceries' } },
+      });
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      expect(mockPinSecureStorage.storeTenantName).toHaveBeenCalledWith('FreshMart Groceries');
+    });
+  });
+
+  describe('verifyPinLocally - auth context restoration (Step 5)', () => {
+    beforeEach(() => {
+      // Simulate post-restart: PIN is set, no Redux auth/tenant state, backend unreachable
+      store = createTestStore({
+        pin: { isPinSet: true },
+        auth: { user: null, accessToken: null, refreshToken: null },
+        tenant: { tenant: { slug: 'freshmart' } }, // slug set by RootNavigator
+      });
+
+      // Backend call will fail → fall back to local verification
+      mockPinAuthApi.verifyPin.mockRejectedValue(new Error('Network timeout'));
+
+      // Local PIN verification succeeds
+      setupLocalPinMocks(true);
+
+      // Stored credentials for resolveBackendCredentials (so backend is attempted first)
+      mockPinSecureStorage.getUserIdentifier.mockResolvedValue('admin@freshmart.com');
+      mockPinSecureStorage.getTenantSlug.mockResolvedValue('freshmart');
+    });
+
+    it('should restore auth tokens from SecureStore after local PIN verify', async () => {
+      mockPinSecureStorage.getAuthContext.mockResolvedValue({
+        user: { id: 'user123', email: 'admin@freshmart.com', role: 'merchant', tenantId: 'tid' },
+        accessToken: 'stored-access-token',
+        refreshToken: 'stored-refresh-token',
+      });
+      mockPinSecureStorage.getTenantName.mockResolvedValue('FreshMart Groceries');
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      const state = store.getState();
+      expect(state.auth.accessToken).toBe('stored-access-token');
+      expect(state.auth.refreshToken).toBe('stored-refresh-token');
+    });
+
+    it('should restore user credentials from SecureStore after local PIN verify', async () => {
+      mockPinSecureStorage.getAuthContext.mockResolvedValue({
+        user: { id: 'user123', email: 'admin@freshmart.com', firstName: 'Admin', lastName: 'User', role: 'merchant', tenantId: 'tid' },
+        accessToken: 'at',
+        refreshToken: 'rt',
+      });
+      mockPinSecureStorage.getTenantName.mockResolvedValue(null);
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      const state = store.getState();
+      expect(state.auth.user).not.toBeNull();
+      expect(state.auth.user?.id).toBe('user123');
+      expect(state.auth.user?.email).toBe('admin@freshmart.com');
+      expect(state.auth.isAuthenticated).toBe(true);
+    });
+
+    it('should restore tenant name from SecureStore after local PIN verify', async () => {
+      mockPinSecureStorage.getAuthContext.mockResolvedValue({
+        user: { id: 'user123', email: 'admin@freshmart.com', role: 'merchant', tenantId: 'tid' },
+        accessToken: 'at',
+        refreshToken: 'rt',
+      });
+      mockPinSecureStorage.getTenantName.mockResolvedValue('FreshMart Groceries');
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      const state = store.getState();
+      expect(state.tenant.tenant?.name).toBe('FreshMart Groceries');
+    });
+
+    it('should succeed even when no auth context is stored (graceful degradation)', async () => {
+      mockPinSecureStorage.getAuthContext.mockResolvedValue(null);
+      mockPinSecureStorage.getTenantName.mockResolvedValue(null);
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      let verifyResult: any;
+      await act(async () => { verifyResult = await result.current.verifyPin('1234'); });
+
+      // PIN verification should still succeed
+      expect(verifyResult.success).toBe(true);
+      expect(result.current.pinState.isPinVerified).toBe(true);
+
+      // But auth state should remain empty
+      const state = store.getState();
+      expect(state.auth.accessToken).toBeNull();
+    });
+
+    it('should not restore auth context when local PIN verification fails', async () => {
+      // Setup local verification to fail (wrong PIN)
+      mockPinHashService.verifyPin.mockResolvedValue(false);
+
+      mockPinSecureStorage.getAuthContext.mockResolvedValue({
+        user: { id: 'user123' },
+        accessToken: 'at',
+        refreshToken: 'rt',
+      });
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('9999'); });
+
+      // Auth context should NOT be restored on failed PIN
+      expect(mockPinSecureStorage.getAuthContext).not.toHaveBeenCalled();
+    });
+
+    it('should not attempt auth restoration when backend succeeds (no fallback needed)', async () => {
+      // Backend succeeds this time
+      mockPinAuthApi.verifyPin.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: 'backend-at', refreshToken: 'backend-rt', expiresIn: 3600,
+          tenantSlug: 'freshmart',
+          user: { id: 'user123', email: 'admin@freshmart.com', role: 'merchant', tenantId: 'tid' },
+        },
+      });
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      // getAuthContext should NOT be called because backend succeeded
+      expect(mockPinSecureStorage.getAuthContext).not.toHaveBeenCalled();
+
+      // Should have fresh tokens from backend
+      const state = store.getState();
+      expect(state.auth.accessToken).toBe('backend-at');
+    });
+  });
+
   describe('logoutSession - session-only cleanup (preserves PIN and tenant)', () => {
     beforeEach(() => {
       store = createTestStore({

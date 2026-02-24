@@ -23,6 +23,7 @@ import {
   getTranslatedItemName,
   getTranslatedCategoryName,
 } from '../../../domain/utils/itemTranslations';
+import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
 import { formatQuantityWithUnit } from '../../../domain/utils/unitConversion';
 import { selectCategories, selectItems } from '../../../store/slices/catalogSlice';
 import {
@@ -133,9 +134,9 @@ const CartScreen: React.FC = () => {
 
   const activeCartName = getTranslatedCartName(activeCart?.name);
 
-  // Helper to get category by ID from Redux store
+  // Helper to get category by ID or backend UUID from Redux store
   const getCategoryById = useCallback(
-    (categoryId: string) => categories.find((c) => c.id === categoryId),
+    (categoryId: string) => findCategoryByIdOrUuid(categories, categoryId),
     [categories]
   );
 

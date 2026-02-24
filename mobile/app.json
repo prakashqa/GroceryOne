@@ -54,7 +54,8 @@
           "photosPermission": "Allow GroceryOne to access your photos to scan order images."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withReceiptBitmap"
     ],
     "extra": {
       "googleVisionApiKey": "AIzaSyAdeKEFCkSEIohC-X8JRVJ1JPabP3zbB2s",

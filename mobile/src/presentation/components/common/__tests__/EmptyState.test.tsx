@@ -28,42 +28,12 @@ jest.mock('../Button', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      iconSecondary: '#666666',
-      background: '#F8FAF8',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    typography: {
-      fontSize: {
-        md: 14,
-        lg: 16,
-        xl: 18,
-      },
-      fontWeight: {
-        semibold: '600',
-      },
-    },
-    animation: {
-      normal: 200,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-    iconSize: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('EmptyState', () => {

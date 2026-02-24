@@ -8,32 +8,7 @@ import PaymentMethodSelector from '../PaymentMethodSelector';
 
 // Mock theme
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      text: '#FFFFFF',
-      textSecondary: '#B0B0B0',
-      surface: '#1E1E1E',
-      background: '#121212',
-      primary: '#4CAF50',
-      border: '#333333',
-      divider: '#333333',
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-      },
-    },
-    spacing: {
-      sm: 8,
-    },
-    borderRadius: {
-      md: 8,
-      lg: 12,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock i18n

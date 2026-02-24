@@ -7,6 +7,11 @@ import { Platform } from 'react-native';
 import { BLEPrinter } from 'react-native-thermal-receipt-printer-image-qr';
 import { BluetoothPrinterService } from '../BluetoothPrinterService';
 
+// Helper: override BLEPrinter.getDeviceList mock for specific tests
+const mockDeviceList = (devices: Array<{ device_name: string; inner_mac_address: string }>) => {
+  (BLEPrinter.getDeviceList as jest.Mock).mockResolvedValue(devices);
+};
+
 describe('BluetoothPrinterService', () => {
   let service: BluetoothPrinterService;
 
@@ -399,6 +404,148 @@ describe('BluetoothPrinterService', () => {
 
       expect(BLEPrinter.getDeviceList).not.toHaveBeenCalled();
       permSpy.mockRestore();
+    });
+  });
+
+  describe('device name filtering', () => {
+    let permSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      // Ensure permissions don't interfere with filter tests
+      // (Platform.OS may still be 'android' from permission tests)
+      permSpy = jest.spyOn(service, 'requestBluetoothPermissions')
+        .mockResolvedValue(true);
+    });
+
+    afterEach(() => {
+      permSpy.mockRestore();
+    });
+
+    it('should filter out JBL audio devices from getPairedDevices', async () => {
+      mockDeviceList([
+        { device_name: 'JBL Flip 6', inner_mac_address: '11:22:33:44:55:66' },
+        { device_name: 'PRAKASH Printer', inner_mac_address: '00:11:22:33:44:55' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('PRAKASH Printer');
+    });
+
+    it('should filter out Airdopes earbuds from getPairedDevices', async () => {
+      mockDeviceList([
+        { device_name: 'Airdopes 131', inner_mac_address: '11:22:33:44:55:77' },
+        { device_name: 'EPSON TM-T88', inner_mac_address: '00:11:22:33:44:55' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('EPSON TM-T88');
+    });
+
+    it('should filter out car infotainment systems (VW_MIB)', async () => {
+      mockDeviceList([
+        { device_name: 'VW_MIB', inner_mac_address: '11:22:33:44:55:88' },
+        { device_name: 'Star TSP100', inner_mac_address: '00:11:22:33:44:66' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('Star TSP100');
+    });
+
+    it('should filter out Galaxy Buds (case-insensitive)', async () => {
+      mockDeviceList([
+        { device_name: 'Galaxy Buds Pro', inner_mac_address: '11:22:33:44:55:99' },
+        { device_name: 'Thermal Printer', inner_mac_address: '00:11:22:33:44:77' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('Thermal Printer');
+    });
+
+    it('should filter out multiple non-printer devices at once', async () => {
+      mockDeviceList([
+        { device_name: 'JBL Charge 5', inner_mac_address: '11:11:11:11:11:11' },
+        { device_name: 'Airdopes 441', inner_mac_address: '22:22:22:22:22:22' },
+        { device_name: 'VW_MIB Pro', inner_mac_address: '33:33:33:33:33:33' },
+        { device_name: 'AirPods Pro', inner_mac_address: '44:44:44:44:44:44' },
+        { device_name: 'PRAKASH', inner_mac_address: '55:55:55:55:55:55' },
+        { device_name: 'Bose QC45', inner_mac_address: '66:66:66:66:66:66' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('PRAKASH');
+    });
+
+    it('should keep printer devices with common thermal printer names', async () => {
+      mockDeviceList([
+        { device_name: 'EPSON TM-T88', inner_mac_address: '00:11:22:33:44:55' },
+        { device_name: 'Star TSP100', inner_mac_address: '00:11:22:33:44:66' },
+        { device_name: 'PRAKASH', inner_mac_address: '00:11:22:33:44:77' },
+        { device_name: 'RPP02N', inner_mac_address: '00:11:22:33:44:88' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(4);
+    });
+
+    it('should apply same filter to startScan results', async () => {
+      mockDeviceList([
+        { device_name: 'JBL Flip 6', inner_mac_address: '11:22:33:44:55:66' },
+        { device_name: 'PRAKASH Printer', inner_mac_address: '00:11:22:33:44:55' },
+      ]);
+
+      const devices = await service.startScan(5000);
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('PRAKASH Printer');
+    });
+
+    it('should filter out wearable devices', async () => {
+      mockDeviceList([
+        { device_name: 'Mi Band 7', inner_mac_address: '11:22:33:44:55:AA' },
+        { device_name: 'Fitbit Charge 5', inner_mac_address: '11:22:33:44:55:BB' },
+        { device_name: 'TSP650', inner_mac_address: '00:11:22:33:44:CC' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('TSP650');
+    });
+
+    it('should filter out computer/tablet devices', async () => {
+      mockDeviceList([
+        { device_name: "MacBook Pro", inner_mac_address: '11:22:33:44:55:DD' },
+        { device_name: 'iPad Air', inner_mac_address: '11:22:33:44:55:EE' },
+        { device_name: 'POS-58', inner_mac_address: '00:11:22:33:44:FF' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('POS-58');
+    });
+
+    it('should not filter Unknown Device entries', async () => {
+      mockDeviceList([
+        { device_name: '', inner_mac_address: '00:11:22:33:44:AA' },
+      ]);
+
+      const devices = await service.getPairedDevices();
+
+      // Unknown devices could be printers, so they should not be filtered
+      expect(devices).toHaveLength(1);
+      expect(devices[0].name).toBe('Unknown Device');
     });
   });
 });

@@ -5,72 +5,17 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { HeaderBar } from '../HeaderBar';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      headerText: '#FFFFFF',
-      headerTextMuted: 'rgba(255,255,255,0.8)',
-      surfaceOverlay: 'rgba(255,255,255,0.15)',
-      textInverse: '#FFFFFF',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      smd: 12,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    typography: {
-      fontSize: {
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-        '2xl': 20,
-        xxl: 24,
-        xxxl: 32,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-      xl: 24,
-      full: 9999,
-    },
-    textStyles: {
-      h2: {
-        fontSize: 24,
-        fontWeight: '700',
-        letterSpacing: -0.3,
-      },
-    },
-    letterSpacing: {
-      tight: -0.5,
-      snug: -0.3,
-      normal: 0,
-      wide: 0.3,
-      wider: 0.5,
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock responsive styles
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    touchTargetMinSize: 48,
-    contentPadding: 16,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 // Mock Icon component
@@ -127,9 +72,7 @@ describe('HeaderBar', () => {
     const backButton = getByTestId('header-back-button');
     const style = backButton.props.style;
     // The button should have width and height >= 44
-    const flatStyle = Array.isArray(style)
-      ? Object.assign({}, ...style.filter(Boolean))
-      : style;
+    const flatStyle = flattenStyle(style);
     expect(flatStyle.width).toBeGreaterThanOrEqual(44);
     expect(flatStyle.height).toBeGreaterThanOrEqual(44);
   });

@@ -28,73 +28,13 @@ jest.mock('react-i18next', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50',
-      background: '#f5f5f5',
-      surface: '#ffffff',
-      text: '#212121',
-      textSecondary: '#757575',
-      textLight: '#9e9e9e',
-      textInverse: '#ffffff',
-      buttonPrimary: '#4CAF50',
-      buttonPrimaryText: '#ffffff',
-      border: '#e0e0e0',
-      inCartBackground: '#E8F5E9',
-      inCartBorder: '#4CAF50',
-      inCartBadge: '#4CAF50',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      smd: 12,
-      md: 16,
-      lg: 24,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-        xxl: 20,
-        xxxl: 24,
-      },
-      fontWeight: {
-        regular: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-      xl: 24,
-    },
-    shadows: {
-      sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock the responsive styles hook
-const mockResponsiveStyles = {
-  contentPadding: 16,
-  touchTargetMinSize: 44,
-  gridColumns: 2,
-};
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => mockResponsiveStyles,
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
   useDeviceType: () => ({
     isTablet: false,
     isPhone: true,

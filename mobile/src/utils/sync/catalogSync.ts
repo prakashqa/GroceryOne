@@ -123,6 +123,7 @@ export async function fetchCategoriesFromBackend(options?: {
   // Map backend format to local format
   return data.map((cat: { id: string; slug: string; name: string; nameTe?: string; icon: string }) => ({
     id: cat.slug, // Use slug as ID for compatibility
+    backendId: cat.id, // Store UUID for reverse lookup (slug-UUID mismatch fix)
     name: cat.name,
     nameTe: cat.nameTe,
     icon: cat.icon,

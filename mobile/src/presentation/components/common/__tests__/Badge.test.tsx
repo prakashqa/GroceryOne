@@ -5,6 +5,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { Badge } from '../Badge';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the Icon component to avoid vector-icons import issue
 jest.mock('../Icon', () => ({
@@ -20,57 +21,12 @@ jest.mock('../Icon', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-      success: '#2E7D32',
-      warning: '#F57C00',
-      error: '#D32F2F',
-      info: '#1976D2',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textInverse: '#FFFFFF',
-      border: '#E8E8E8',
-      surface: '#FFFFFF',
-      inCartBackground: '#F1F8E9',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-      },
-    },
-    borderRadius: {
-      xs: 4,
-      sm: 8,
-      full: 9999,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 12,
-    modalWidth: 600,
-    sectionSpacing: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Badge', () => {
@@ -107,9 +63,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.backgroundColor).toBe('#F1F8E9');
     });
 
@@ -166,9 +120,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.paddingHorizontal).toBe(6);
       expect(flatStyle.paddingVertical).toBe(2);
     });
@@ -179,9 +131,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.paddingHorizontal).toBe(8);
       expect(flatStyle.paddingVertical).toBe(4);
     });
@@ -194,9 +144,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.borderRadius).toBe(8);
     });
 
@@ -206,9 +154,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.borderRadius).toBe(9999);
     });
   });
@@ -230,9 +176,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.minHeight).toBe(20);
       expect(flatStyle.minWidth).toBe(20);
     });
@@ -243,9 +187,7 @@ describe('Badge', () => {
       );
 
       const badge = getByTestId('badge');
-      const flatStyle = Array.isArray(badge.props.style)
-        ? badge.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : badge.props.style;
+      const flatStyle = flattenStyle(badge.props.style);
       expect(flatStyle.minHeight).toBe(24);
       expect(flatStyle.minWidth).toBe(24);
     });

@@ -34,6 +34,7 @@ import {
   getTranslatedItemName,
   getTranslatedCategoryName,
 } from '../../../domain/utils/itemTranslations';
+import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
 import {
   addItemToActiveCart,
   incrementItemInActiveCart,
@@ -210,7 +211,7 @@ const PickingScreen: React.FC = () => {
 
   // Get selected category name for header
   const selectedCategoryName = useMemo(() => {
-    const category = categories.find((c) => c.id === selectedCategory);
+    const category = findCategoryByIdOrUuid(categories, selectedCategory);
     return category ? getTranslatedCategoryName(category) : '';
   }, [categories, selectedCategory]);
 

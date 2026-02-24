@@ -5,82 +5,11 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Button } from '../Button';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      buttonPrimary: '#2E7D32',
-      buttonPrimaryText: '#FFFFFF',
-      buttonPrimaryPressed: '#1B5E20',
-      buttonSecondary: '#FFFFFF',
-      buttonSecondaryText: '#2E7D32',
-      buttonDangerText: '#FFFFFF',
-      buttonGhostText: '#666666',
-      buttonGhostPressed: 'rgba(0, 0, 0, 0.05)',
-      error: '#D32F2F',
-      textSecondary: '#666666',
-      border: '#E8E8E8',
-      disabled: '#BDBDBD',
-      textLight: '#999999',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    typography: {
-      fontSize: {
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-      },
-      fontWeight: {
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    buttonHeights: {
-      sm: 36,
-      md: 48,
-      lg: 56,
-    },
-    textStyles: {
-      button: {
-        fontSize: 16,
-        fontWeight: '600',
-        letterSpacing: 0.3,
-      },
-      buttonSmall: {
-        fontSize: 14,
-        fontWeight: '600',
-        letterSpacing: 0.2,
-      },
-    },
-    gradients: {
-      primary: ['#2E7D32', '#4CAF50'],
-      success: ['#43A047', '#66BB6A'],
-    },
-    coloredShadows: {
-      primary: {
-        shadowColor: '#2E7D32',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 6,
-      },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock LinearGradient
@@ -98,16 +27,7 @@ jest.mock('react-native-linear-gradient', () => {
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    fontScale: 1,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 12,
-    modalWidth: 600,
-    sectionSpacing: 24,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Button', () => {
@@ -280,10 +200,7 @@ describe('Button', () => {
       );
 
       const button = getByTestId('btn');
-      const buttonStyle = button.props.style;
-      const flatStyle = Array.isArray(buttonStyle)
-        ? buttonStyle.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : buttonStyle;
+      const flatStyle = flattenStyle(button.props.style);
       // Small button height is now max(36, touchTargetMinSize=48) = 48
       expect(flatStyle.height).toBe(48);
     });
@@ -294,10 +211,7 @@ describe('Button', () => {
       );
 
       const button = getByTestId('btn');
-      const buttonStyle = button.props.style;
-      const flatStyle = Array.isArray(buttonStyle)
-        ? buttonStyle.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : buttonStyle;
+      const flatStyle = flattenStyle(button.props.style);
       expect(flatStyle.height).toBe(48);
     });
 
@@ -307,10 +221,7 @@ describe('Button', () => {
       );
 
       const button = getByTestId('btn');
-      const buttonStyle = button.props.style;
-      const flatStyle = Array.isArray(buttonStyle)
-        ? buttonStyle.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : buttonStyle;
+      const flatStyle = flattenStyle(button.props.style);
       expect(flatStyle.height).toBe(56);
     });
 
@@ -327,13 +238,7 @@ describe('Button', () => {
         <Button title="L" size="lg" onPress={mockOnPress} testID="btn-lg" />
       );
 
-      const extractHeight = (button: any) => {
-        const styles = button.props.style;
-        const flat = Array.isArray(styles)
-          ? styles.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-          : styles;
-        return flat.height;
-      };
+      const extractHeight = (button: any) => flattenStyle(button.props.style).height;
 
       expect(extractHeight(getSmall('btn-sm'))).toBeGreaterThanOrEqual(minTouchTarget);
       expect(extractHeight(getMd('btn-md'))).toBeGreaterThanOrEqual(minTouchTarget);
@@ -348,10 +253,7 @@ describe('Button', () => {
       );
 
       const icon = getByText('+');
-      const iconStyle = icon.props.style;
-      const flatStyle = Array.isArray(iconStyle)
-        ? iconStyle.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : iconStyle;
+      const flatStyle = flattenStyle(icon.props.style);
       expect(flatStyle.marginRight).toBe(8); // theme.spacing.sm
     });
   });
@@ -363,10 +265,7 @@ describe('Button', () => {
       );
 
       const button = getByTestId('btn');
-      const buttonStyle = button.props.style;
-      const flatStyle = Array.isArray(buttonStyle)
-        ? buttonStyle.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : buttonStyle;
+      const flatStyle = flattenStyle(button.props.style);
       // Icon-only button should have equal width and height
       expect(flatStyle.width).toBe(flatStyle.height);
     });

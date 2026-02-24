@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppDispatch, useAppSelector } from '../core/hooks/useAppDispatch';
 import { setTenant, selectTenant, selectBranding } from '../store/slices/tenantSlice';
 import { clearAllTenantData } from '../utils/storage/tenantDataCleaner';
+import { PinSecureStorage } from '../features/pinAuth/services/PinSecureStorage';
 import type { Tenant, TenantBranding } from '@groceryone/shared';
 
 // Storage key for tenant
@@ -74,9 +75,20 @@ export function TenantProvider({ children, initialTenantSlug }: TenantProviderPr
   const fetchTenant = async (tenantSlug: string) => {
     // Set minimal tenant context. Full tenant data (including real id)
     // will come from PIN authentication via handleBackendVerifySuccess().
+    // Use persisted friendly name if available (instead of slug)
+    let tenantName = tenantSlug;
+    try {
+      const persistedName = await PinSecureStorage.getTenantName();
+      if (persistedName) {
+        tenantName = persistedName;
+      }
+    } catch {
+      // Non-fatal — fall back to slug
+    }
+
     const mockTenant: Tenant = {
       id: '',
-      name: tenantSlug,
+      name: tenantName,
       slug: tenantSlug,
       status: 'active',
       subscriptionPlan: 'premium',

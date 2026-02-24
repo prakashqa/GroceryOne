@@ -6,15 +6,11 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { Text, View } from 'react-native';
 import { SafeAreaWrapper } from '../SafeAreaWrapper';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      background: '#F8FAF8',
-      surface: '#FFFFFF',
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock safe area insets
@@ -61,10 +57,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.paddingTop).toBe(44);
     });
@@ -77,10 +70,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.paddingTop).toBe(44);
       expect(flatStyles.paddingBottom).toBe(34);
@@ -94,10 +84,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.paddingTop).toBeUndefined();
       expect(flatStyles.paddingBottom).toBe(34);
@@ -111,10 +98,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.paddingTop).toBe(44);
       expect(flatStyles.paddingBottom).toBe(34);
@@ -132,12 +116,9 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
-      expect(flatStyles.backgroundColor).toBe('#F8FAF8');
+      expect(flatStyles.backgroundColor).toBe('#F5F5F5');
     });
 
     it('applies custom background color', () => {
@@ -148,10 +129,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.backgroundColor).toBe('#FF0000');
     });
@@ -166,10 +144,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       expect(flatStyles.borderWidth).toBe(1);
       expect(flatStyles.borderColor).toBe('red');
@@ -183,10 +158,7 @@ describe('SafeAreaWrapper', () => {
       );
 
       const wrapper = getByTestId('wrapper');
-      const styles = wrapper.props.style;
-      const flatStyles = Array.isArray(styles)
-        ? styles.reduce((acc, s) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyles = flattenStyle(wrapper.props.style);
 
       // Custom style should override
       expect(flatStyles.paddingTop).toBe(100);

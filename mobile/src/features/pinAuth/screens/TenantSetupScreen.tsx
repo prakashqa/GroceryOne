@@ -75,8 +75,9 @@ export const TenantSetupScreen: React.FC = () => {
           updatedAt: new Date(),
         }));
 
-        // Persist tenant slug and user email for future PIN logins
+        // Persist tenant slug, user email, and friendly name for future PIN logins
         await PinSecureStorage.storeTenantContext(tenantSlug, trimmedEmail);
+        await PinSecureStorage.storeTenantName(tenantName);
         await AsyncStorage.setItem(TENANT_ID_KEY, tenantSlug);
 
         // Navigate to PIN setup

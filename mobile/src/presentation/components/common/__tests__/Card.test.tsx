@@ -7,67 +7,17 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { Card } from '../Card';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      surface: '#FFFFFF',
-      card: '#FFFFFF',
-      background: '#F5F5F5',
-      border: '#E8E8E8',
-      primary: '#2E7D32',
-      primaryLight: '#4CAF50',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    shadows: {
-      sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-      md: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-      },
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      lg: 16,
-    },
-    opacity: {
-      pressed: 0.12,
-    },
-    coloredShadows: {
-      primary: {
-        shadowColor: '#2E7D32',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 6,
-      },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    componentPadding: 16,
-    cardBorderRadius: 12,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Card', () => {
@@ -242,10 +192,7 @@ describe('Card', () => {
         </Card>
       );
       const card = getByTestId('card');
-      const styles = card.props.style;
-      const flatStyle = Array.isArray(styles)
-        ? styles.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyle = flattenStyle(card.props.style);
       expect(flatStyle.borderColor).toBe('#2E7D32');
     });
 
@@ -265,10 +212,7 @@ describe('Card', () => {
         </Card>
       );
       const card = getByTestId('card');
-      const styles = card.props.style;
-      const flatStyle = Array.isArray(styles)
-        ? styles.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : styles;
+      const flatStyle = flattenStyle(card.props.style);
       // Should not have primary border when disabled
       expect(flatStyle.borderColor).not.toBe('#2E7D32');
     });

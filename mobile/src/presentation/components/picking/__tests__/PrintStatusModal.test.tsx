@@ -8,112 +8,12 @@ import { render, fireEvent, act } from '@testing-library/react-native';
 
 // Mock theme
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      success: '#2E7D32',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-      textLight: '#888888',
-      background: '#F5F5F5',
-      surface: '#FFFFFF',
-      primary: '#2E7D32',
-      border: '#E0E0E0',
-      divider: '#E0E0E0',
-      modalOverlay: 'rgba(0,0,0,0.5)',
-      iconMuted: '#F5F5F5',
-      iconDanger: '#F4433620',
-      error: '#F44336',
-      disabled: '#BDBDBD',
-      buttonPrimary: '#2E7D32',
-      buttonPrimaryText: '#FFFFFF',
-      buttonSecondaryText: '#2E7D32',
-      buttonDangerText: '#FFFFFF',
-      buttonGhostText: '#666666',
-      inCartBackground: '#E8F5E9',
-      inCartBorder: '#C8E6C9',
-    },
-    typography: {
-      fontSize: {
-        xs: 10,
-        sm: 12,
-        md: 14,
-        lg: 16,
-        xl: 18,
-        xxl: 20,
-        xxxl: 28,
-      },
-      fontWeight: {
-        regular: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-      },
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      smd: 12,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    borderRadius: {
-      sm: 4,
-      md: 8,
-      lg: 12,
-      xl: 16,
-      full: 9999,
-    },
-    buttonHeights: {
-      sm: 36,
-      md: 48,
-      lg: 56,
-    },
-    textStyles: {
-      h2: { fontSize: 20, fontWeight: '700' },
-      button: { fontSize: 16, fontWeight: '600' },
-      buttonSmall: { fontSize: 14, fontWeight: '600' },
-      subtitle: { fontSize: 16 },
-      body: { fontSize: 14 },
-      overline: { fontSize: 10 },
-    },
-    shadows: {
-      md: {},
-      lg: {},
-      xl: {},
-    },
-    gradients: {
-      primary: ['#2E7D32', '#4CAF50'],
-    },
-    coloredShadows: {
-      primary: {},
-      warning: {},
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock useResponsiveStyles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    gridColumns: 2,
-    contentPadding: 16,
-    contentMaxWidth: undefined,
-    tabBarHeight: 60,
-    iconSize: 24,
-    fontScale: 1,
-    cardMinWidth: 140,
-    listColumns: 1,
-    gridGap: 12,
-    tabBarIconSize: 24,
-    tabBarLabelSize: 11,
-    touchTargetMinSize: 48,
-    componentPadding: 16,
-    iconContainerSize: 44,
-    cardBorderRadius: 12,
-    buttonBorderRadius: 8,
-    modalWidth: 358,
-    sectionSpacing: 16,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 // Mock i18n

@@ -10,50 +10,32 @@ import { NotFoundException } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { Cart, CartStatus } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
+import {
+  TENANT_A_ID,
+  TENANT_B_ID,
+  buildMockCart,
+  createMockQueryBuilder,
+} from '../../test-utils';
 
 describe('CartService', () => {
   let service: CartService;
   let cartRepository: Repository<Cart>;
   let cartItemRepository: Repository<CartItem>;
 
-  const TENANT_A_ID = 'tenant-a-uuid';
-  const TENANT_B_ID = 'tenant-b-uuid';
-
-  const mockCartTenantA: Cart = {
-    id: 'cart-a-uuid',
+  const mockCartTenantA = buildMockCart({
     name: 'Tenant A Cart',
-    tenantId: TENANT_A_ID,
-    userId: 'user-a-uuid',
     deviceId: 'device-a',
-    status: 'draft' as CartStatus,
-    isActive: true,
-    items: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 
-  const mockCartTenantB: Cart = {
+  const mockCartTenantB = buildMockCart({
     id: 'cart-b-uuid',
     name: 'Tenant B Cart',
     tenantId: TENANT_B_ID,
     userId: 'user-b-uuid',
     deviceId: 'device-b',
-    status: 'draft' as CartStatus,
-    isActive: true,
-    items: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 
-  const createQueryBuilderMock = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-    getOne: jest.fn(),
-    getCount: jest.fn(),
-  };
+  const queryBuilderMock = createMockQueryBuilder();
 
   const mockCartRepository = {
     create: jest.fn(),
@@ -61,7 +43,7 @@ describe('CartService', () => {
     findOne: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
-    createQueryBuilder: jest.fn(() => createQueryBuilderMock),
+    createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
   const mockCartItemRepository = {
@@ -91,10 +73,6 @@ describe('CartService', () => {
     cartItemRepository = module.get<Repository<CartItem>>(getRepositoryToken(CartItem));
 
     jest.clearAllMocks();
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
   });
 
   describe('create', () => {
@@ -132,11 +110,11 @@ describe('CartService', () => {
 
   describe('findAll', () => {
     it('should only return carts for the specified tenant', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([mockCartTenantA]);
+      queryBuilderMock.getMany.mockResolvedValue([mockCartTenantA]);
 
       const result = await service.findAll('user-a-uuid', undefined, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'cart.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -185,11 +163,11 @@ describe('CartService', () => {
 
   describe('findActiveCart', () => {
     it('should only return active cart for the specified tenant', async () => {
-      createQueryBuilderMock.getOne.mockResolvedValue(mockCartTenantA);
+      queryBuilderMock.getOne.mockResolvedValue(mockCartTenantA);
 
       const result = await service.findActiveCart('user-a-uuid', undefined, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'cart.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -354,11 +332,11 @@ describe('CartService', () => {
 
   describe('count', () => {
     it('should count carts only for the specified tenant', async () => {
-      createQueryBuilderMock.getCount.mockResolvedValue(5);
+      queryBuilderMock.getCount.mockResolvedValue(5);
 
       const result = await service.count('user-a-uuid', undefined, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'cart.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -373,8 +351,7 @@ describe('CartService', () => {
 
   describe('Cross-tenant isolation', () => {
     it('should prevent Tenant A from accessing Tenant B cart by ID', async () => {
-      // Tenant A tries to access Tenant B's cart
-      mockCartRepository.findOne.mockResolvedValue(null); // Won't find with mismatched tenant
+      mockCartRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne(mockCartTenantB.id, TENANT_A_ID))
         .rejects.toThrow(NotFoundException);
@@ -418,7 +395,6 @@ describe('CartService', () => {
 
       await service.bulkCreate(maliciousCarts, TENANT_A_ID);
 
-      // Server-side tenantId must override any client-provided value
       expect(mockCartRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId: TENANT_A_ID }),
       );
@@ -444,7 +420,6 @@ describe('CartService', () => {
 
       await service.bulkCreate(carts, TENANT_A_ID);
 
-      // Verify tenantId was injected into each cart
       expect(mockCartRepository.create).toHaveBeenCalledTimes(2);
       expect(mockCartRepository.create).toHaveBeenNthCalledWith(1, expect.objectContaining({
         name: 'Cart 1',

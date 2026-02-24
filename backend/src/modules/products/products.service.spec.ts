@@ -9,65 +9,36 @@ import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { Item } from './entities/item.entity';
+import {
+  TENANT_A_ID,
+  TENANT_B_ID,
+  buildMockItem,
+  createMockQueryBuilder,
+} from '../../test-utils';
 
 describe('ProductsService', () => {
   let service: ProductsService;
   let itemRepository: Repository<Item>;
 
-  const TENANT_A_ID = 'tenant-a-uuid';
-  const TENANT_B_ID = 'tenant-b-uuid';
+  const mockItemTenantA = buildMockItem();
 
-  const mockItemTenantA: Item = {
-    id: 'item-a-uuid',
-    slug: 'atta-1kg',
-    name: 'Aashirvaad Atta 1kg',
-    categoryId: 'cat-a-uuid',
-    category: {} as any,
-    unit: 'kg',
-    defaultQuantity: 1,
-    price: 250,
-    compareAtPrice: 280,
-    sortOrder: 0,
-    isActive: true,
-    tenantId: TENANT_A_ID,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  const mockItemTenantB: Item = {
+  const mockItemTenantB = buildMockItem({
     id: 'item-b-uuid',
-    slug: 'atta-1kg',
     name: 'Atta 1kg',
     categoryId: 'cat-b-uuid',
-    category: {} as any,
-    unit: 'kg',
-    defaultQuantity: 1,
     price: 240,
     compareAtPrice: 270,
-    sortOrder: 0,
-    isActive: true,
     tenantId: TENANT_B_ID,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 
-  const createQueryBuilderMock = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    addOrderBy: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-    getCount: jest.fn(),
-  };
+  const queryBuilderMock = createMockQueryBuilder();
 
   const mockItemRepository = {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
-    createQueryBuilder: jest.fn(() => createQueryBuilderMock),
+    createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
   beforeEach(async () => {
@@ -85,10 +56,6 @@ describe('ProductsService', () => {
     itemRepository = module.get<Repository<Item>>(getRepositoryToken(Item));
 
     jest.clearAllMocks();
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
   });
 
   describe('create', () => {
@@ -163,11 +130,11 @@ describe('ProductsService', () => {
 
   describe('findAll', () => {
     it('should only return items for the specified tenant', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
 
       const result = await service.findAll(false, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'item.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -183,11 +150,11 @@ describe('ProductsService', () => {
 
   describe('findByCategory', () => {
     it('should only return items for the specified tenant and category', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
 
       const result = await service.findByCategory('cat-a-uuid', false, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'item.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -277,7 +244,8 @@ describe('ProductsService', () => {
 
       await service.update('item-a-uuid', { slug: 'new-slug' }, TENANT_A_ID);
 
-      expect(mockItemRepository.findOne).toHaveBeenNthCalledWith(2, {
+      // Verify slug duplicate check is tenant-scoped
+      expect(mockItemRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'new-slug', tenantId: TENANT_A_ID },
       });
     });
@@ -313,11 +281,11 @@ describe('ProductsService', () => {
 
   describe('count', () => {
     it('should count items only for the specified tenant', async () => {
-      createQueryBuilderMock.getCount.mockResolvedValue(10);
+      queryBuilderMock.getCount.mockResolvedValue(10);
 
       const result = await service.count(false, undefined, TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'item.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );

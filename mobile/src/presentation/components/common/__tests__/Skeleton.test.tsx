@@ -12,47 +12,16 @@ import {
   SkeletonProductItem,
   SkeletonCategoryChip,
 } from '../Skeleton';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      border: '#E8E8E8',
-      inputBackground: '#F5F5F5',
-      surface: '#FFFFFF',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    borderRadius: {
-      xs: 4,
-      sm: 8,
-      md: 12,
-      lg: 16,
-      full: 9999,
-    },
-    shadows: {
-      sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock the responsive styles hook
 jest.mock('../../../../hooks', () => ({
-  useResponsiveStyles: () => ({
-    cardBorderRadius: 12,
-    componentPadding: 16,
-    iconContainerSize: 44,
-  }),
+  useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
 }));
 
 describe('Skeleton', () => {
@@ -71,9 +40,7 @@ describe('Skeleton', () => {
       );
 
       const skeleton = getByTestId('skeleton');
-      const flatStyle = Array.isArray(skeleton.props.style)
-        ? skeleton.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : skeleton.props.style;
+      const flatStyle = flattenStyle(skeleton.props.style);
       expect(flatStyle.width).toBe(100);
       expect(flatStyle.height).toBe(20);
     });
@@ -84,9 +51,7 @@ describe('Skeleton', () => {
       );
 
       const skeleton = getByTestId('skeleton');
-      const flatStyle = Array.isArray(skeleton.props.style)
-        ? skeleton.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : skeleton.props.style;
+      const flatStyle = flattenStyle(skeleton.props.style);
       expect(flatStyle.width).toBe('50%');
     });
   });
@@ -98,9 +63,7 @@ describe('Skeleton', () => {
       );
 
       const skeleton = getByTestId('skeleton');
-      const flatStyle = Array.isArray(skeleton.props.style)
-        ? skeleton.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : skeleton.props.style;
+      const flatStyle = flattenStyle(skeleton.props.style);
       expect(flatStyle.height).toBe(16);
     });
 
@@ -110,9 +73,7 @@ describe('Skeleton', () => {
       );
 
       const skeleton = getByTestId('skeleton');
-      const flatStyle = Array.isArray(skeleton.props.style)
-        ? skeleton.props.style.reduce((acc: object, s: object) => ({ ...acc, ...(s || {}) }), {})
-        : skeleton.props.style;
+      const flatStyle = flattenStyle(skeleton.props.style);
       expect(flatStyle.borderRadius).toBe(9999);
     });
 

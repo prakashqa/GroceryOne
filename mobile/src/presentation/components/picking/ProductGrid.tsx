@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 import { Item, Category, CartItemState } from '../../../domain/types/picking';
+import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
 import ProductCard from './ProductCard';
 
 interface ProductGridProps {
@@ -58,7 +59,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   const getCategoryIcon = useCallback(
     (categoryId: string): string => {
-      const category = categories.find((c) => c.id === categoryId);
+      const category = findCategoryByIdOrUuid(categories, categoryId);
       return category?.icon || '📦';
     },
     [categories]

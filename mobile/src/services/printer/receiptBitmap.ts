@@ -33,5 +33,14 @@ export const renderTextToImage = (
   width: number,
   fontSize: number = 33,
 ): Promise<string> => {
+  if (!ReceiptBitmap) {
+    return Promise.reject(
+      new Error(
+        'ReceiptBitmap native module not available. ' +
+        'Ensure you are using a development build (not Expo Go). ' +
+        'Run: npx expo run:android'
+      )
+    );
+  }
   return ReceiptBitmap.renderTextToImage(text, width, fontSize);
 };

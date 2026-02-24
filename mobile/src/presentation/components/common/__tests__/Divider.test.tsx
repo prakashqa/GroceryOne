@@ -9,16 +9,7 @@ import { Divider } from '../Divider';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      divider: '#E8E8E8',
-    },
-    spacing: {
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 describe('Divider', () => {

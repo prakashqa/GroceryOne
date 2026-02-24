@@ -136,12 +136,12 @@ describe('PinSecureStorage', () => {
       expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.USER_IDENTIFIER);
     });
 
-    it('should remove exactly 6 keys', async () => {
+    it('should remove exactly 10 keys (6 original + 4 auth context)', async () => {
       (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       await PinSecureStorage.clearPin();
 
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(6);
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(10);
     });
 
     it('should not throw when keys do not exist', async () => {
@@ -295,6 +295,188 @@ describe('PinSecureStorage', () => {
       const result = await PinSecureStorage.getUserIdentifier();
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('storeAuthContext', () => {
+    it('should store serialized user object in SecureStore', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const user = { id: 'user123', email: 'admin@freshmart.com', firstName: 'Admin', lastName: 'User', role: 'merchant', tenantId: 'tid1' };
+      await PinSecureStorage.storeAuthContext(user, 'access-token-123', 'refresh-token-456');
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        PIN_STORAGE_KEYS.AUTH_USER,
+        JSON.stringify(user)
+      );
+    });
+
+    it('should store access token in SecureStore', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const user = { id: 'user123', email: 'admin@freshmart.com' };
+      await PinSecureStorage.storeAuthContext(user, 'access-token-123', 'refresh-token-456');
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN,
+        'access-token-123'
+      );
+    });
+
+    it('should store refresh token in SecureStore', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const user = { id: 'user123', email: 'admin@freshmart.com' };
+      await PinSecureStorage.storeAuthContext(user, 'access-token-123', 'refresh-token-456');
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN,
+        'refresh-token-456'
+      );
+    });
+
+    it('should store all 3 values in parallel', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const user = { id: 'user123' };
+      await PinSecureStorage.storeAuthContext(user, 'at', 'rt');
+
+      // 3 calls: AUTH_USER, AUTH_ACCESS_TOKEN, AUTH_REFRESH_TOKEN
+      const authCalls = (SecureStore.setItemAsync as jest.Mock).mock.calls.filter(
+        (call: any[]) => call[0].startsWith('groceryone_auth_')
+      );
+      expect(authCalls).toHaveLength(3);
+    });
+
+    it('should throw on storage failure', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('SecureStore write failed'));
+
+      await expect(
+        PinSecureStorage.storeAuthContext({ id: 'u1' }, 'at', 'rt')
+      ).rejects.toThrow('SecureStore write failed');
+    });
+  });
+
+  describe('getAuthContext', () => {
+    it('should return parsed user and tokens when all stored', async () => {
+      const user = { id: 'user123', email: 'admin@freshmart.com', role: 'merchant' };
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce(JSON.stringify(user))  // AUTH_USER
+        .mockResolvedValueOnce('access-token-123')    // AUTH_ACCESS_TOKEN
+        .mockResolvedValueOnce('refresh-token-456');   // AUTH_REFRESH_TOKEN
+
+      const result = await PinSecureStorage.getAuthContext();
+
+      expect(result).toEqual({
+        user,
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-456',
+      });
+    });
+
+    it('should return null when user is not stored', async () => {
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce(null)                  // AUTH_USER
+        .mockResolvedValueOnce('access-token-123')    // AUTH_ACCESS_TOKEN
+        .mockResolvedValueOnce('refresh-token-456');   // AUTH_REFRESH_TOKEN
+
+      const result = await PinSecureStorage.getAuthContext();
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when access token is not stored', async () => {
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce(JSON.stringify({ id: 'u1' }))  // AUTH_USER
+        .mockResolvedValueOnce(null)                           // AUTH_ACCESS_TOKEN
+        .mockResolvedValueOnce('refresh-token-456');            // AUTH_REFRESH_TOKEN
+
+      const result = await PinSecureStorage.getAuthContext();
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when refresh token is not stored', async () => {
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce(JSON.stringify({ id: 'u1' }))  // AUTH_USER
+        .mockResolvedValueOnce('access-token-123')             // AUTH_ACCESS_TOKEN
+        .mockResolvedValueOnce(null);                           // AUTH_REFRESH_TOKEN
+
+      const result = await PinSecureStorage.getAuthContext();
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when user JSON is corrupt', async () => {
+      (SecureStore.getItemAsync as jest.Mock)
+        .mockResolvedValueOnce('not-valid-json{')     // AUTH_USER (corrupt)
+        .mockResolvedValueOnce('access-token-123')    // AUTH_ACCESS_TOKEN
+        .mockResolvedValueOnce('refresh-token-456');   // AUTH_REFRESH_TOKEN
+
+      const result = await PinSecureStorage.getAuthContext();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('storeTenantName', () => {
+    it('should store tenant name in SecureStore', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      await PinSecureStorage.storeTenantName('FreshMart Groceries');
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        PIN_STORAGE_KEYS.TENANT_NAME,
+        'FreshMart Groceries'
+      );
+    });
+
+    it('should throw on storage failure', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Write failed'));
+
+      await expect(
+        PinSecureStorage.storeTenantName('FreshMart')
+      ).rejects.toThrow('Write failed');
+    });
+  });
+
+  describe('getTenantName', () => {
+    it('should return stored tenant name', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('FreshMart Groceries');
+
+      const result = await PinSecureStorage.getTenantName();
+
+      expect(result).toBe('FreshMart Groceries');
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.TENANT_NAME);
+    });
+
+    it('should return null when no tenant name stored', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+
+      const result = await PinSecureStorage.getTenantName();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('clearPin - updated with auth context keys', () => {
+    it('should remove all 10 keys including auth context keys', async () => {
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      await PinSecureStorage.clearPin();
+
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.AUTH_USER);
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN);
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN);
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(PIN_STORAGE_KEYS.TENANT_NAME);
+    });
+
+    it('should remove exactly 10 keys', async () => {
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      await PinSecureStorage.clearPin();
+
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(10);
     });
   });
 

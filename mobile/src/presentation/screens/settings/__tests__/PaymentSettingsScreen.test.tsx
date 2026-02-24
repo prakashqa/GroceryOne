@@ -9,7 +9,8 @@ import { renderWithProviders } from '../../../../../__tests__/testUtils';
 import PaymentSettingsScreen from '../PaymentSettingsScreen';
 import i18n from '../../../../i18n/i18n.config';
 
-describe('PaymentSettingsScreen - Telugu Translation Integration', () => {
+describe('PaymentSettingsScreen', () => {
+  describe('Telugu locale', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await i18n.changeLanguage('te');
@@ -75,5 +76,6 @@ describe('PaymentSettingsScreen - Telugu Translation Integration', () => {
       expect(queryByText('This UPI ID will be used to generate QR codes for payment')).toBeNull();
       expect(queryByText('Display name shown in UPI apps when customer scans QR')).toBeNull();
     });
+  });
   });
 });

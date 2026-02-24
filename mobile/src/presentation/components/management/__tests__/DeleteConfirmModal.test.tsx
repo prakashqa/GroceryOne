@@ -9,7 +9,8 @@ import { renderWithProviders } from '../../../../../__tests__/testUtils';
 import DeleteConfirmModal from '../DeleteConfirmModal';
 import i18n from '../../../../i18n/i18n.config';
 
-describe('DeleteConfirmModal - Telugu Translation Integration', () => {
+describe('DeleteConfirmModal', () => {
+  describe('Telugu locale', () => {
   const mockOnClose = jest.fn();
   const mockOnConfirm = jest.fn();
 
@@ -205,5 +206,6 @@ describe('DeleteConfirmModal - Telugu Translation Integration', () => {
         expect(queryByText('Move items to another category')).toBeNull();
       });
     });
+  });
   });
 });

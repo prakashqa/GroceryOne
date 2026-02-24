@@ -23,35 +23,36 @@ import catalogReducer, {
   CatalogState,
 } from '../catalogSlice';
 import { Category, Item } from '../../../domain/types/picking';
+import { buildMockItem, buildMockCategory } from '../../../__test-utils__/factories/picking-factories';
 
 describe('catalogSlice', () => {
-  const mockCategory: Category = {
+  const mockCategory: Category = buildMockCategory({
     id: 'test-cat-1',
     name: 'Test Category',
     icon: '🧪',
-  };
+  });
 
-  const mockCategory2: Category = {
+  const mockCategory2: Category = buildMockCategory({
     id: 'test-cat-2',
     name: 'Another Category',
     icon: '📦',
-  };
+  });
 
-  const mockItem: Item = {
+  const mockItem: Item = buildMockItem({
     id: 'test-item-1',
     categoryId: 'test-cat-1',
     name: 'Test Item',
     unit: 'kg',
     defaultQuantity: 1,
-  };
+  });
 
-  const mockItem2: Item = {
+  const mockItem2: Item = buildMockItem({
     id: 'test-item-2',
     categoryId: 'test-cat-1',
     name: 'Another Item',
     unit: 'pcs',
     defaultQuantity: 5,
-  };
+  });
 
   const emptyState: CatalogState = {
     categories: [],

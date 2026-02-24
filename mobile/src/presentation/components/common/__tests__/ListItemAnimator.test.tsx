@@ -9,11 +9,7 @@ import { ListItemAnimator } from '../ListItemAnimator';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    animation: {
-      normal: 200,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 describe('ListItemAnimator', () => {

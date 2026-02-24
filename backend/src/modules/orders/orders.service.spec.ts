@@ -12,6 +12,17 @@ import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
 import { Cart } from '../cart/entities/cart.entity';
+import {
+  TENANT_A_ID,
+  TENANT_B_ID,
+  USER_A_ID,
+  FIXED_DATE,
+  buildMockCart,
+  buildMockCartItem,
+  buildMockItem,
+  buildMockOrder,
+  createMockQueryBuilder,
+} from '../../test-utils';
 
 describe('OrdersService', () => {
   let service: OrdersService;
@@ -19,113 +30,63 @@ describe('OrdersService', () => {
   let orderItemRepository: Repository<OrderItem>;
   let cartService: CartService;
 
-  const TENANT_A_ID = 'tenant-a-uuid';
-  const TENANT_B_ID = 'tenant-b-uuid';
-  const USER_ID = 'user-a-uuid';
-
-  const mockCartWithItems: Cart = {
+  const mockCartWithItems: Cart = buildMockCart({
     id: 'cart-uuid',
     name: 'Weekly Groceries',
     tenantId: TENANT_A_ID,
-    userId: USER_ID,
+    userId: USER_A_ID,
     status: 'paid',
-    isActive: true,
-    paidAt: new Date('2026-02-04T10:00:00Z'),
+    paidAt: FIXED_DATE,
     paidAmount: 250,
     items: [
-      {
+      buildMockCartItem({
         id: 'cart-item-1',
         cartId: 'cart-uuid',
         itemId: 'item-1-uuid',
         quantity: 2,
         priceSnapshot: 50,
-        addedAt: new Date(),
-        item: {
+        item: buildMockItem({
           id: 'item-1-uuid',
           slug: 'basmati-rice-1kg',
           name: 'Basmati Rice 1kg',
           categoryId: 'cat-uuid',
-          unit: 'kg',
-          defaultQuantity: 1,
           price: 50,
           compareAtPrice: 0,
-          sortOrder: 0,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as any,
-        cart: {} as any,
-      },
-      {
+        }),
+      }),
+      buildMockCartItem({
         id: 'cart-item-2',
         cartId: 'cart-uuid',
         itemId: 'item-2-uuid',
         quantity: 3,
         priceSnapshot: 30,
-        addedAt: new Date(),
-        item: {
+        item: buildMockItem({
           id: 'item-2-uuid',
           slug: 'toor-dal-500g',
           name: 'Toor Dal 500g',
           categoryId: 'cat-uuid',
-          unit: 'kg',
           defaultQuantity: 0.5,
           price: 30,
           compareAtPrice: 0,
-          sortOrder: 0,
-          isActive: true,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as any,
-        cart: {} as any,
-      },
+        }),
+      }),
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  });
 
-  const mockOrder: Order = {
-    id: 'order-uuid',
-    orderNumber: 'ORD-20260204-001',
-    tenantId: TENANT_A_ID,
-    userId: USER_ID,
-    cartId: 'cart-uuid',
-    status: 'pending' as OrderStatus,
-    paymentStatus: 'paid',
-    paymentMethod: 'cod',
-    subtotal: 190,
-    taxAmount: 0,
-    deliveryFee: 0,
-    discountAmount: 0,
-    totalAmount: 190,
-    paidAt: new Date('2026-02-04T10:00:00Z'),
-    paidAmount: 250,
-    items: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  const mockOrder: Order = buildMockOrder();
 
-  const mockOrderTenantB: Order = {
-    ...mockOrder,
+  const mockOrderTenantB: Order = buildMockOrder({
     id: 'order-b-uuid',
     tenantId: TENANT_B_ID,
-  };
+  });
 
-  const createQueryBuilderMock = {
-    leftJoinAndSelect: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    getMany: jest.fn(),
-    getOne: jest.fn(),
-    getCount: jest.fn(),
-  };
+  const queryBuilderMock = createMockQueryBuilder();
 
   const mockOrderRepository = {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
-    createQueryBuilder: jest.fn(() => createQueryBuilderMock),
+    createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
   const mockOrderItemRepository = {
@@ -165,10 +126,6 @@ describe('OrdersService', () => {
     jest.clearAllMocks();
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
   describe('createFromCart', () => {
     it('should create order from a paid cart', async () => {
       mockCartService.findOne.mockResolvedValue(mockCartWithItems);
@@ -177,7 +134,6 @@ describe('OrdersService', () => {
       mockOrderItemRepository.create.mockImplementation((dto) => dto);
       mockOrderItemRepository.save.mockResolvedValue([]);
       mockCartService.update.mockResolvedValue({});
-      // Mock findOne for return value
       mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, items: [] });
 
       const result = await service.createFromCart('cart-uuid', TENANT_A_ID);
@@ -228,7 +184,6 @@ describe('OrdersService', () => {
 
       await service.createFromCart('cart-uuid', TENANT_A_ID);
 
-      // Should create order items with snapshots from cart items
       expect(mockOrderItemRepository.create).toHaveBeenCalledTimes(2);
       expect(mockOrderItemRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -343,11 +298,11 @@ describe('OrdersService', () => {
 
   describe('findAll', () => {
     it('should filter by tenantId', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([mockOrder]);
+      queryBuilderMock.getMany.mockResolvedValue([mockOrder]);
 
       const result = await service.findAll(TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'order.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -355,18 +310,18 @@ describe('OrdersService', () => {
     });
 
     it('should optionally filter by userId', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([mockOrder]);
+      queryBuilderMock.getMany.mockResolvedValue([mockOrder]);
 
-      await service.findAll(TENANT_A_ID, USER_ID);
+      await service.findAll(TENANT_A_ID, USER_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'order.userId = :userId',
-        { userId: USER_ID },
+        { userId: USER_A_ID },
       );
     });
 
     it('should return empty array for other tenant', async () => {
-      createQueryBuilderMock.getMany.mockResolvedValue([]);
+      queryBuilderMock.getMany.mockResolvedValue([]);
 
       const result = await service.findAll(TENANT_B_ID);
 
@@ -428,44 +383,20 @@ describe('OrdersService', () => {
       );
     });
 
-    it('should set processingAt when moving to processing', async () => {
-      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, status: 'confirmed' });
-      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, status: 'processing' });
+    test.each([
+      ['processing', 'confirmed', 'processingAt'],
+      ['out_for_delivery', 'processing', 'dispatchedAt'],
+      ['delivered', 'out_for_delivery', 'deliveredAt'],
+    ] as const)('should set %sAt when moving to %s', async (targetStatus, fromStatus, timestampField) => {
+      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, status: fromStatus });
+      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, status: targetStatus });
 
-      await service.updateStatus('order-uuid', 'processing', TENANT_A_ID);
-
-      expect(mockOrderRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'processing',
-          processingAt: expect.any(Date),
-        }),
-      );
-    });
-
-    it('should set dispatchedAt when moving to out_for_delivery', async () => {
-      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, status: 'processing' });
-      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, status: 'out_for_delivery' });
-
-      await service.updateStatus('order-uuid', 'out_for_delivery', TENANT_A_ID);
+      await service.updateStatus('order-uuid', targetStatus, TENANT_A_ID);
 
       expect(mockOrderRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'out_for_delivery',
-          dispatchedAt: expect.any(Date),
-        }),
-      );
-    });
-
-    it('should set deliveredAt when moving to delivered', async () => {
-      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, status: 'out_for_delivery' });
-      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, status: 'delivered' });
-
-      await service.updateStatus('order-uuid', 'delivered', TENANT_A_ID);
-
-      expect(mockOrderRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'delivered',
-          deliveredAt: expect.any(Date),
+          status: targetStatus,
+          [timestampField]: expect.any(Date),
         }),
       );
     });
@@ -529,11 +460,11 @@ describe('OrdersService', () => {
 
   describe('count', () => {
     it('should count by tenant', async () => {
-      createQueryBuilderMock.getCount.mockResolvedValue(5);
+      queryBuilderMock.getCount.mockResolvedValue(5);
 
       const result = await service.count(TENANT_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'order.tenantId = :tenantId',
         { tenantId: TENANT_A_ID },
       );
@@ -541,13 +472,13 @@ describe('OrdersService', () => {
     });
 
     it('should optionally filter by userId', async () => {
-      createQueryBuilderMock.getCount.mockResolvedValue(3);
+      queryBuilderMock.getCount.mockResolvedValue(3);
 
-      await service.count(TENANT_A_ID, USER_ID);
+      await service.count(TENANT_A_ID, USER_A_ID);
 
-      expect(createQueryBuilderMock.andWhere).toHaveBeenCalledWith(
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
         'order.userId = :userId',
-        { userId: USER_ID },
+        { userId: USER_A_ID },
       );
     });
 

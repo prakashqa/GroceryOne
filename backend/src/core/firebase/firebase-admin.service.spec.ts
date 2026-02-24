@@ -19,10 +19,6 @@ describe('FirebaseAdminService', () => {
       service = module.get<FirebaseAdminService>(FirebaseAdminService);
     });
 
-    it('should be defined', () => {
-      expect(service).toBeDefined();
-    });
-
     it('should report as unavailable', () => {
       expect(service.isAvailable()).toBe(false);
     });

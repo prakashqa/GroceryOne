@@ -11,6 +11,7 @@ import {
   DateRange,
 } from '../types/reports.types';
 import { ManagedCart, Category } from '../../../domain/types/picking';
+import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
 import { isDateInRange, groupDatesByDay, formatDateForDisplay, getStartOfDay } from './dateRangeUtils';
 
 /**
@@ -180,7 +181,7 @@ export const calculateTopProducts = (
   // Convert to array and add category info
   const products: TopProduct[] = Array.from(productMap.values()).map(
     (product) => {
-      const category = categories.find((c) => c.id === product.categoryId);
+      const category = findCategoryByIdOrUuid(categories, product.categoryId);
 
       return {
         itemId: product.itemId,
@@ -250,7 +251,7 @@ export const calculateCategoryBreakdown = (
   // Convert to array with category info
   const breakdown: CategorySalesData[] = Array.from(categoryMap.values()).map(
     (catData) => {
-      const category = categories.find((c) => c.id === catData.categoryId);
+      const category = findCategoryByIdOrUuid(categories, catData.categoryId);
 
       return {
         categoryId: catData.categoryId,

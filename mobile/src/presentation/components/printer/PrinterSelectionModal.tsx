@@ -43,16 +43,22 @@ const PrinterSelectionModal: React.FC<PrinterSelectionModalProps> = ({
     null
   );
 
-  // Start scanning when modal opens
+  // On modal open: show only the saved printer (if any), not all paired devices.
+  // User must tap "Scan for Printers" to discover devices.
+  // This prevents showing earbuds, car audio, etc. that are paired but not printers.
   useEffect(() => {
     if (visible) {
-      loadPairedDevices();
+      if (currentPrinterId) {
+        loadSavedPrinterOnly();
+      } else {
+        setDevices([]);
+      }
     } else {
       // Reset state when modal closes
       setIsScanning(false);
       setConnectingDeviceId(null);
     }
-  }, [visible]);
+  }, [visible, currentPrinterId]);
 
   // Listen for connection status changes
   useEffect(() => {
@@ -74,6 +80,19 @@ const PrinterSelectionModal: React.FC<PrinterSelectionModalProps> = ({
       setDevices(pairedDevices);
     } catch (error) {
       console.error('Error loading paired devices:', error);
+    }
+  };
+
+  const loadSavedPrinterOnly = async () => {
+    try {
+      const pairedDevices = await bluetoothPrinterService.getPairedDevices();
+      const savedPrinter = pairedDevices.filter(
+        (d) => d.id === currentPrinterId
+      );
+      setDevices(savedPrinter);
+    } catch (error) {
+      console.error('Error loading saved printer:', error);
+      setDevices([]);
     }
   };
 

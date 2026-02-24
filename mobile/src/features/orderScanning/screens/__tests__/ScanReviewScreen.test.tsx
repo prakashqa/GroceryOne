@@ -65,30 +65,7 @@ jest.mock('react-i18next', () => ({
 
 // Mock theme
 jest.mock('../../../../presentation/theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50',
-      background: '#f5f5f5',
-      surface: '#ffffff',
-      text: '#212121',
-      textSecondary: '#757575',
-      textLight: '#9e9e9e',
-      textInverse: '#ffffff',
-      headerBackground: '#1B5E20',
-      headerText: '#ffffff',
-      headerTextMuted: 'rgba(255, 255, 255, 0.8)',
-      buttonPrimary: '#4CAF50',
-      buttonPrimaryText: '#ffffff',
-      border: '#e0e0e0',
-      inputBackground: 'rgba(255, 255, 255, 0.15)',
-    },
-    spacing: { xs: 4, sm: 8, smd: 12, md: 16, lg: 24, xl: 32 },
-    typography: {
-      fontSize: { xs: 10, sm: 12, md: 14, lg: 16, xl: 18, '2xl': 20, xxl: 24 },
-      fontWeight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
-    },
-    borderRadius: { sm: 8, md: 12, lg: 16, xl: 24 },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock safe area

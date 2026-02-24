@@ -9,27 +9,7 @@ import { Category } from '../../../../domain/types/picking';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#4CAF50',
-      primaryLight: '#81C784',
-      background: '#f5f5f5',
-      surface: '#ffffff',
-      text: '#212121',
-      textSecondary: '#757575',
-      textLight: '#9e9e9e',
-      border: '#e0e0e0',
-      card: '#ffffff',
-      error: '#F44336',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock react-i18next

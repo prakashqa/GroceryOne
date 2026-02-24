@@ -12,13 +12,7 @@ jest.useFakeTimers();
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    animation: {
-      fast: 150,
-      normal: 200,
-      slow: 300,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 describe('FadeInView', () => {

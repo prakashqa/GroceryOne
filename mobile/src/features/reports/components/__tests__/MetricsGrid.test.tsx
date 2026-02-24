@@ -9,32 +9,8 @@ import { ReportMetrics } from '../../types/reports.types';
 
 // Mock theme
 jest.mock('../../../../presentation/theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      success: '#4CAF50',
-      warning: '#FF9800',
-      info: '#2196F3',
-      surface: '#FFFFFF',
-      background: '#F5F5F5',
-      text: '#000000',
-      textSecondary: '#666666',
-      card: '#FFFFFF',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    shadows: {
-      sm: {},
-    },
-    animation: {
-      normal: 200,
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock i18n

@@ -5,37 +5,11 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { FAB } from '../FAB';
+import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      textInverse: '#FFFFFF',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      smd: 12,
-      md: 16,
-      lg: 24,
-      xl: 32,
-    },
-    buttonHeights: {
-      sm: 36,
-      md: 48,
-      lg: 56,
-    },
-    shadows: {
-      lg: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 6,
-      },
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 // Mock Icon component
@@ -71,9 +45,7 @@ describe('FAB', () => {
     );
     const fab = getByTestId('fab');
     const style = fab.props.style;
-    const flatStyle = Array.isArray(style)
-      ? Object.assign({}, ...style.filter(Boolean))
-      : style;
+    const flatStyle = flattenStyle(style);
     expect(flatStyle.width).toBe(56);
     expect(flatStyle.height).toBe(56);
   });
@@ -85,9 +57,7 @@ describe('FAB', () => {
     );
     const fab = getByTestId('fab');
     const style = fab.props.style;
-    const flatStyle = Array.isArray(style)
-      ? Object.assign({}, ...style.filter(Boolean))
-      : style;
+    const flatStyle = flattenStyle(style);
     expect(flatStyle.borderRadius).toBe(28); // 56 / 2
   });
 

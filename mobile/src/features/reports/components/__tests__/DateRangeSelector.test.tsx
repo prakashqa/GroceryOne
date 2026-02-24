@@ -9,33 +9,8 @@ import { DateRange } from '../../types/reports.types';
 
 // Mock theme
 jest.mock('../../../../presentation/theme', () => ({
-  useTheme: () => ({
-    colors: {
-      primary: '#2E7D32',
-      surface: '#FFFFFF',
-      background: '#F5F5F5',
-      text: '#000000',
-      textInverse: '#FFFFFF',
-      textSecondary: '#666666',
-      border: '#E0E0E0',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-    borderRadius: {
-      sm: 8,
-      md: 12,
-      xl: 20,
-    },
-    typography: {
-      fontSize: { sm: 13, md: 15 },
-      fontWeight: { medium: '500', semibold: '600' },
-    },
-  }),
-  useIsDarkMode: () => false,
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
+  useIsDarkMode: require('../../../../__test-utils__/mocks/theme.mock').mockUseIsDarkMode,
 }));
 
 // Mock i18n

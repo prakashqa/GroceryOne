@@ -13,24 +13,7 @@ jest.mock('@expo/vector-icons', () => ({
 
 // Mock the theme hook
 jest.mock('../../../theme', () => ({
-  useTheme: () => ({
-    colors: {
-      icon: '#1A1A1A',
-      iconSecondary: '#666666',
-      primary: '#2E7D32',
-      error: '#D32F2F',
-      warning: '#F57C00',
-      success: '#2E7D32',
-      text: '#1A1A1A',
-      textSecondary: '#666666',
-    },
-    spacing: {
-      xs: 4,
-      sm: 8,
-      md: 16,
-      lg: 24,
-    },
-  }),
+  useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
 describe('Icon', () => {
