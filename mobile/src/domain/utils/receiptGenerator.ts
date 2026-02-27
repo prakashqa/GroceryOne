@@ -305,7 +305,9 @@ const formatFiveColumnItemRow = (
 
   // QTY includes unit - this matches the receipt format (no space between number and unit)
   // Clamp to 0 to handle negative or invalid values
-  const qtyText = String(Math.max(0, qty)) + unit;
+  // Display "g" instead of "gm" on receipts for cleaner output
+  const receiptUnit = unit === 'gm' ? 'g' : unit;
+  const qtyText = String(Math.max(0, qty)) + receiptUnit;
 
   // Format price values
   const hasValidPrice = unitPrice > 0;
@@ -373,19 +375,6 @@ const formatCurrencyCompact = (amount: number): string => {
 };
 
 /////////////////////////////
-// GROUPING
-/////////////////////////////
-
-const groupByCategory = (items: ReceiptItem[]) => {
-  const map: Record<string, ReceiptItem[]> = {};
-  items.forEach(i => {
-    map[i.categoryName] = map[i.categoryName] || [];
-    map[i.categoryName].push(i);
-  });
-  return map;
-};
-
-/////////////////////////////
 // LANGUAGE DETECTION
 /////////////////////////////
 
@@ -424,16 +413,17 @@ export const generatePickingListReceipt = (
 
   const now = new Date();
   const lines: string[] = [];
-  const grouped = groupByCategory(items);
 
   // Check if any items have prices and calculate grand total
+  // Round each item's total to integer BEFORE summing so the printed AMT column
+  // (which uses maximumFractionDigits: 0) sums to exactly the GRAND TOTAL value.
   const hasPricedItems = items.some(item => item.price !== undefined && item.price > 0);
   const grandTotal = items.reduce((sum, item) => {
     if (item.itemTotal !== undefined) {
-      return sum + item.itemTotal;
+      return sum + Math.round(item.itemTotal);
     }
     if (item.price !== undefined && item.price > 0) {
-      return sum + (item.price * item.quantity);
+      return sum + Math.round(item.price * item.quantity);
     }
     return sum;
   }, 0);
@@ -545,7 +535,6 @@ export const generatePickingListReceipt = (
 
   // PAYMENT STATUS - only show if cart is paid
   if (paymentStatus === 'paid') {
-    lines.push('');
     lines.push(boldDivider(width));
     const paymentStatusLabel = t.paymentStatus || 'Payment Status';
     const paidLabel = t.paid || 'PAID';
@@ -559,15 +548,29 @@ export const generatePickingListReceipt = (
     lines.push(boldDivider(width));
   }
 
-  // FOOTER
-  lines.push('');
-  lines.push(boldDivider(width));
+  // FOOTER — when payment section is present, its closing boldDivider already
+  // provides visual separation. Only add empty line + divider when no payment section.
+  if (paymentStatus !== 'paid') {
+    lines.push('');
+    lines.push(boldDivider(width));
+  }
   if (paperWidth === '80mm') {
     lines.push(CENTER_MARKER + t.footer);
   } else {
     lines.push(center(t.footer, width));
   }
   lines.push(boldDivider(width));
+
+  // Trailing empty lines: provide ~200px whitespace in the bitmap so the
+  // footer is well above the thermal print head cutoff. 6 lines ≈ 25mm.
+  // This is the PRIMARY paper feed mechanism — BLEPrinter.printText('\n')
+  // paper feed can silently fail over BLE (printRawData swallows IOException).
+  lines.push('');
+  lines.push('');
+  lines.push('');
+  lines.push('');
+  lines.push('');
+  lines.push('');
 
   return lines.join('\n');
 };
@@ -591,6 +594,68 @@ export const stripFormatMarkers = (text: string): string => {
   return text
     .replace(/\x1b[\x20-\x7e][\x00-\xff]/g, '')
     .replace(/[\x02\x03]/g, '');
+};
+
+/////////////////////////////
+// FORMAT FOR PREVIEW
+/////////////////////////////
+
+// Preview column widths for 80mm monospace display (total = 28 chars)
+// Derived from native pixel proportions: 8%/34%/15%/18%/25% (NO/ITEM/QTY/RATE/AMT)
+const PREVIEW_COLS_5 = { sno: 2, name: 10, qty: 4, rate: 5, amt: 7 };
+// Label-value (Date, Time, GRAND TOTAL, Payment Status, etc.)
+const PREVIEW_COLS_2 = { label: 16, value: 12 };
+
+const formatFiveColumnPreview = (parts: string[]): string => {
+  const c = PREVIEW_COLS_5;
+  const sno = parts[0].slice(0, c.sno).padEnd(c.sno);
+  const name = parts[1].length > c.name
+    ? parts[1].slice(0, c.name - 1) + '\u2026'
+    : parts[1].padEnd(c.name);
+  const qty = parts[2].slice(0, c.qty).padStart(c.qty);
+  const rate = parts[3].slice(0, c.rate).padStart(c.rate);
+  const amt = parts[4].slice(0, c.amt).padStart(c.amt);
+  return sno + name + qty + rate + amt;
+};
+
+const formatTwoColumnPreview = (parts: string[]): string => {
+  const c = PREVIEW_COLS_2;
+  const label = parts[0].slice(0, c.label).padEnd(c.label);
+  const value = parts[1].slice(0, c.value).padStart(c.value);
+  return label + value;
+};
+
+/**
+ * Format receipt text for preview display in React Native Text component.
+ * - Strips ESC/POS control sequences and format markers (CENTER_MARKER, BOLD_TAB_MARKER)
+ * - Converts tab-separated columns (used for 80mm native bitmap rendering)
+ *   to space-padded columns for monospace font display (28 chars wide)
+ * - 58mm receipts have no tabs and pass through unchanged after marker stripping
+ */
+export const formatForPreview = (text: string): string => {
+  const stripped = stripFormatMarkers(text);
+
+  // 58mm receipts never contain tabs — skip column conversion
+  if (!stripped.includes('\t')) {
+    return stripped;
+  }
+
+  return stripped.split('\n').map(line => {
+    if (!line.includes('\t')) {
+      return line; // Non-tabular line: dividers, centered text, empty lines
+    }
+
+    const parts = line.split('\t');
+
+    if (parts.length === 5) {
+      return formatFiveColumnPreview(parts);
+    } else if (parts.length === 2) {
+      return formatTwoColumnPreview(parts);
+    }
+
+    // Fallback for unexpected tab counts
+    return parts.join(' ');
+  }).join('\n');
 };
 
 /////////////////////////////

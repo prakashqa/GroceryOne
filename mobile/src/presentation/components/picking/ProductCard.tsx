@@ -21,6 +21,8 @@ interface ProductCardProps {
   item: Item;
   categoryIcon: string;
   quantityInCart: number;
+  /** Pre-formatted quantity with unit (e.g. "250 gm") for display in stepper */
+  formattedQuantity?: string;
   onAdd: () => void;
   onIncrement: () => void;
   onDecrement: () => void;
@@ -34,6 +36,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   item,
   categoryIcon,
   quantityInCart,
+  formattedQuantity,
   onAdd,
   onIncrement,
   onDecrement,
@@ -263,11 +266,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     minWidth: isTablet ? 40 : 32,
                   },
                 ]}
-                accessibilityLabel={`${quantityInCart} in cart`}
+                accessibilityLabel={`${formattedQuantity || quantityInCart} in cart`}
                 accessibilityRole="text"
                 testID={testID ? `${testID}-quantity` : undefined}
               >
-                {quantityInCart}
+                {formattedQuantity || quantityInCart}
               </Text>
             )}
 

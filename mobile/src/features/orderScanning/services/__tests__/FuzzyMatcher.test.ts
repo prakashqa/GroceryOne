@@ -21,6 +21,9 @@ const mockItems: Item[] = [
   { id: 'snack-3', categoryId: 'chips-biscuits', name: 'Parle-G', unit: 'gm', defaultQuantity: 800 },
   { id: 'bath-1', categoryId: 'bath-body', name: 'Dove Soap', unit: 'pcs', defaultQuantity: 3 },
   { id: 'bath-6', categoryId: 'bath-body', name: 'Colgate Toothpaste', unit: 'gm', defaultQuantity: 200 },
+  { id: 'atta-7', categoryId: 'atta-rice', name: 'Suji', unit: 'kg', defaultQuantity: 1 },
+  { id: 'atta-8', categoryId: 'atta-rice', name: 'Poha', unit: 'kg', defaultQuantity: 1 },
+  { id: 'dal-5', categoryId: 'dal-pulses', name: 'Urad Dal', unit: 'kg', defaultQuantity: 1 },
 ];
 
 // Mock Telugu translations (using actual Telugu translations from te/common.json)
@@ -177,7 +180,7 @@ describe('FuzzyMatcher', () => {
     });
 
     it('should limit alternatives to maxAlternatives config', () => {
-      const customMatcher = new FuzzyMatcher(mockItems, mockGetTranslatedName, {
+      const customMatcher = new FuzzyMatcher(mockItems, mockGetTranslatedName, undefined, {
         maxAlternatives: 2,
       });
       const result = customMatcher.match('Dal', 'en');
@@ -229,6 +232,7 @@ describe('FuzzyMatcher', () => {
       const customMatcher = new FuzzyMatcher(
         mockItems,
         mockGetTranslatedName,
+        undefined,
         customConfig
       );
 
@@ -370,6 +374,186 @@ describe('FuzzyMatcher', () => {
       const result = matcher.match('ఫార్చ్యూన్ చక్కి ఆటా', 'te');
       expect(result.matchedItem).not.toBeNull();
       expect(['exact', 'high']).toContain(result.confidence);
+    });
+  });
+
+  describe('Telugu zero-width character handling', () => {
+    it('should match Telugu text with embedded zero-width joiners (U+200D)', () => {
+      const result = matcher.match('ఫార్చ్యూన్ సన్\u200Dఫ్లవర్ ఆయిల్', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('oil-1');
+    });
+
+    it('should match Telugu text with zero-width non-joiners (U+200C)', () => {
+      const result = matcher.match('కోల్\u200Cగేట్ టూత్\u200Cపేస్ట్', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('bath-6');
+    });
+
+    it('should match Telugu text with zero-width spaces (U+200B)', () => {
+      const result = matcher.match('కంది\u200Bపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+    });
+
+    it('should match Telugu text with BOM characters (U+FEFF)', () => {
+      const result = matcher.match('\uFEFFకందిపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+    });
+  });
+
+  describe('English fallback for Telugu-tagged items', () => {
+    it('should match English brand name "Amul Ghee" even when language is "te"', () => {
+      const result = matcher.match('Amul Ghee', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('oil-3');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match English brand name "Tata Tea Gold" when language is "te"', () => {
+      const result = matcher.match('Tata Tea Gold', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('tea-1');
+    });
+
+    it('should match "Dove Soap" when language is "te"', () => {
+      const result = matcher.match('Dove Soap', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('bath-1');
+    });
+
+    it('should prefer exact Telugu synonym match over English partial match', () => {
+      const result = matcher.match('కందిపప్పు', 'te');
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidence).toBe('exact');
+    });
+  });
+
+  describe('Telugu synonym matching', () => {
+    // Mock synonyms: native Telugu names that differ from transliterated names
+    const mockSynonyms: Record<string, string[]> = {
+      'dal-1': ['కందిపప్పు', 'కంది పప్పు'],
+      'dal-2': ['పెసరపప్పు', 'పెసర పప్పు'],
+      'dal-3': ['శనగపప్పు', 'శెనగపప్పు', 'శనగ పప్పు'],
+      'dal-5': ['మినపప్పు', 'మినప పప్పు', 'ఉద్దిపప్పు'],
+      'atta-3': ['బాస్మతి బియ్యం', 'బియ్యం'],
+      'atta-7': ['రవ్వ'],
+      'atta-8': ['అటుకులు'],
+      'oil-3': ['నెయ్యి', 'అమూల్ నెయ్యి'],
+    };
+
+    const mockGetSynonyms = (itemId: string): string[] => {
+      return mockSynonyms[itemId] || [];
+    };
+
+    let synonymMatcher: FuzzyMatcher;
+
+    beforeEach(() => {
+      // This matcher uses transliterated Telugu names (like the real te/common.json)
+      // but also has synonym support for native Telugu names
+      const transliteratedTranslations: Record<string, string> = {
+        'atta-1': 'ఆశీర్వాద్ ఆటా',
+        'atta-2': 'ఫార్చ్యూన్ చక్కీ ఆటా',
+        'atta-3': 'బాస్మతి రైస్',
+        'dal-1': 'తూర్ దాల్',
+        'dal-2': 'మూంగ్ దాల్',
+        'dal-3': 'చన దాల్',
+        'dal-5': 'ఉరద్ దాల్',
+        'oil-1': 'ఫార్చ్యూన్ సన్‌ఫ్లవర్ ఆయిల్',
+        'oil-3': 'అమూల్ ఘీ',
+        'tea-1': 'టాటా టీ గోల్డ్',
+        'snack-3': 'పార్లే-జి',
+        'bath-1': 'డవ్ సోప్',
+        'bath-6': 'కోల్‌గేట్ టూత్‌పేస్ట్',
+        'atta-7': 'సూజీ',
+        'atta-8': 'పోహా',
+      };
+
+      const getTransliterated = (id: string) => transliteratedTranslations[id] || id;
+
+      synonymMatcher = new FuzzyMatcher(
+        mockItems,
+        getTransliterated,
+        mockGetSynonyms
+      );
+    });
+
+    it('should match native Telugu "కందిపప్పు" to Toor Dal via synonym', () => {
+      const result = synonymMatcher.match('కందిపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match native Telugu "పెసరపప్పు" to Moong Dal via synonym', () => {
+      const result = synonymMatcher.match('పెసరపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-2');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match native Telugu "శనగపప్పు" to Chana Dal via synonym', () => {
+      const result = synonymMatcher.match('శనగపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-3');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match spaced synonym "కంది పప్పు" to Toor Dal', () => {
+      const result = synonymMatcher.match('కంది పప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match alternate synonym "శెనగపప్పు" (variant spelling) to Chana Dal', () => {
+      const result = synonymMatcher.match('శెనగపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-3');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match "రవ్వ" to Suji via synonym', () => {
+      const result = synonymMatcher.match('రవ్వ', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('atta-7');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match "నెయ్యి" to Amul Ghee via synonym', () => {
+      const result = synonymMatcher.match('నెయ్యి', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('oil-3');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should still match transliterated names even with synonyms', () => {
+      const result = synonymMatcher.match('తూర్ దాల్', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should still match English names with synonym matcher', () => {
+      const result = synonymMatcher.match('Toor Dal', 'en');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should return no match for unknown Telugu text', () => {
+      const result = synonymMatcher.match('అజ్ఞాత వస్తువు', 'te');
+      expect(result.confidence).toBe('none');
+      expect(result.matchedItem).toBeNull();
+    });
+
+    it('should work without synonyms getter (backward compatible)', () => {
+      const noSynonymMatcher = new FuzzyMatcher(mockItems, mockGetTranslatedName);
+      const result = noSynonymMatcher.match('కందిపప్పు', 'te');
+      // Should still match since mockGetTranslatedName maps dal-1 to కందిపప్పు
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-1');
     });
   });
 });

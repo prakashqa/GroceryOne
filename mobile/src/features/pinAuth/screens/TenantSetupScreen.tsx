@@ -121,7 +121,7 @@ export const TenantSetupScreen: React.FC = () => {
                 },
               ]}
             >
-              {t('tenant.setupTitle', 'Welcome to GroceryOne')}
+              {t('tenant.setupTitle', 'Welcome to GroOne')}
             </Text>
             <Text
               style={[

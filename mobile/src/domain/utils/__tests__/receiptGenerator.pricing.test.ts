@@ -409,5 +409,131 @@ describe('receiptGenerator - pricing', () => {
 
       expect(receipt).toMatch(/17,?240/);
     });
+
+    it('should have grand total equal to sum of rounded item AMTs (no rounding mismatch)', () => {
+      // Items with fractional totals that round differently when summed vs individually
+      // 3.6 + 5.6 = 9.2 → rounds to 9 (if summed first)
+      // But Math.round(3.6) + Math.round(5.6) = 4 + 6 = 10
+      const fractionalItems: ReceiptItem[] = [
+        {
+          name: 'Black Pepper',
+          quantity: 2,
+          unit: 'gm',
+          categoryId: 'spice',
+          categoryName: 'Spices',
+          price: 1800,
+          itemTotal: 3.6,
+        },
+        {
+          name: 'Cinnamon',
+          quantity: 1,
+          unit: 'gm',
+          categoryId: 'spice',
+          categoryName: 'Spices',
+          price: 5600,
+          itemTotal: 5.6,
+        },
+        {
+          name: 'Rice',
+          quantity: 5,
+          unit: 'kg',
+          categoryId: 'rice',
+          categoryName: 'Rice',
+          price: 140,
+          itemTotal: 700,
+        },
+      ];
+
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: fractionalItems,
+        paperWidth: '80mm',
+      });
+
+      const lines = receipt.split('\n');
+      // Find all item AMT values from receipt (last number on each 5-column tab line)
+      const itemAmts: number[] = [];
+      lines.forEach(line => {
+        // Skip format markers, dividers, and non-tab lines
+        const stripped = line.replace(/[\x02\x03]/g, '');
+        if (!stripped.includes('\t') || stripped.includes('GRAND TOTAL')) return;
+        const parts = stripped.split('\t');
+        if (parts.length === 5) {
+          const amt = parseInt(parts[4].replace(/,/g, ''), 10);
+          if (!isNaN(amt)) itemAmts.push(amt);
+        }
+      });
+
+      // Find GRAND TOTAL value
+      const grandTotalLine = lines.find(l => l.includes('GRAND TOTAL'));
+      expect(grandTotalLine).toBeDefined();
+      const gtParts = grandTotalLine!.replace(/[\x03]/g, '').split('\t');
+      const grandTotalValue = parseInt(gtParts[gtParts.length - 1].replace(/,/g, ''), 10);
+
+      // Sum of printed AMTs should equal printed GRAND TOTAL
+      const sumOfAmts = itemAmts.reduce((s, v) => s + v, 0);
+      expect(sumOfAmts).toBe(grandTotalValue);
+    });
+  });
+
+  describe('receipt unit display', () => {
+    it('should display "g" instead of "gm" in QTY column on 80mm receipt', () => {
+      const gmItems: ReceiptItem[] = [
+        {
+          name: 'Cumin Seeds',
+          quantity: 250,
+          unit: 'gm',
+          categoryId: 'spice',
+          categoryName: 'Spices',
+          price: 320,
+          itemTotal: 80,
+        },
+      ];
+
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: gmItems,
+        paperWidth: '80mm',
+      });
+
+      const lines = receipt.split('\n');
+      const itemLine = lines.find(l => l.includes('Cumin'));
+      expect(itemLine).toBeDefined();
+      // Should show "250g" not "250gm"
+      expect(itemLine).toContain('250g');
+      expect(itemLine).not.toMatch(/250gm/);
+    });
+
+    it('should display "g" instead of "gm" in QTY column on 58mm receipt', () => {
+      const gmItems: ReceiptItem[] = [
+        {
+          name: 'Black Pepper',
+          quantity: 100,
+          unit: 'gm',
+          categoryId: 'spice',
+          categoryName: 'Spices',
+        },
+      ];
+
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: gmItems,
+        paperWidth: '58mm',
+      });
+
+      // Should contain "100g" not "100gm"
+      expect(receipt).toContain('100g');
+      expect(receipt).not.toMatch(/100gm/);
+    });
+
+    it('should keep "kg" unchanged in QTY column', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: pricedItems,
+        paperWidth: '80mm',
+      });
+
+      expect(receipt).toContain('5kg');
+    });
   });
 });

@@ -41,24 +41,13 @@ const formatCurrency = (amount: number): string => {
 };
 
 /**
- * Get unit multiplier for price calculation
- * For 'gm' and 'ml' units, prices are stored per-KG/per-L, so multiply by 0.001
- * For 'kg', 'L', 'pcs' units, no conversion needed (multiplier = 1)
- */
-const getUnitMultiplier = (unit: string): number => {
-  if (unit === 'gm' || unit === 'ml') return 0.001;
-  return 1;
-};
-
-/**
  * Calculate cart total from items with price snapshots
- * Applies unit multiplier for gm/ml items (prices stored per-KG/per-L)
+ * Quantities are stored in base units (kg, L) and prices are per base unit
  */
 const calculateCartTotal = (items: ManagedCart['items']): number => {
   return items.reduce((sum, item) => {
     if (item.priceSnapshot !== undefined && item.priceSnapshot > 0) {
-      const multiplier = getUnitMultiplier(item.item.unit);
-      return sum + item.priceSnapshot * item.quantity * multiplier;
+      return sum + item.priceSnapshot * item.quantity;
     }
     return sum;
   }, 0);

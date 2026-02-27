@@ -185,7 +185,7 @@ class BluetoothPrinterService {
             {
               title: 'Bluetooth Permission',
               message:
-                'GroceryOne needs access to Bluetooth to connect to printers.',
+                'GroOne needs access to Bluetooth to connect to printers.',
               buttonNeutral: 'Ask Me Later',
               buttonNegative: 'Cancel',
               buttonPositive: 'OK',
@@ -360,7 +360,18 @@ class BluetoothPrinterService {
     }
     try {
       await this.ensureInitialized();
+      // Force-close stale socket before reconnecting. The native
+      // BLEPrinterAdapter caches sockets by address; without closing first,
+      // connectPrinter returns the stale socket and the next print fails.
+      await BLEPrinter.closeConn().catch((e: Error) => {
+        console.warn('closeConn before reconnect failed (non-fatal):', e.message);
+      });
       await BLEPrinter.connectPrinter(this.state.connectedDevice.address);
+      // Allow BLE socket to stabilize after reconnect. Without this delay,
+      // data sent immediately after connectPrinter resolves can be lost —
+      // especially on the second print after a language switch where the
+      // previous socket was still draining.
+      await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error) {
       this.updateConnectionStatus('error');
       throw new Error(
@@ -386,6 +397,10 @@ class BluetoothPrinterService {
     };
 
     this.state.printQueue.push(job);
+    // Cap queue to prevent unbounded memory growth from repeated prints
+    if (this.state.printQueue.length > 20) {
+      this.state.printQueue = this.state.printQueue.slice(-20);
+    }
     job.status = 'printing';
 
     try {
@@ -419,6 +434,10 @@ class BluetoothPrinterService {
     };
 
     this.state.printQueue.push(job);
+    // Cap queue to prevent unbounded memory growth from repeated prints
+    if (this.state.printQueue.length > 20) {
+      this.state.printQueue = this.state.printQueue.slice(-20);
+    }
     job.status = 'printing';
 
     try {
@@ -461,6 +480,10 @@ class BluetoothPrinterService {
     };
 
     this.state.printQueue.push(job);
+    // Cap queue to prevent unbounded memory growth from repeated prints
+    if (this.state.printQueue.length > 20) {
+      this.state.printQueue = this.state.printQueue.slice(-20);
+    }
     job.status = 'printing';
 
     try {
@@ -469,9 +492,101 @@ class BluetoothPrinterService {
         imageWidth: imageWidth,
       });
       job.status = 'completed';
+
+      // Paper feed: best-effort. printText uses printRawData internally
+      // which can silently fail over BLE. The receipt bitmap already includes
+      // trailing whitespace for paper feed, so this is a bonus.
+      try {
+        await BLEPrinter.printText('\n\n\n\n');
+      } catch {
+        // Swallow paper feed errors — don't fail the print job
+      }
     } catch (error: any) {
       job.status = 'failed';
       job.error = error.message || 'Image print failed';
+    }
+
+    this.printCompleteListeners.forEach((listener) => listener(job));
+    return job;
+  }
+
+  /**
+   * Print multiple base64-encoded image chunks sequentially.
+   * Used for large receipts that exceed the printer's maximum bitmap height.
+   * Each chunk is printed with a small delay between to allow the printer
+   * buffer to flush, preventing BLE transfer failures.
+   *
+   * @param chunks Array of base64-encoded PNG image strings (one per chunk)
+   * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
+   */
+  async printImages(chunks: string[], imageWidth: number = 576): Promise<PrintJob> {
+    if (!this.state.connectedDevice) {
+      throw new Error('No printer connected');
+    }
+
+    const job: PrintJob = {
+      id: `print-imgs-${Date.now()}`,
+      content: `[IMAGE RECEIPT - ${chunks.length} chunks]`,
+      status: 'pending',
+      createdAt: new Date(),
+    };
+
+    this.state.printQueue.push(job);
+    // Cap queue to prevent unbounded memory growth from repeated prints
+    if (this.state.printQueue.length > 20) {
+      this.state.printQueue = this.state.printQueue.slice(-20);
+    }
+    job.status = 'printing';
+
+    // Empty chunks array → nothing to print, mark completed
+    if (chunks.length === 0) {
+      job.status = 'completed';
+      this.printCompleteListeners.forEach((listener) => listener(job));
+      return job;
+    }
+
+    try {
+      await this.ensureConnected();
+
+      for (let i = 0; i < chunks.length; i++) {
+        try {
+          await BLEPrinter.printImageBase64(chunks[i], {
+            imageWidth: imageWidth,
+          });
+        } catch (chunkError: any) {
+          // Retry once after a longer delay
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          try {
+            await BLEPrinter.printImageBase64(chunks[i], {
+              imageWidth: imageWidth,
+            });
+          } catch (retryError: any) {
+            throw new Error(
+              `Chunk ${i + 1}/${chunks.length} failed after retry: ${retryError.message}`
+            );
+          }
+        }
+        // Delay between chunks to let the printer fully process and print
+        // each chunk before receiving the next. Budget BLE thermal printers
+        // need ~1s to flush their receive buffer and advance the paper.
+        if (i < chunks.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      job.status = 'completed';
+
+      // Paper feed: best-effort. printText uses printRawData internally
+      // which can silently fail over BLE. The receipt bitmap already includes
+      // trailing whitespace for paper feed, so this is a bonus.
+      try {
+        await BLEPrinter.printText('\n\n\n\n');
+      } catch {
+        // Swallow paper feed errors — don't fail the print job
+      }
+    } catch (error: any) {
+      job.status = 'failed';
+      job.error = error.message || 'Chunked image print failed';
     }
 
     this.printCompleteListeners.forEach((listener) => listener(job));

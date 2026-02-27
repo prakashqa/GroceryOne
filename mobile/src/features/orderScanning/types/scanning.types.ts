@@ -147,6 +147,8 @@ export interface IndexedItem {
   normalizedEnglish: string;
   normalizedTelugu: string;
   tokens: string[];
+  teluguSynonyms: string[];
+  normalizedTeluguSynonyms: string[];
 }
 
 /**

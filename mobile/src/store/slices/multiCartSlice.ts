@@ -8,6 +8,7 @@ import { Item, ManagedCart, MultiCartState, CartItemState, CartStatus } from '..
 import type { PaymentInfo, MarkPaidPayload, MarkCartPaidPayload } from '../../domain/types/payment';
 import { getHardcodedItemPrice } from '../../domain/utils/priceUtils';
 import type { ItemUnit } from '../../domain/utils/unitConversion';
+import { normalizeToBaseUnit } from '../../domain/utils/unitConversion';
 import { logout } from './authSlice';
 
 /**
@@ -32,6 +33,14 @@ const multiCartSlice = createSlice({
      * Create a new cart and set it as active
      */
     createCart: (state, action: PayloadAction<{ name: string }>) => {
+      const { name } = action.payload;
+
+      // Reject duplicate cart names (case-insensitive)
+      const nameExists = state.carts.some(
+        (c) => c.name.toLowerCase() === name.toLowerCase()
+      );
+      if (nameExists) return;
+
       const now = new Date().toISOString();
       const newCart: ManagedCart = {
         id: generateCartId(),
@@ -233,7 +242,10 @@ const multiCartSlice = createSlice({
 
       if (existingIndex >= 0) {
         const cartItem = cart.items[existingIndex];
-        cart.items[existingIndex].quantity += cartItem.item.defaultQuantity;
+        const { quantity: baseIncrement } = normalizeToBaseUnit(
+          cartItem.item.defaultQuantity, cartItem.item.unit
+        );
+        cart.items[existingIndex].quantity += baseIncrement;
         cart.updatedAt = new Date().toISOString();
       }
     },
@@ -259,7 +271,9 @@ const multiCartSlice = createSlice({
 
       if (existingIndex >= 0) {
         const cartItem = cart.items[existingIndex];
-        const defaultQty = cartItem.item.defaultQuantity;
+        const { quantity: defaultQty } = normalizeToBaseUnit(
+          cartItem.item.defaultQuantity, cartItem.item.unit
+        );
 
         if (cartItem.quantity <= defaultQty) {
           cart.items = cart.items.filter((ci) => ci.item.id !== itemId);
@@ -742,26 +756,16 @@ export const selectIsMultiCartHydrated = (state: RootState): boolean =>
   state.multiCart.isHydrated;
 
 /**
- * Get unit multiplier for price calculation
- * For 'gm' and 'ml' units, prices are stored per-KG/per-L, so multiply by 0.001
- * For 'kg', 'L', 'pcs' units, no conversion needed (multiplier = 1)
- */
-const getUnitMultiplier = (unit: string): number => {
-  if (unit === 'gm' || unit === 'ml') return 0.001;
-  return 1;
-};
-
-/**
  * Calculate the grand total of all priced items in the active cart
  * Only includes items with a valid priceSnapshot
- * Applies unit multiplier for gm/ml items (prices stored per-KG/per-L)
+ * Quantities are stored in base units (kg, L) and prices are per base unit,
+ * so the formula is simply: priceSnapshot * quantity
  */
 export const selectActiveCartGrandTotal = (state: RootState): number => {
   const items = selectActiveCartItems(state);
   return items.reduce((total, item) => {
     if (item.priceSnapshot && item.priceSnapshot > 0) {
-      const multiplier = getUnitMultiplier(item.item.unit);
-      return total + item.priceSnapshot * item.quantity * multiplier;
+      return total + item.priceSnapshot * item.quantity;
     }
     return total;
   }, 0);
@@ -888,7 +892,7 @@ export const selectTodaysMetrics = createSelector(
     );
 
     // Sales only from completed, printed, and paid carts (not drafts)
-    // Apply unit multiplier for gm/ml items (prices stored per-KG/per-L)
+    // Quantities stored in base units (kg, L), prices per base unit: price * quantity
     const totalSales = todaysCarts
       .filter((c) => c.status === 'completed' || c.status === 'printed' || c.status === 'paid')
       .reduce((sum, cart) => {
@@ -896,8 +900,7 @@ export const selectTodaysMetrics = createSelector(
           sum +
           cart.items.reduce(
             (s, item) => {
-              const multiplier = getUnitMultiplier(item.item.unit);
-              return s + (item.priceSnapshot || 0) * item.quantity * multiplier;
+              return s + (item.priceSnapshot || 0) * item.quantity;
             },
             0
           )

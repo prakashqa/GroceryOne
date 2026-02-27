@@ -42,10 +42,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 // Mock tenant data cleaner
 jest.mock('../../../../utils/storage/tenantDataCleaner', () => ({
   clearAllTenantData: jest.fn(() => Promise.resolve()),
+  clearTenantDataInMemoryOnly: jest.fn(),
 }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearAllTenantData } from '../../../../utils/storage/tenantDataCleaner';
+import { clearAllTenantData, clearTenantDataInMemoryOnly } from '../../../../utils/storage/tenantDataCleaner';
 
 const mockPinSecureStorage = PinSecureStorage as jest.Mocked<typeof PinSecureStorage>;
 const mockPinHashService = PinHashService as jest.Mocked<typeof PinHashService>;
@@ -757,6 +758,24 @@ describe('usePinAuth', () => {
 
       expect(mockPinSecureStorage.storeTenantName).toHaveBeenCalledWith('FreshMart Groceries');
     });
+
+    it('should use persisted tenant name from SecureStore when Redux tenant.name equals slug', async () => {
+      // After relaunch, RootNavigator sets tenant.name to slug (e.g. "freshmart")
+      // The friendly name ("FreshMart Groceries") is only in SecureStore
+      store = createTestStore({
+        ...PIN_SET_STATE,
+        tenant: { tenant: { slug: 'freshmart', name: 'freshmart' } },
+      });
+
+      mockPinSecureStorage.getTenantName.mockResolvedValue('FreshMart Groceries');
+
+      const { result } = renderHook(() => usePinAuth(), { wrapper });
+      await act(async () => { await result.current.verifyPin('1234'); });
+
+      // Redux tenant should have the friendly name, not the slug
+      const state = store.getState();
+      expect(state.tenant.tenant?.name).toBe('FreshMart Groceries');
+    });
   });
 
   describe('verifyPinLocally - auth context restoration (Step 5)', () => {
@@ -925,17 +944,20 @@ describe('usePinAuth', () => {
       expect(result.current.pinState.isPinSet).toBe(true);
     });
 
-    it('should clear tenant-specific cached data (carts, catalog)', async () => {
+    it('should clear tenant-specific cached data in memory only (preserves AsyncStorage)', async () => {
       const { result } = renderHook(() => usePinAuth(), { wrapper });
 
       await act(async () => {
         await result.current.logoutSession();
       });
 
-      expect(clearAllTenantData).toHaveBeenCalledWith(
-        expect.any(Function),
-        'freshmart'
+      // logoutSession uses clearTenantDataInMemoryOnly (Redux-only clear)
+      // to preserve AsyncStorage cart/catalog cache for next login
+      expect(clearTenantDataInMemoryOnly).toHaveBeenCalledWith(
+        expect.any(Function)
       );
+      // Should NOT call the full clearAllTenantData (which clears AsyncStorage)
+      expect(clearAllTenantData).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -949,7 +971,7 @@ describe('usePinAuth', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      (clearAllTenantData as jest.Mock).mockRejectedValueOnce(new Error('Cleanup failed'));
+      (clearTenantDataInMemoryOnly as jest.Mock).mockImplementationOnce(() => { throw new Error('Cleanup failed'); });
 
       const { result } = renderHook(() => usePinAuth(), { wrapper });
 

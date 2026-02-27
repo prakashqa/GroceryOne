@@ -143,8 +143,8 @@ describe('ProductGrid', () => {
         />
       );
 
-      // Item 1 has quantity 2 in cart
-      expect(getByTestId('product-grid-item-item-1-quantity').props.children).toBe(2);
+      // Item 1 has quantity 2 in cart (displayed as formatted "2 kg")
+      expect(getByTestId('product-grid-item-item-1-quantity').props.children).toBe('2 kg');
     });
 
     it('shows Add button for items not in cart', () => {

@@ -257,7 +257,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
       const isPaid = cart.status === 'paid';
       const calculatedTotal = cart.items.reduce(
         (sum: number, item: any) =>
-          sum + calculateItemTotal(item.priceSnapshot, item.quantity, item.item?.unit),
+          sum + calculateItemTotal(item.priceSnapshot, item.quantity),
         0
       );
       // For paid carts, use the recorded paidAmount instead of recalculating from items

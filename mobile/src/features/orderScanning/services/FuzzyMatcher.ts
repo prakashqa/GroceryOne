@@ -27,6 +27,11 @@ const DEFAULT_CONFIG: FuzzyMatcherConfig = {
  * Maps long vowel marks to short vowel marks for more forgiving matching
  * This helps with OCR errors where long/short vowels are confused
  */
+/**
+ * Zero-width characters commonly inserted by OCR engines in Telugu text
+ */
+const ZERO_WIDTH_CHARS_REGEX = /[\u200B\u200C\u200D\uFEFF]/g;
+
 const TELUGU_VOWEL_NORMALIZATION: Record<string, string> = {
   // Long to short vowel marks
   'ా': 'ా', // aa (keep as is - no short form)
@@ -45,10 +50,11 @@ export class FuzzyMatcher {
   constructor(
     items: Item[],
     getTranslatedName: (itemId: string) => string,
+    getSynonyms?: (itemId: string) => string[],
     config?: Partial<FuzzyMatcherConfig>
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.indexedItems = this.buildIndex(items, getTranslatedName);
+    this.indexedItems = this.buildIndex(items, getTranslatedName, getSynonyms);
   }
 
   /**
@@ -56,10 +62,12 @@ export class FuzzyMatcher {
    */
   private buildIndex(
     items: Item[],
-    getTranslatedName: (itemId: string) => string
+    getTranslatedName: (itemId: string) => string,
+    getSynonyms?: (itemId: string) => string[]
   ): IndexedItem[] {
     return items.map((item) => {
       const teluguName = getTranslatedName(item.id);
+      const synonyms = getSynonyms ? getSynonyms(item.id) : [];
       return {
         item,
         englishName: item.name,
@@ -67,6 +75,8 @@ export class FuzzyMatcher {
         normalizedEnglish: this.normalize(item.name),
         normalizedTelugu: teluguName !== item.id ? this.normalizeTelugu(teluguName) : '',
         tokens: this.tokenize(item.name),
+        teluguSynonyms: synonyms,
+        normalizedTeluguSynonyms: synonyms.map((s) => this.normalizeTelugu(s)),
       };
     });
   }
@@ -77,6 +87,7 @@ export class FuzzyMatcher {
   private normalize(text: string): string {
     return text
       .toLowerCase()
+      .replace(ZERO_WIDTH_CHARS_REGEX, '')
       .replace(/[-_]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -91,6 +102,8 @@ export class FuzzyMatcher {
     for (const [long, short] of Object.entries(TELUGU_VOWEL_NORMALIZATION)) {
       normalized = normalized.split(long).join(short);
     }
+    // Strip zero-width characters that OCR may insert
+    normalized = normalized.replace(ZERO_WIDTH_CHARS_REGEX, '');
     return normalized
       .replace(/\s+/g, ' ')
       .trim();
@@ -252,43 +265,56 @@ export class FuzzyMatcher {
     for (const indexed of this.indexedItems) {
       let bestScore = 0;
 
-      // English matching
-      if (language === 'en' || language === 'mixed') {
-        // Exact match check
-        if (normalizedSearch === indexed.normalizedEnglish) {
-          bestScore = 100;
-        } else {
-          // String similarity
-          const stringSimilarity = this.calculateSimilarity(
-            trimmedSearch,
-            indexed.englishName
-          );
+      // English matching (always run — serves as fallback for Telugu-tagged items with English names)
+      if (normalizedSearch === indexed.normalizedEnglish) {
+        bestScore = 100;
+      } else {
+        // String similarity
+        const stringSimilarity = this.calculateSimilarity(
+          trimmedSearch,
+          indexed.englishName
+        );
 
-          // Token-based similarity
-          const tokenSimilarity = this.calculateTokenScore(
-            searchTokens,
-            indexed.tokens
-          );
+        // Token-based similarity
+        const tokenSimilarity = this.calculateTokenScore(
+          searchTokens,
+          indexed.tokens
+        );
 
-          bestScore = Math.max(stringSimilarity, tokenSimilarity);
-        }
+        bestScore = Math.max(stringSimilarity, tokenSimilarity);
       }
 
       // Telugu matching
-      if ((language === 'te' || language === 'mixed') && indexed.teluguName) {
+      if (language === 'te' || language === 'mixed') {
         // Normalize Telugu search text for comparison
         const normalizedTeluguSearch = this.normalizeTelugu(trimmedSearch);
 
-        // Exact Telugu match (with normalization)
-        if (normalizedTeluguSearch === indexed.normalizedTelugu) {
-          bestScore = Math.max(bestScore, 100);
-        } else {
-          // Calculate similarity using normalized Telugu text
-          const teluguSimilarity = this.calculateTeluguSimilarity(
-            normalizedTeluguSearch,
-            indexed.normalizedTelugu
-          );
-          bestScore = Math.max(bestScore, teluguSimilarity);
+        // Check primary Telugu name
+        if (indexed.teluguName) {
+          if (normalizedTeluguSearch === indexed.normalizedTelugu) {
+            bestScore = Math.max(bestScore, 100);
+          } else {
+            const teluguSimilarity = this.calculateTeluguSimilarity(
+              normalizedTeluguSearch,
+              indexed.normalizedTelugu
+            );
+            bestScore = Math.max(bestScore, teluguSimilarity);
+          }
+        }
+
+        // Check Telugu synonyms (native names)
+        for (let si = 0; si < indexed.normalizedTeluguSynonyms.length; si++) {
+          const normalizedSynonym = indexed.normalizedTeluguSynonyms[si];
+          if (normalizedTeluguSearch === normalizedSynonym) {
+            bestScore = Math.max(bestScore, 100);
+            break; // Exact synonym match, no need to check more
+          } else {
+            const synSimilarity = this.calculateTeluguSimilarity(
+              normalizedTeluguSearch,
+              normalizedSynonym
+            );
+            bestScore = Math.max(bestScore, synSimilarity);
+          }
         }
       }
 

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, shallowEqual } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -59,8 +59,10 @@ const ManageCartsScreen: React.FC = () => {
 
   const allCarts = useSelector(selectAllCarts);
   const activeCartId = useSelector(selectActiveCartId);
-  const todaysCarts = useSelector(selectTodaysCarts);
-  const yesterdaysCarts = useSelector(selectYesterdaysCarts);
+  // Use shallowEqual to prevent unnecessary rerenders — selectTodaysCarts and
+  // selectYesterdaysCarts return new array references on every render
+  const todaysCarts = useSelector(selectTodaysCarts, shallowEqual);
+  const yesterdaysCarts = useSelector(selectYesterdaysCarts, shallowEqual);
   const sortedCarts = useSelector(selectCartsSortedByDate);
 
   const [searchQuery, setSearchQuery] = useState('');

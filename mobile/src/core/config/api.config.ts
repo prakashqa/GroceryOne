@@ -16,7 +16,7 @@ import Constants from 'expo-constants';
  *
  * Note: Constants.isDevice can be unreliable in Expo dev builds, so .env is preferred.
  */
-const LOCAL_MACHINE_IP = '192.168.0.100'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
+const LOCAL_MACHINE_IP = '192.168.0.104'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
 
 // Cloud Run production API URL
 const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1';

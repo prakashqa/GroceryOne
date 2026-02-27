@@ -170,7 +170,17 @@ export async function fetchCartsFromBackend(
     });
 
     if (!response.ok) {
-      console.warn(`[CartHydration] Backend returned status ${response.status}`);
+      // Distinguish auth failures from other errors for debugging
+      if (response.status === 401) {
+        console.warn('[CartHydration] Backend returned 401 — token expired or invalid');
+      } else {
+        let body = '';
+        try { body = await response.text(); } catch { /* ignore */ }
+        console.warn(
+          `[CartHydration] Backend returned status ${response.status}`,
+          body ? `— body: ${body.slice(0, 200)}` : ''
+        );
+      }
       return null;
     }
 

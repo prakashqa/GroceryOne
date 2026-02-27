@@ -1,5 +1,5 @@
 /**
- * GroceryOne Backend - Main Entry Point
+ * GroOne Backend - Main Entry Point
  */
 
 import { NestFactory } from '@nestjs/core';
@@ -42,7 +42,7 @@ async function bootstrap() {
   // Swagger documentation
   if (configService.get<string>('NODE_ENV') !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle('GroceryOne API')
+      .setTitle('GroOne API')
       .setDescription('Multi-tenant grocery application API')
       .setVersion('1.0')
       .addBearerAuth()

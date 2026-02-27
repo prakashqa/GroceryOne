@@ -196,9 +196,9 @@ describe('PickingScreen', () => {
       // Modal should close and item should be added with quantity 2
       await waitFor(() => {
         expect(getByText('In Cart')).toBeTruthy();
-        // Find the quantity display text
-        const twoTexts = getAllByText('2');
-        expect(twoTexts.length).toBeGreaterThan(0);
+        // Find the formatted quantity display text (e.g., "2 kg")
+        const qtyTexts = getAllByText('2 kg');
+        expect(qtyTexts.length).toBeGreaterThan(0);
       });
     });
 

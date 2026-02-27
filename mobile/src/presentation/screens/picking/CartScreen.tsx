@@ -24,7 +24,7 @@ import {
   getTranslatedCategoryName,
 } from '../../../domain/utils/itemTranslations';
 import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
-import { formatQuantityWithUnit } from '../../../domain/utils/unitConversion';
+import { formatQuantityWithUnit, getBaseUnit } from '../../../domain/utils/unitConversion';
 import { selectCategories, selectItems } from '../../../store/slices/catalogSlice';
 import {
   generatePickingListReceipt,
@@ -53,7 +53,7 @@ import {
   bluetoothPrinterService,
   networkPrinterService,
 } from '../../../services/printer';
-import { renderTextToImage } from '../../../services/printer/receiptBitmap';
+import { renderTextToImages } from '../../../services/printer/receiptBitmap';
 import { useTheme, useIsDarkMode, Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import ReceiptPreviewModal from '../../components/picking/ReceiptPreviewModal';
@@ -84,16 +84,6 @@ const formatCurrencyCompact = (amount: number): string => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-};
-
-/**
- * Get unit multiplier for price calculation
- * For 'gm' and 'ml' units, prices are stored per-KG/per-L, so multiply by 0.001
- * For 'kg', 'L', 'pcs' units, no conversion needed (multiplier = 1)
- */
-const getUnitMultiplier = (unit: string): number => {
-  if (unit === 'gm' || unit === 'ml') return 0.001;
-  return 1;
 };
 
 const CartScreen: React.FC = () => {
@@ -255,13 +245,12 @@ const CartScreen: React.FC = () => {
     const receiptItems: ReceiptItem[] = cartItems.map((cartItem) => {
       const category = getCategoryById(cartItem.item.categoryId);
       const price = cartItem.priceSnapshot;
-      const multiplier = getUnitMultiplier(cartItem.item.unit);
-      const itemTotal = price ? price * cartItem.quantity * multiplier : undefined;
+      const itemTotal = price ? price * cartItem.quantity : undefined;
       // Format quantity for display using user's selected unit
       const { value: displayQty, unit: displayUnit } = formatQuantityWithUnit(
         cartItem.quantity,
-        cartItem.item.unit,
-        cartItem.displayUnit
+        getBaseUnit(cartItem.item.unit),
+        cartItem.displayUnit || cartItem.item.unit
       );
       return {
         name: getTranslatedItemName(cartItem.item),
@@ -302,7 +291,7 @@ const CartScreen: React.FC = () => {
       paymentStatus: activeCart?.status === 'paid' ? 'paid' : undefined,
       paidAt: activeCart?.paidAt,
     });
-  }, [cartItems, printerSettings.paperSize, t, activeCartName, getCategoryById, activeCart?.status, activeCart?.paidAt]);
+  }, [cartItems, printerSettings.paperSize, t, activeCartName, getCategoryById, activeCart?.status, activeCart?.paidAt, i18n.language]);
 
   const handlePrint = useCallback(() => {
     const pickingList = generatePickingList();
@@ -326,16 +315,18 @@ const CartScreen: React.FC = () => {
       // Send to actual printer using image mode for proper Telugu/non-ASCII rendering
       setIsPrinting(true);
       try {
-        // Render receipt text to bitmap image using native Android Canvas
-        // which natively supports Telugu and other Indic scripts
+        // Render receipt text to chunked bitmap images using native Android Canvas.
+        // Large receipts are split into multiple smaller bitmaps (≤1500px each)
+        // to prevent silent truncation by printers with limited buffer sizes.
         const imageWidth = printerSettings.imageWidthDots ||
           (printerSettings.paperSize === '58mm' ? 384 : 576);
-        const base64Image = await renderTextToImage(currentPickingList, imageWidth);
+        const imageChunks = await renderTextToImages(currentPickingList, imageWidth);
 
         let printJob;
         if (printerSettings.connectionType === 'bluetooth') {
-          printJob = await bluetoothPrinterService.printImage(base64Image, imageWidth);
+          printJob = await bluetoothPrinterService.printImages(imageChunks, imageWidth);
         } else if (printerSettings.connectionType === 'network') {
+          // Network printers: print each chunk sequentially
           // Pass printer info explicitly to ensure print works even if service state is lost
           const printerInfo = printerSettings.selectedPrinterAddress && printerSettings.selectedPrinterName
             ? {
@@ -343,7 +334,14 @@ const CartScreen: React.FC = () => {
                 name: printerSettings.selectedPrinterName,
               }
             : undefined;
-          printJob = await networkPrinterService.printImage(base64Image, imageWidth, printerInfo);
+          // Print all chunks sequentially for network printers
+          for (const chunk of imageChunks) {
+            printJob = await networkPrinterService.printImage(chunk, imageWidth, printerInfo);
+            if (printJob.status === 'failed') break;
+          }
+          if (!printJob) {
+            throw new Error('No image chunks to print');
+          }
         } else {
           throw new Error('No printer connection type selected');
         }
@@ -435,8 +433,7 @@ const CartScreen: React.FC = () => {
     (item: CartItemState, isLast: boolean) => {
       const category = getCategoryById(item.item.categoryId);
       const hasPrice = item.priceSnapshot !== undefined && item.priceSnapshot > 0;
-      const multiplier = getUnitMultiplier(item.item.unit);
-      const itemTotal = hasPrice ? item.priceSnapshot * item.quantity * multiplier : 0;
+      const itemTotal = hasPrice ? item.priceSnapshot * item.quantity : 0;
 
       return (
         <View
@@ -456,13 +453,13 @@ const CartScreen: React.FC = () => {
               {getTranslatedItemName(item.item)}
             </Text>
             <Text style={[styles.itemUnit, { color: theme.colors.primaryLight }]}>
-              {formatQuantityWithUnit(item.quantity, item.item.unit, item.displayUnit).formatted}
+              {formatQuantityWithUnit(item.quantity, getBaseUnit(item.item.unit), item.displayUnit || item.item.unit).formatted}
             </Text>
             {/* Price display - shown below quantity when price is available */}
             {hasPrice && (
               <View style={styles.itemPriceRow}>
                 <Text style={[styles.itemUnitPrice, { color: theme.colors.textSecondary }]}>
-                  {formatCurrency(item.priceSnapshot!)}{item.item.unit === 'gm' ? '/kg' : item.item.unit === 'ml' ? '/L' : ''} × {item.quantity}{item.item.unit === 'gm' || item.item.unit === 'ml' ? ` ${item.item.unit}` : ''}
+                  {formatCurrency(item.priceSnapshot!)}{item.item.unit === 'gm' ? '/kg' : item.item.unit === 'ml' ? '/L' : ''} × {formatQuantityWithUnit(item.quantity, getBaseUnit(item.item.unit), item.displayUnit || item.item.unit).formatted}
                 </Text>
                 <Text style={[styles.itemTotalPrice, { color: theme.colors.primary }]}>
                   {formatCurrency(itemTotal)}
@@ -483,7 +480,7 @@ const CartScreen: React.FC = () => {
                     <Text style={[styles.quantityBtnText, { color: theme.colors.text }]}>−</Text>
                   </TouchableOpacity>
 
-                  <Text style={[styles.quantityValue, { color: theme.colors.text }]}>{item.quantity}</Text>
+                  <Text style={[styles.quantityValue, { color: theme.colors.text }]}>{formatQuantityWithUnit(item.quantity, getBaseUnit(item.item.unit), item.displayUnit || item.item.unit).formatted}</Text>
 
                   <TouchableOpacity
                     style={[styles.quantityBtn, { backgroundColor: theme.colors.primary }]}
@@ -504,7 +501,7 @@ const CartScreen: React.FC = () => {
               </>
             )}
             {isPaid && (
-              <Text style={[styles.quantityValue, { color: theme.colors.text }]}>{item.quantity}</Text>
+              <Text style={[styles.quantityValue, { color: theme.colors.text }]}>{formatQuantityWithUnit(item.quantity, getBaseUnit(item.item.unit), item.displayUnit || item.item.unit).formatted}</Text>
             )}
           </View>
         </View>

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "GroceryOne",
+    "name": "GroOne",
     "slug": "groceryone",
     "version": "1.0.0",
     "orientation": "default",
@@ -45,13 +45,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow GroceryOne to access your camera to scan paper orders."
+          "cameraPermission": "Allow GroOne to access your camera to scan paper orders."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow GroceryOne to access your photos to scan order images."
+          "photosPermission": "Allow GroOne to access your photos to scan order images."
         }
       ],
       "@react-native-community/datetimepicker",
@@ -59,7 +59,7 @@
     ],
     "extra": {
       "googleVisionApiKey": "AIzaSyAdeKEFCkSEIohC-X8JRVJ1JPabP3zbB2s",
-      "localApiIp": "localhost",
+      "localApiIp": "192.168.0.104",
       "eas": {
         "projectId": "c789090c-d24b-470a-8e91-7e06d38ff195"
       }

@@ -10,6 +10,7 @@ import { useTheme } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 import { Item, Category, CartItemState } from '../../../domain/types/picking';
 import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
+import { formatQuantityWithUnit, getBaseUnit } from '../../../domain/utils/unitConversion';
 import ProductCard from './ProductCard';
 
 interface ProductGridProps {
@@ -65,16 +66,31 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     [categories]
   );
 
+  const getFormattedQuantity = useCallback(
+    (itemId: string): string => {
+      const cartItem = cartItems.find((ci) => ci.item.id === itemId);
+      if (!cartItem || cartItem.quantity === 0) return '0';
+      return formatQuantityWithUnit(
+        cartItem.quantity,
+        getBaseUnit(cartItem.item.unit),
+        cartItem.displayUnit || cartItem.item.unit
+      ).formatted;
+    },
+    [cartItems]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: Item }) => {
       const quantityInCart = getItemQuantityInCart(item.id);
       const categoryIcon = getCategoryIcon(item.categoryId);
+      const formattedQuantity = getFormattedQuantity(item.id);
 
       return (
         <ProductCard
           item={item}
           categoryIcon={categoryIcon}
           quantityInCart={quantityInCart}
+          formattedQuantity={formattedQuantity}
           onAdd={() => onAddItem(item)}
           onIncrement={() => onIncrementItem(item.id)}
           onDecrement={() => onDecrementItem(item.id)}
@@ -86,6 +102,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     },
     [
       getItemQuantityInCart,
+      getFormattedQuantity,
       getCategoryIcon,
       onAddItem,
       onIncrementItem,

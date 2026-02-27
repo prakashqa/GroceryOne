@@ -44,6 +44,8 @@ const PERSIST_ACTIONS = [
   'multiCart/updateCartBackendId',
   'multiCart/markActiveCartAsPaid',
   'multiCart/markCartAsPaid',
+  'multiCart/syncCartsFromBackend',
+  'multiCart/refreshActiveCartPrices',
 ];
 
 // Actions that should trigger backend sync (cart creation)

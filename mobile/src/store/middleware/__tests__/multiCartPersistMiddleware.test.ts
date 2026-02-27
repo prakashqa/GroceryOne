@@ -17,6 +17,8 @@ import multiCartReducer, {
   setActiveCartStatus,
   markActiveCartAsPaid,
   updateCartBackendId,
+  syncCartsFromBackend,
+  refreshActiveCartPrices,
 } from '../../slices/multiCartSlice';
 import { multiCartPersistMiddleware } from '../multiCartPersistMiddleware';
 import * as multiCartStorage from '../../../utils/storage/multiCartStorage';
@@ -492,6 +494,63 @@ describe('multiCartPersistMiddleware', () => {
       expect(fetchCall).toBeDefined();
       expect(fetchCall[0]).toBe(`${API_CONFIG.BASE_URL}/carts/backend-sync-uuid`);
       expect(JSON.parse(fetchCall[1].body).status).toBe('printed');
+    });
+  });
+
+  describe('AsyncStorage persistence for backend-synced carts', () => {
+    it('should persist state when backend carts are synced via syncCartsFromBackend', async () => {
+      const store = createTestStore();
+
+      // Dispatch syncCartsFromBackend on a fresh store (no prior actions = no stale timers)
+      store.dispatch(syncCartsFromBackend({
+        carts: [{
+          id: 'backend-uuid-historical',
+          name: 'Yesterday Cart',
+          status: 'paid',
+          createdAt: '2026-02-26T10:00:00Z',
+          updatedAt: '2026-02-26T10:00:00Z',
+          items: [],
+        }],
+        replaceAll: false,
+      }));
+      await advanceAndFlush(1);
+
+      expect(multiCartStorage.saveMultiCartState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          carts: expect.arrayContaining([
+            expect.objectContaining({ name: 'Yesterday Cart' }),
+          ]),
+        }),
+        'test-tenant'
+      );
+    });
+
+    it('should persist state when cart prices are refreshed via refreshActiveCartPrices', async () => {
+      const store = createTestStore();
+      const pricedItem = {
+        id: 'item-price', categoryId: 'cat-1', name: 'Tomato',
+        unit: 'kg' as const, defaultQuantity: 1, price: 40,
+      };
+
+      mockApiSuccess({ id: 'backend-id', name: 'Price Cart', status: 'draft' });
+      store.dispatch(createCart({ name: 'Price Cart' }));
+      await advanceAndFlush(4);
+
+      mockApiSuccess({ id: 'ci-1' });
+      store.dispatch(addItemToActiveCart({ item: pricedItem, quantity: 1 }));
+      await advanceAndFlush();
+      (multiCartStorage.saveMultiCartState as jest.Mock).mockClear();
+
+      // Dispatch refreshActiveCartPrices
+      store.dispatch(refreshActiveCartPrices([
+        { ...pricedItem, price: 50 },
+      ]));
+      await advanceAndFlush(1);
+
+      expect(multiCartStorage.saveMultiCartState).toHaveBeenCalledWith(
+        expect.anything(),
+        'test-tenant'
+      );
     });
   });
 });

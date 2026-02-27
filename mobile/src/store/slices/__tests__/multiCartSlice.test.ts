@@ -288,6 +288,29 @@ describe('multiCartSlice', () => {
 
       expect(state.carts[0].backendId).toBeUndefined();
     });
+
+    it('should reject duplicate cart name (case-insensitive)', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'Morning Cart' }));
+      expect(state.carts).toHaveLength(1);
+
+      // Same name, different case — should be rejected
+      state = multiCartReducer(state, createCart({ name: 'morning cart' }));
+      expect(state.carts).toHaveLength(1); // No new cart added
+    });
+
+    it('should accept carts with different names', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'Morning Cart' }));
+      state = multiCartReducer(state, createCart({ name: 'Afternoon Cart' }));
+      expect(state.carts).toHaveLength(2);
+    });
+
+    it('should not change activeCartId when duplicate name is rejected', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'Cart A' }));
+      const originalActiveId = state.activeCartId;
+
+      state = multiCartReducer(state, createCart({ name: 'Cart A' }));
+      expect(state.activeCartId).toBe(originalActiveId);
+    });
   });
 
   describe('updateCartBackendId', () => {
@@ -840,6 +863,93 @@ describe('multiCartSlice', () => {
     });
   });
 
+  // Quantities are stored in base units (kg, L). increment/decrement must convert
+  // defaultQuantity (in item's unit, e.g. gm) to base unit before operating.
+  describe('incrementItemInActiveCart - gm/ml items', () => {
+    const mockGmItem: Item = {
+      id: 'cumin-1',
+      categoryId: 'spices',
+      name: 'Cumin Seeds',
+      unit: 'gm',
+      defaultQuantity: 250,
+      price: 340,
+    };
+
+    it('should increment gm item by base-unit equivalent of defaultQuantity', () => {
+      // 250gm = 0.25kg. Starting at 0.25kg, after increment: 0.25 + 0.25 = 0.5kg
+      const stateWithGmItem: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [{ item: mockGmItem, quantity: 0.25, addedAt: new Date().toISOString() }],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const action = incrementItemInActiveCart(mockGmItem.id);
+      const state = multiCartReducer(stateWithGmItem, action);
+
+      expect(state.carts[0].items[0].quantity).toBeCloseTo(0.5);
+    });
+  });
+
+  describe('decrementItemInActiveCart - gm/ml items', () => {
+    const mockGmItem: Item = {
+      id: 'cumin-1',
+      categoryId: 'spices',
+      name: 'Cumin Seeds',
+      unit: 'gm',
+      defaultQuantity: 250,
+      price: 340,
+    };
+
+    it('should decrement gm item by base-unit equivalent of defaultQuantity', () => {
+      // 250gm = 0.25kg. Starting at 0.5kg, after decrement: 0.5 - 0.25 = 0.25kg
+      const stateWithGmItem: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [{ item: mockGmItem, quantity: 0.5, addedAt: new Date().toISOString() }],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const action = decrementItemInActiveCart(mockGmItem.id);
+      const state = multiCartReducer(stateWithGmItem, action);
+
+      expect(state.carts[0].items[0].quantity).toBeCloseTo(0.25);
+    });
+
+    it('should remove gm item when at base-unit default quantity', () => {
+      // 250gm = 0.25kg. At 0.25kg, decrement should remove item
+      const stateWithGmItem: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [{ item: mockGmItem, quantity: 0.25, addedAt: new Date().toISOString() }],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const action = decrementItemInActiveCart(mockGmItem.id);
+      const state = multiCartReducer(stateWithGmItem, action);
+
+      expect(state.carts[0].items).toHaveLength(0);
+    });
+  });
+
   describe('clearActiveCart', () => {
     it('should remove all items from active cart', () => {
       const stateWithItems: MultiCartState = {
@@ -1242,10 +1352,10 @@ describe('multiCartSlice', () => {
         expect(total).toBe(0);
       });
 
-      // TDD: Unit multiplier tests for gm/ml items
-      it('should apply 0.001 multiplier for gm unit items', () => {
-        // Cumin Seeds: price = 340/kg, quantity = 250gm
-        // Expected total: 340 * 250 * 0.001 = 85
+      // Quantities are always stored in base units (kg, L) per addItemToActiveCart JSDoc.
+      // Price is per base unit (per-kg, per-L). Formula: priceSnapshot * quantity.
+      it('should calculate correct total for gm items (quantity stored in kg)', () => {
+        // Cumin Seeds: price = ₹340/kg, quantity = 0.25 (250gm stored as 0.25 kg)
         const mockGmItem: Item = {
           id: 'cumin-1',
           categoryId: 'spices',
@@ -1261,7 +1371,7 @@ describe('multiCartSlice', () => {
               id: 'cart-1',
               name: 'Cart 1',
               items: [
-                { item: mockGmItem, quantity: 250, addedAt: new Date().toISOString(), priceSnapshot: 340.0 },
+                { item: mockGmItem, quantity: 0.25, addedAt: new Date().toISOString(), priceSnapshot: 340.0 },
               ],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -1274,13 +1384,12 @@ describe('multiCartSlice', () => {
         };
 
         const total = selectActiveCartGrandTotal(stateWithGmItem);
-        // 340 * 250 * 0.001 = 85
+        // 340 * 0.25 = 85
         expect(total).toBe(85);
       });
 
-      it('should apply 0.001 multiplier for ml unit items', () => {
-        // Mouthwash: price = 560/L, quantity = 250ml
-        // Expected total: 560 * 250 * 0.001 = 140
+      it('should calculate correct total for ml items (quantity stored in L)', () => {
+        // Mouthwash: price = ₹560/L, quantity = 0.25 (250ml stored as 0.25 L)
         const mockMlItem: Item = {
           id: 'mouthwash-1',
           categoryId: 'personal-care',
@@ -1296,7 +1405,7 @@ describe('multiCartSlice', () => {
               id: 'cart-1',
               name: 'Cart 1',
               items: [
-                { item: mockMlItem, quantity: 250, addedAt: new Date().toISOString(), priceSnapshot: 560.0 },
+                { item: mockMlItem, quantity: 0.25, addedAt: new Date().toISOString(), priceSnapshot: 560.0 },
               ],
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -1309,11 +1418,11 @@ describe('multiCartSlice', () => {
         };
 
         const total = selectActiveCartGrandTotal(stateWithMlItem);
-        // 560 * 250 * 0.001 = 140
+        // 560 * 0.25 = 140
         expect(total).toBe(140);
       });
 
-      it('should NOT apply multiplier for kg unit items (multiplier = 1)', () => {
+      it('should calculate correct total for kg unit items', () => {
         const mockKgItem: Item = {
           id: 'rice-1',
           categoryId: 'rice',
@@ -1342,8 +1451,51 @@ describe('multiCartSlice', () => {
         };
 
         const total = selectActiveCartGrandTotal(stateWithKgItem);
-        // 140 * 5 * 1 = 700
+        // 140 * 5 = 700
         expect(total).toBe(700);
+      });
+
+      it('should calculate correct grand total matching user bug report (₹760)', () => {
+        // Exact scenario from bug report:
+        // Cumin Seeds: ₹340/kg × 500gm (0.5 kg) = ₹170
+        // Mustard Seeds: ₹280/kg × 500gm (0.5 kg) = ₹140
+        // Black Pepper: ₹1800/kg × 250gm (0.25 kg) = ₹450
+        const mockCumin: Item = {
+          id: 'cumin-1', categoryId: 'spices', name: 'Cumin Seeds',
+          unit: 'gm', defaultQuantity: 250, price: 340,
+        };
+        const mockMustard: Item = {
+          id: 'mustard-1', categoryId: 'spices', name: 'Mustard Seeds',
+          unit: 'gm', defaultQuantity: 250, price: 280,
+        };
+        const mockPepper: Item = {
+          id: 'pepper-1', categoryId: 'spices', name: 'Black Pepper',
+          unit: 'gm', defaultQuantity: 250, price: 1800,
+        };
+
+        const stateWithBugReport = {
+          multiCart: {
+            carts: [{
+              id: 'cart-1',
+              name: 'Cart 1',
+              items: [
+                { item: mockCumin, quantity: 0.5, addedAt: new Date().toISOString(), priceSnapshot: 340.0 },
+                { item: mockMustard, quantity: 0.5, addedAt: new Date().toISOString(), priceSnapshot: 280.0 },
+                { item: mockPepper, quantity: 0.25, addedAt: new Date().toISOString(), priceSnapshot: 1800.0 },
+              ],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              status: 'draft' as const,
+            }],
+            activeCartId: 'cart-1',
+            isHydrated: true,
+            lastSyncedAt: null,
+          },
+        };
+
+        const total = selectActiveCartGrandTotal(stateWithBugReport);
+        // 170 + 140 + 450 = 760
+        expect(total).toBe(760);
       });
 
       it('should handle mixed units in cart correctly', () => {
@@ -1370,7 +1522,7 @@ describe('multiCartSlice', () => {
               id: 'cart-1',
               name: 'Cart 1',
               items: [
-                { item: mockGmItem, quantity: 250, addedAt: new Date().toISOString(), priceSnapshot: 340.0 },
+                { item: mockGmItem, quantity: 0.25, addedAt: new Date().toISOString(), priceSnapshot: 340.0 },
                 { item: mockKgItem, quantity: 5, addedAt: new Date().toISOString(), priceSnapshot: 140.0 },
               ],
               createdAt: new Date().toISOString(),
@@ -1384,8 +1536,8 @@ describe('multiCartSlice', () => {
         };
 
         const total = selectActiveCartGrandTotal(stateWithMixedUnits);
-        // Cumin: 340 * 250 * 0.001 = 85
-        // Rice: 140 * 5 * 1 = 700
+        // Cumin: 340 * 0.25 = 85
+        // Rice: 140 * 5 = 700
         // Total: 85 + 700 = 785
         expect(total).toBe(785);
       });

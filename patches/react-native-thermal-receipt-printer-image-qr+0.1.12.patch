@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java b/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
-index 9d77969..34aef45 100644
+index 9d77969..6bfbed2 100644
 --- a/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
 +++ b/node_modules/react-native-thermal-receipt-printer-image-qr/android/src/main/java/com/pinmi/react/printer/adapter/BLEPrinterAdapter.java
 @@ -114,8 +114,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
@@ -56,7 +56,27 @@ index 9d77969..34aef45 100644
  
              printerOutputStream.write(SET_LINE_SPACE_24);
              printerOutputStream.write(CENTER_ALIGN);
-@@ -297,6 +314,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+@@ -266,11 +283,17 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+                     printerOutputStream.write(recollectSlice(y, x, pixels));
+                 }
+ 
+-                // Do a line feed, if not the printing will resume on the same line
++                // For the last stripe: set line spacing to remaining image height
++                // to prevent overshooting past the image boundary (0-23 dot gap)
++                int remainingRows = pixels.length - y;
++                if (remainingRows < 24) {
++                    printerOutputStream.write(new byte[] { ESC_CHAR, 0x33, (byte)remainingRows });
++                }
+                 printerOutputStream.write(LINE_FEED);
+             }
+             printerOutputStream.write(SET_LINE_SPACE_32);
+-            printerOutputStream.write(LINE_FEED);
++            // Trailing LINE_FEED removed — prevents 32-dot gap between consecutive
++            // chunk images. Paper feed is handled at the JS layer.
+ 
+             printerOutputStream.flush();
+         } catch (IOException e) {
+@@ -297,6 +320,10 @@ public class BLEPrinterAdapter implements PrinterAdapter{
              int[][] pixels = getPixelsSlow(bitmapImage, imageWidth, imageHeight);
  
              OutputStream printerOutputStream = socket.getOutputStream();
@@ -67,3 +87,23 @@ index 9d77969..34aef45 100644
  
              printerOutputStream.write(SET_LINE_SPACE_24);
              printerOutputStream.write(CENTER_ALIGN);
+@@ -313,11 +340,17 @@ public class BLEPrinterAdapter implements PrinterAdapter{
+                     printerOutputStream.write(recollectSlice(y, x, pixels));
+                 }
+ 
+-                // Do a line feed, if not the printing will resume on the same line
++                // For the last stripe: set line spacing to remaining image height
++                // to prevent overshooting past the image boundary (0-23 dot gap)
++                int remainingRows = pixels.length - y;
++                if (remainingRows < 24) {
++                    printerOutputStream.write(new byte[] { ESC_CHAR, 0x33, (byte)remainingRows });
++                }
+                 printerOutputStream.write(LINE_FEED);
+             }
+             printerOutputStream.write(SET_LINE_SPACE_32);
+-            printerOutputStream.write(LINE_FEED);
++            // Trailing LINE_FEED removed — prevents 32-dot gap between consecutive
++            // chunk images. Paper feed is handled at the JS layer.
+ 
+             printerOutputStream.flush();
+         } catch (IOException e) {

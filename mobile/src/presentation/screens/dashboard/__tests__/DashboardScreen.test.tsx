@@ -425,16 +425,15 @@ describe('DashboardScreen', () => {
   });
 
   describe('Recent Carts price calculation', () => {
-    it('should apply unit multiplier for gm/ml items in cart totals', () => {
-      // Cart with gm items: price is per-kg, quantity is in grams
-      // Correct total: 500 * 200 * 0.001 + 300 * 500 * 0.001 = 100 + 150 = 250
-      // Buggy total (no multiplier): 500 * 200 + 300 * 500 = 100000 + 150000 = 250000
+    it('should calculate correct totals for gm items (quantity stored in kg)', () => {
+      // Cart with gm items: price is per-kg, quantity stored in base unit (kg)
+      // 500/kg × 0.2kg = 100, 300/kg × 0.5kg = 150 → total = 250
       const cartWithGmItems = {
         id: 'cart-gm',
         name: 'Gram Cart',
         items: [
-          { item: { unit: 'gm' }, quantity: 200, addedAt: '', priceSnapshot: 500 },
-          { item: { unit: 'gm' }, quantity: 500, addedAt: '', priceSnapshot: 300 },
+          { item: { unit: 'gm' }, quantity: 0.2, addedAt: '', priceSnapshot: 500 },
+          { item: { unit: 'gm' }, quantity: 0.5, addedAt: '', priceSnapshot: 300 },
         ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -449,8 +448,7 @@ describe('DashboardScreen', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       const cartElement = getByTestId('recent-cart-cart-gm');
 
-      // Correct total with unit multiplier: ₹250
-      // The accessibility label contains the formatted amount
+      // 500 * 0.2 + 300 * 0.5 = 100 + 150 = ₹250
       expect(cartElement.props.accessibilityLabel).toContain('₹250');
     });
 

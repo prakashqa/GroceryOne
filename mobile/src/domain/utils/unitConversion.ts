@@ -141,21 +141,36 @@ export const formatQuantityWithUnit = (
     };
   }
 
-  const convertedValue = convertQuantity(
+  let convertedValue = convertQuantity(
     quantity,
     baseUnit as ConvertibleUnit,
     targetUnit as ConvertibleUnit
   );
 
-  // Round to 2 decimal places for cleaner display
+  let finalUnit: ItemUnit = targetUnit;
+
+  // Auto-convert sub-unit quantities to smaller unit for readability BEFORE rounding.
+  // Must happen before rounding because e.g. 0.002 kg rounds to 0.00 (losing data).
+  // After conversion: 0.002 kg → 2 gm, 0.5 kg → 500 gm, 0.1 L → 100 ml
+  if (convertedValue > 0 && convertedValue < 1) {
+    if (finalUnit === 'kg') {
+      convertedValue = convertedValue * 1000;
+      finalUnit = 'gm';
+    } else if (finalUnit === 'L') {
+      convertedValue = convertedValue * 1000;
+      finalUnit = 'ml';
+    }
+  }
+
+  // Round to clean display value
   const displayValue = Number.isInteger(convertedValue)
     ? convertedValue
     : Math.round(convertedValue * 100) / 100;
 
   return {
     value: displayValue,
-    unit: targetUnit,
-    formatted: `${displayValue} ${targetUnit}`,
+    unit: finalUnit,
+    formatted: `${displayValue} ${finalUnit}`,
   };
 };
 

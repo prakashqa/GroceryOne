@@ -7,6 +7,7 @@ import {
   generatePickingListReceipt,
   stripFormatMarkers,
   sanitizeForPrinter,
+  formatForPreview,
 } from '../receiptGenerator';
 
 describe('receiptGenerator - utils', () => {
@@ -103,6 +104,124 @@ describe('receiptGenerator - utils', () => {
     it('should preserve newlines and whitespace', () => {
       const text = 'Line 1\n  Line 2\n';
       expect(sanitizeForPrinter(text)).toBe(text);
+    });
+  });
+
+  describe('formatForPreview', () => {
+    it('should return plain text without tabs unchanged', () => {
+      expect(formatForPreview('Hello World')).toBe('Hello World');
+    });
+
+    it('should handle empty string', () => {
+      expect(formatForPreview('')).toBe('');
+    });
+
+    it('should strip CENTER_MARKER and BOLD_TAB_MARKER', () => {
+      const text = '\u0002PICKING LIST\n\u0003GRAND TOTAL\t555';
+      const result = formatForPreview(text);
+      expect(result).not.toContain('\u0002');
+      expect(result).not.toContain('\u0003');
+    });
+
+    it('should convert 5-column tab-separated header to 28-char padded line', () => {
+      const line = 'NO\tITEM\tQTY\tRATE\tAMT';
+      const result = formatForPreview(line);
+      expect(result.length).toBe(28);
+      expect(result).toContain('NO');
+      expect(result).toContain('ITEM');
+      expect(result).toContain('QTY');
+      expect(result).toContain('RATE');
+      expect(result).toContain('AMT');
+      expect(result).not.toContain('\t');
+    });
+
+    it('should convert 5-column item row to 28-char padded line', () => {
+      const line = '1\tBasmati Rice\t5kg\t140\t700';
+      const result = formatForPreview(line);
+      expect(result.length).toBe(28);
+      expect(result).not.toContain('\t');
+    });
+
+    it('should truncate long item names with ellipsis in 5-column format', () => {
+      const line = '1\tAashirvaad Whole Wheat Atta\t5kg\t48\t240';
+      const result = formatForPreview(line);
+      expect(result.length).toBe(28);
+      // Name column is 10 chars, so name truncated to 9 + ellipsis
+      expect(result).toMatch(/Aashirvaa\u2026/);
+    });
+
+    it('should convert 2-column label-value tab line to 28-char padded line', () => {
+      const line = 'Date:\tFeb 27, 2026';
+      const result = formatForPreview(line);
+      expect(result.length).toBe(28);
+      expect(result).toMatch(/^Date:/);
+      expect(result).toMatch(/Feb 27, 2026$/);
+      expect(result).not.toContain('\t');
+    });
+
+    it('should format GRAND TOTAL line as 2-column with right-aligned value', () => {
+      const line = '\u0003GRAND TOTAL\t1,965';
+      const result = formatForPreview(line);
+      expect(result.length).toBe(28);
+      expect(result).toMatch(/^GRAND TOTAL/);
+      expect(result).toMatch(/1,965$/);
+      expect(result).not.toContain('\t');
+      expect(result).not.toContain('\u0003');
+    });
+
+    it('should pass through divider lines unchanged', () => {
+      const line = '============================';
+      expect(formatForPreview(line)).toBe(line);
+    });
+
+    it('should format a full 80mm receipt with no tabs remaining', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: { name: 'Test Store', address: 'Test Address' },
+        items: [
+          {
+            name: 'Basmati Rice',
+            quantity: 5,
+            unit: 'kg',
+            categoryId: 'rice',
+            categoryName: 'Rice',
+            price: 140,
+            itemTotal: 700,
+          },
+        ],
+        paperWidth: '80mm',
+        paymentStatus: 'paid',
+        paidAt: '2026-02-27T10:00:00.000Z',
+      });
+      const preview = formatForPreview(receipt);
+      expect(preview).not.toContain('\t');
+      expect(preview).not.toContain('\u0002');
+      expect(preview).not.toContain('\u0003');
+      // All non-empty lines should be <= 28 chars
+      const lines = preview.split('\n');
+      lines.forEach(line => {
+        if (line.trim().length > 0) {
+          expect(line.length).toBeLessThanOrEqual(28);
+        }
+      });
+    });
+
+    it('should not alter 58mm receipt text (no tabs present)', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: { name: 'Test Store', address: 'Test Address' },
+        items: [
+          {
+            name: 'Rice',
+            quantity: 2,
+            unit: 'kg',
+            categoryId: 'rice',
+            categoryName: 'Rice',
+          },
+        ],
+        paperWidth: '58mm',
+      });
+      const preview = formatForPreview(receipt);
+      const stripped = stripFormatMarkers(receipt);
+      expect(preview).toBe(stripped);
     });
   });
 });

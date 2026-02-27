@@ -216,32 +216,20 @@ export const getItemPriceByName = (
 };
 
 /**
- * Get unit multiplier for price calculation
- * For 'gm' and 'ml' units, prices are stored per-KG/per-L, so multiply by 0.001
- * For 'kg', 'L', 'pcs' units, no conversion needed (multiplier = 1)
- */
-const getUnitMultiplier = (unit: string): number => {
-  if (unit === 'gm' || unit === 'ml') return 0.001;
-  return 1;
-};
-
-/**
  * Calculate total price for a cart item
- * Applies unit multiplier for gm/ml items (prices stored per-KG/per-L)
+ * Quantities are stored in base units (kg, L) and prices are per base unit,
+ * so the formula is simply: price * quantity
  *
- * @param price - Unit price (per kg for gm items, per L for ml items)
- * @param quantity - Quantity (in grams for gm items, in ml for ml items)
- * @param unit - Unit type ('kg', 'gm', 'L', 'ml', 'pcs')
+ * @param price - Unit price (per kg, per L, or per piece)
+ * @param quantity - Quantity in base unit (kg, L, pcs)
  * @returns Total price
  */
 export const calculateItemTotal = (
   price: number | undefined,
   quantity: number,
-  unit: string = 'kg'
 ): number => {
   if (price === undefined) return 0;
-  const multiplier = getUnitMultiplier(unit);
-  return price * quantity * multiplier;
+  return price * quantity;
 };
 
 /**

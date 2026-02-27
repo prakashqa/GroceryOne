@@ -311,6 +311,7 @@ jest.mock('@react-native-firebase/messaging', () => ({
 import { NativeModules } from 'react-native';
 NativeModules.ReceiptBitmap = {
   renderTextToImage: jest.fn().mockResolvedValue('mock-base64-bitmap-data'),
+  renderTextToImages: jest.fn().mockResolvedValue(['mock-chunk-1', 'mock-chunk-2']),
 };
 
 // Silence specific warnings in tests

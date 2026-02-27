@@ -191,6 +191,13 @@ describe('unitConversion', () => {
       expect(result.formatted).toBe('500 gm');
     });
 
+    it('should format 0.25 kg as 250 gm for cart stepper display', () => {
+      const result = formatQuantityWithUnit(0.25, 'kg', 'gm');
+      expect(result.value).toBe(250);
+      expect(result.unit).toBe('gm');
+      expect(result.formatted).toBe('250 gm');
+    });
+
     it('should format kg quantity as kg when displayUnit is kg', () => {
       const result = formatQuantityWithUnit(2.5, 'kg', 'kg');
       expect(result.value).toBe(2.5);
@@ -205,11 +212,11 @@ describe('unitConversion', () => {
       expect(result.formatted).toBe('750 ml');
     });
 
-    it('should use baseUnit when displayUnit is not provided', () => {
+    it('should auto-convert to gm when displayUnit is not provided and qty < 1 kg', () => {
       const result = formatQuantityWithUnit(0.5, 'kg');
-      expect(result.value).toBe(0.5);
-      expect(result.unit).toBe('kg');
-      expect(result.formatted).toBe('0.5 kg');
+      expect(result.value).toBe(500);
+      expect(result.unit).toBe('gm');
+      expect(result.formatted).toBe('500 gm');
     });
 
     it('should handle pcs correctly', () => {
@@ -219,10 +226,100 @@ describe('unitConversion', () => {
       expect(result.formatted).toBe('3 pcs');
     });
 
-    it('should round to 2 decimal places for non-integer values', () => {
+    it('should auto-convert and round sub-kg values to gm', () => {
       const result = formatQuantityWithUnit(0.333, 'kg', 'kg');
-      expect(result.value).toBe(0.33);
-      expect(result.formatted).toBe('0.33 kg');
+      expect(result.value).toBe(333);
+      expect(result.unit).toBe('gm');
+      expect(result.formatted).toBe('333 gm');
+    });
+  });
+
+  describe('formatQuantityWithUnit - auto-conversion for sub-unit quantities', () => {
+    it('should auto-convert 0.002 kg to 2 gm when displayUnit is kg', () => {
+      const result = formatQuantityWithUnit(0.002, 'kg', 'kg');
+      expect(result.value).toBe(2);
+      expect(result.unit).toBe('gm');
+    });
+
+    it('should auto-convert 0.5 kg to 500 gm when displayUnit is kg', () => {
+      const result = formatQuantityWithUnit(0.5, 'kg', 'kg');
+      expect(result.value).toBe(500);
+      expect(result.unit).toBe('gm');
+    });
+
+    it('should auto-convert 0.25 kg to 250 gm when displayUnit is kg', () => {
+      const result = formatQuantityWithUnit(0.25, 'kg', 'kg');
+      expect(result.value).toBe(250);
+      expect(result.unit).toBe('gm');
+    });
+
+    it('should NOT auto-convert when qty >= 1 kg', () => {
+      const result = formatQuantityWithUnit(2, 'kg', 'kg');
+      expect(result.value).toBe(2);
+      expect(result.unit).toBe('kg');
+    });
+
+    it('should auto-convert 0.1 L to 100 ml when displayUnit is L', () => {
+      const result = formatQuantityWithUnit(0.1, 'L', 'L');
+      expect(result.value).toBe(100);
+      expect(result.unit).toBe('ml');
+    });
+
+    it('should NOT auto-convert when qty >= 1 L', () => {
+      const result = formatQuantityWithUnit(1.5, 'L', 'L');
+      expect(result.value).toBe(1.5);
+      expect(result.unit).toBe('L');
+    });
+
+    it('should auto-convert 0.002 kg to 2 gm when no displayUnit (defaults to baseUnit)', () => {
+      const result = formatQuantityWithUnit(0.002, 'kg');
+      expect(result.value).toBe(2);
+      expect(result.unit).toBe('gm');
+    });
+
+    it('should NOT auto-convert 0 kg (zero qty stays as-is)', () => {
+      const result = formatQuantityWithUnit(0, 'kg', 'kg');
+      expect(result.value).toBe(0);
+      expect(result.unit).toBe('kg');
+    });
+
+    it('should NOT auto-convert pcs units', () => {
+      const result = formatQuantityWithUnit(0.5, 'pcs');
+      expect(result.value).toBe(0.5);
+      expect(result.unit).toBe('pcs');
+    });
+  });
+
+  describe('formatQuantityWithUnit - cart display with getBaseUnit', () => {
+    // Cart stores quantity in base unit (kg/L). Item.unit may be 'gm'/'ml'.
+    // Correct call: formatQuantityWithUnit(qty, getBaseUnit(item.unit), item.unit)
+
+    it('should format 0.25 stored-in-kg as "250 gm" when item unit is gm', () => {
+      const result = formatQuantityWithUnit(0.25, getBaseUnit('gm' as ItemUnit), 'gm');
+      expect(result.value).toBe(250);
+      expect(result.unit).toBe('gm');
+      expect(result.formatted).toBe('250 gm');
+    });
+
+    it('should format 1 stored-in-kg as "1000 gm" when item unit is gm', () => {
+      const result = formatQuantityWithUnit(1, getBaseUnit('gm' as ItemUnit), 'gm');
+      expect(result.value).toBe(1000);
+      expect(result.unit).toBe('gm');
+      expect(result.formatted).toBe('1000 gm');
+    });
+
+    it('should format 0.1 stored-in-L as "100 ml" when item unit is ml', () => {
+      const result = formatQuantityWithUnit(0.1, getBaseUnit('ml' as ItemUnit), 'ml');
+      expect(result.value).toBe(100);
+      expect(result.unit).toBe('ml');
+      expect(result.formatted).toBe('100 ml');
+    });
+
+    it('should format pcs quantity as-is (no base unit conversion)', () => {
+      const result = formatQuantityWithUnit(3, getBaseUnit('pcs' as ItemUnit), 'pcs');
+      expect(result.value).toBe(3);
+      expect(result.unit).toBe('pcs');
+      expect(result.formatted).toBe('3 pcs');
     });
   });
 

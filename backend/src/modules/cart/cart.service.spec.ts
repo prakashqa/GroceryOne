@@ -6,7 +6,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { Cart, CartStatus } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
@@ -80,6 +80,7 @@ describe('CartService', () => {
       const createDto = { name: 'Test Cart', userId: 'user-123' };
       const expectedCart = { ...createDto, tenantId: TENANT_A_ID, id: 'new-cart-uuid' };
 
+      mockCartRepository.findOne.mockResolvedValue(null);
       mockCartRepository.create.mockReturnValue(expectedCart);
       mockCartRepository.save.mockResolvedValue(expectedCart);
 
@@ -92,10 +93,52 @@ describe('CartService', () => {
       });
     });
 
+    it('should reject duplicate cart name within the same tenant', async () => {
+      const createDto = { name: 'Weekly Groceries' };
+      const existingCart = buildMockCart({ name: 'Weekly Groceries' });
+
+      mockCartRepository.findOne.mockResolvedValue(existingCart);
+
+      await expect(service.create(createDto, TENANT_A_ID)).rejects.toThrow(BadRequestException);
+      await expect(service.create(createDto, TENANT_A_ID)).rejects.toThrow('A cart with this name already exists');
+      expect(mockCartRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should allow same cart name in different tenants', async () => {
+      const createDto = { name: 'Weekly Groceries' };
+      const expectedCart = { ...createDto, tenantId: TENANT_B_ID, id: 'new-cart-uuid' };
+
+      // No existing cart found for tenant B
+      mockCartRepository.findOne.mockResolvedValue(null);
+      mockCartRepository.create.mockReturnValue(expectedCart);
+      mockCartRepository.save.mockResolvedValue(expectedCart);
+
+      const result = await service.create(createDto, TENANT_B_ID);
+
+      expect(result.name).toBe('Weekly Groceries');
+      expect(mockCartRepository.findOne).toHaveBeenCalledWith({
+        where: { name: 'Weekly Groceries', tenantId: TENANT_B_ID },
+      });
+    });
+
+    it('should allow unique cart name within the same tenant', async () => {
+      const createDto = { name: 'New Cart' };
+      const expectedCart = { ...createDto, tenantId: TENANT_A_ID, id: 'new-cart-uuid' };
+
+      mockCartRepository.findOne.mockResolvedValue(null);
+      mockCartRepository.create.mockReturnValue(expectedCart);
+      mockCartRepository.save.mockResolvedValue(expectedCart);
+
+      const result = await service.create(createDto, TENANT_A_ID);
+
+      expect(result.name).toBe('New Cart');
+    });
+
     it('should ignore client-provided tenantId and use server-injected one', async () => {
       const createDto = { name: 'Test Cart', tenantId: TENANT_B_ID } as any;
       const expectedCart = { name: 'Test Cart', tenantId: TENANT_A_ID, id: 'new-cart-uuid' };
 
+      mockCartRepository.findOne.mockResolvedValue(null);
       mockCartRepository.create.mockReturnValue(expectedCart);
       mockCartRepository.save.mockResolvedValue(expectedCart);
 

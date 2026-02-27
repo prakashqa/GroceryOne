@@ -25,6 +25,7 @@ import {
   Item,
 } from '../../../domain/types/picking';
 import type { ItemUnit } from '../../../domain/utils/unitConversion';
+import { normalizeToBaseUnit } from '../../../domain/utils/unitConversion';
 import {
   selectCategories,
   selectItems,
@@ -98,8 +99,11 @@ const PickingScreen: React.FC = () => {
   const cartItems = useSelector(selectActiveCartItems);
   const itemCount = useSelector(selectActiveCartItemCount);
   const totalCartCount = useSelector(selectCartCount);
-  const todaysCarts = useSelector(selectTodaysCarts);
-  const todaysCartCount = todaysCarts.length;
+  // Use count selector (primitive) to avoid reselect memoization warnings —
+  // selectTodaysCarts returns a new array reference on every render
+  const todaysCartCount = useSelector(
+    (state: RootState) => selectTodaysCarts(state).length
+  );
   const allCarts = useSelector(selectAllCarts);
 
   // Cart operations selectors (loading spinners)
@@ -217,7 +221,8 @@ const PickingScreen: React.FC = () => {
 
   const handleAddItem = useCallback(
     (item: Item) => {
-      dispatch(addItemToActiveCart({ item, quantity: item.defaultQuantity }));
+      const { quantity: baseQty } = normalizeToBaseUnit(item.defaultQuantity, item.unit);
+      dispatch(addItemToActiveCart({ item, quantity: baseQty, displayUnit: item.unit }));
     },
     [dispatch]
   );

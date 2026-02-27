@@ -39,6 +39,14 @@ export class CartService {
   async create(createCartDto: CreateCartDto, tenantId: string): Promise<Cart> {
     validateTenantId(tenantId);
 
+    // Reject duplicate cart names within the same tenant
+    const existing = await this.cartRepository.findOne({
+      where: { name: createCartDto.name, tenantId },
+    });
+    if (existing) {
+      throw new BadRequestException('A cart with this name already exists');
+    }
+
     // Server injects tenantId - ignore any client-provided value
     const cart = this.cartRepository.create({
       ...createCartDto,

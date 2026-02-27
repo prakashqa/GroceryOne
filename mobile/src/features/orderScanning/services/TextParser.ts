@@ -225,12 +225,23 @@ export class TextParser {
     // Clean up item name - remove extra whitespace
     itemName = itemName.replace(/\s+/g, ' ').trim();
 
+    // Per-line language detection: override document-level language
+    // if the item name's actual language differs (e.g. English brand name
+    // in a Telugu document, or Telugu name in an English document).
+    let effectiveLanguage = language;
+    if (itemName.trim()) {
+      const itemLanguage = this.detectLanguage(itemName);
+      if (itemLanguage !== language) {
+        effectiveLanguage = itemLanguage;
+      }
+    }
+
     return {
       rawText,
       itemName,
       quantity,
       unit,
-      language,
+      language: effectiveLanguage,
       lineIndex,
     };
   }

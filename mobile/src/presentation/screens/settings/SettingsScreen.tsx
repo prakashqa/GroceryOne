@@ -196,7 +196,7 @@ const SettingsScreen: React.FC = () => {
         {/* About Section */}
         <SettingsSection title={t('settings.sections.about', 'About')}>
           <SettingsRow
-            label={t('settings.about.title', 'About GroceryOne')}
+            label={t('settings.about.title', 'About GroOne')}
             icon="about"
             onPress={handleAboutPress}
             hasChevron
@@ -212,10 +212,14 @@ const SettingsScreen: React.FC = () => {
 
         {/* Account Section */}
         <SettingsSection title={t('settings.sections.account', 'Account')}>
-          {currentUser && tenant && (
+          {tenant && (
             <SettingsRow
               label={tenant.name}
-              value={`${[currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ')}${currentUser.role ? ` \u00B7 ${formatUserRole(currentUser.role)}` : ''}`}
+              value={
+                currentUser
+                  ? `${[currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ')}${currentUser.role ? ` \u00B7 ${formatUserRole(currentUser.role)}` : ''}`
+                  : t('settings.reconnecting', 'Reconnecting...')
+              }
               icon="user"
               disabled
               testID="settings-row-store-info"

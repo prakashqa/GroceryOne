@@ -1,9 +1,9 @@
 /**
- * GroceryOne Mobile Application
+ * GroOne Mobile Application
  * Main App Component
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Alert, LogBox } from 'react-native';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -43,6 +43,11 @@ function AppContent() {
   const isMultiCartHydrated = useSelector(selectIsMultiCartHydrated);
   const accessToken = useSelector(selectAccessToken);
 
+  // Track which tenant we've already cleared for, so clearMultiCartInMemory
+  // only fires once per tenant change (not on every effect re-run when
+  // accessToken arrives and isMultiCartHydrated is still false).
+  const clearedForTenantRef = useRef<string | null>(null);
+
   // ── Cart Hydration Phase 1: Load carts from cache or backend ──
   // Runs on first mount / after login when carts haven't been hydrated yet.
   // Re-runs when accessToken changes (e.g., after login provides token).
@@ -53,7 +58,12 @@ function AppContent() {
     // Clear stale carts from a previous tenant in Redux only (no AsyncStorage wipe).
     // Uses clearMultiCartInMemory instead of resetMultiCart to avoid destroying the
     // AsyncStorage cache before loadOrFetchCarts can read it.
-    dispatch(clearMultiCartInMemory());
+    // Only clear once per tenant — subsequent re-runs (e.g., when accessToken
+    // arrives) must not wipe carts that were just loaded from cache.
+    if (clearedForTenantRef.current !== tenantSlug) {
+      dispatch(clearMultiCartInMemory());
+      clearedForTenantRef.current = tenantSlug;
+    }
 
     const controller = new AbortController();
 

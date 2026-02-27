@@ -115,11 +115,27 @@ export const PinAuthApi = {
         data: responseData,
       };
     } catch (error) {
+      clearTimeout(timeoutId);
       const errorMessage = error instanceof Error ? error.message : 'Network error';
       if (__DEV__) {
         console.error('[PinAuthApi] Network error:', errorMessage);
         console.error('[PinAuthApi] Full error:', error);
       }
+
+      // Map raw network errors to actionable messages
+      const isNetworkError =
+        errorMessage === 'Network request failed' ||
+        errorMessage === 'Failed to fetch' ||
+        errorMessage.includes('ECONNREFUSED');
+
+      if (isNetworkError) {
+        const devHint = __DEV__ ? ` (${url})` : '';
+        return {
+          success: false,
+          error: `Server unreachable. Check that backend is running and device is on the same WiFi.${devHint}`,
+        };
+      }
+
       return {
         success: false,
         error: errorMessage,
@@ -195,6 +211,21 @@ export const PinAuthApi = {
       if (__DEV__) {
         console.error('[PinAuthApi] Resolve tenant error:', errorMessage);
       }
+
+      // Map raw network errors to actionable messages
+      const isNetworkError =
+        errorMessage === 'Network request failed' ||
+        errorMessage === 'Failed to fetch' ||
+        errorMessage.includes('ECONNREFUSED');
+
+      if (isNetworkError) {
+        const devHint = __DEV__ ? ` (${url})` : '';
+        return {
+          success: false,
+          error: `Server unreachable. Check that backend is running and device is on the same WiFi.${devHint}`,
+        };
+      }
+
       return {
         success: false,
         error: errorMessage,

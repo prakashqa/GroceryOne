@@ -135,7 +135,7 @@ describe('SettingsScreen', () => {
 
   it('should render about row', () => {
     const { getByText } = renderWithProviders(<SettingsScreen />);
-    expect(getByText('About GroceryOne')).toBeTruthy();
+    expect(getByText('About GroOne')).toBeTruthy();
   });
 
   it('should render app version', () => {
@@ -217,7 +217,7 @@ describe('SettingsScreen', () => {
       expect(queryByTestId('settings-row-store-info')).toBeNull();
     });
 
-    it('should handle missing user gracefully', () => {
+    it('should display tenant info with fallback text when currentUser is null but tenant exists', () => {
       const stateWithTenantOnly = {
         ...mockUserState,
         auth: {
@@ -226,14 +226,18 @@ describe('SettingsScreen', () => {
         },
       };
 
-      const { getByText, queryByTestId } = renderWithProviders(<SettingsScreen />, {
+      const { getByText, getByTestId } = renderWithProviders(<SettingsScreen />, {
         preloadedState: stateWithTenantOnly,
       });
 
       // Logout should still be visible (with tenant name since tenant exists)
       expect(getByText('Logout \u2013 QuickBasket Groceries')).toBeTruthy();
-      // Store info should not be present when there's no user
-      expect(queryByTestId('settings-row-store-info')).toBeNull();
+      // Store info should show with tenant name even without user
+      expect(getByTestId('settings-row-store-info')).toBeTruthy();
+      // Tenant name should be displayed
+      expect(getByText('QuickBasket Groceries')).toBeTruthy();
+      // Fallback text should show instead of user info
+      expect(getByText('Reconnecting...')).toBeTruthy();
     });
   });
 

@@ -35,6 +35,7 @@ import { OcrService } from '../services/OcrService';
 import { TextParser } from '../services/TextParser';
 import { FuzzyMatcher } from '../services/FuzzyMatcher';
 import { getTeluguItemName } from '../../../domain/utils/itemTranslations';
+import teCommon from '../../../i18n/locales/te/common.json';
 import Constants from 'expo-constants';
 
 // Get API key from environment
@@ -98,9 +99,16 @@ export const CameraCaptureScreen: React.FC = () => {
 
         // Fuzzy Matching
         dispatch(setProcessing('matching'));
+        const getTeluguSynonyms = (itemId: string): string[] => {
+          const synonyms = (teCommon as Record<string, unknown>).itemSynonyms as
+            | Record<string, string[]>
+            | undefined;
+          return synonyms?.[itemId] ?? [];
+        };
         const fuzzyMatcher = new FuzzyMatcher(
           catalogItems,
-          getTeluguItemName
+          getTeluguItemName,
+          getTeluguSynonyms
         );
 
         const matchResults = parsedItems.map((parsedItem) => {

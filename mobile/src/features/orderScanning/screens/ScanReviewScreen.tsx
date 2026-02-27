@@ -13,6 +13,7 @@ import {
   Image,
   Alert,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -44,6 +45,7 @@ import { MatchStatusBadge } from '../components/MatchStatusBadge';
 import { MatchResult } from '../types/scanning.types';
 import { Item } from '../../../domain/types/picking';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
+import { normalizeToBaseUnit } from '../../../domain/utils/unitConversion';
 
 type RootStackParamList = {
   CameraCapture: undefined;
@@ -81,6 +83,7 @@ export const ScanReviewScreen: React.FC = () => {
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
   const [selectedMatchIndex, setSelectedMatchIndex] = useState<number | null>(null);
   const [itemSelectorVisible, setItemSelectorVisible] = useState(false);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -102,6 +105,17 @@ export const ScanReviewScreen: React.FC = () => {
     return matchResults.filter((m) => m.matchedItem && !m.isSkipped);
   }, [matchResults]);
 
+  // Filtered catalog items for item selector search
+  const filteredCatalogItems = useMemo(() => {
+    if (!itemSearchQuery.trim()) return catalogItems;
+    const q = itemSearchQuery.toLowerCase();
+    return catalogItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        getTranslatedItemName(item.id).includes(itemSearchQuery)
+    );
+  }, [catalogItems, itemSearchQuery]);
+
   // Translate default cart name if it matches the English default
   const getTranslatedCartName = useCallback((name: string): string => {
     if (name === 'Default Cart') {
@@ -120,8 +134,9 @@ export const ScanReviewScreen: React.FC = () => {
           text: t('confirm'),
           style: 'destructive',
           onPress: () => {
-            dispatch(clearSession());
             navigation.goBack();
+            // Delay clearing session to avoid re-render crash with null state
+            setTimeout(() => dispatch(clearSession()), 100);
           },
         },
       ]
@@ -170,6 +185,7 @@ export const ScanReviewScreen: React.FC = () => {
       }
       setItemSelectorVisible(false);
       setSelectedMatchIndex(null);
+      setItemSearchQuery('');
     },
     [dispatch, selectedMatchIndex]
   );
@@ -194,15 +210,20 @@ export const ScanReviewScreen: React.FC = () => {
     // Add each item to the active cart
     itemsToAdd.forEach((matchResult) => {
       if (matchResult.matchedItem) {
-        const quantity =
+        const rawQuantity =
           matchResult.userOverride?.selectedQuantity ||
           matchResult.parsedItem.quantity ||
           matchResult.matchedItem.defaultQuantity;
 
+        // Normalize quantity to base unit (e.g., 500gm → 0.5kg)
+        const parsedUnit = matchResult.parsedItem.unit || matchResult.matchedItem.unit;
+        const { quantity: baseQty } = normalizeToBaseUnit(rawQuantity, parsedUnit);
+
         dispatch(
           addItemToActiveCart({
             item: matchResult.matchedItem,
-            quantity,
+            quantity: baseQty,
+            displayUnit: parsedUnit,
           })
         );
       }
@@ -528,7 +549,10 @@ export const ScanReviewScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.itemSelectorBackdrop}
             activeOpacity={1}
-            onPress={() => setItemSelectorVisible(false)}
+            onPress={() => {
+              setItemSelectorVisible(false);
+              setItemSearchQuery('');
+            }}
           />
           <View style={[styles.itemSelectorModal, {
             backgroundColor: theme.colors.surface,
@@ -547,7 +571,10 @@ export const ScanReviewScreen: React.FC = () => {
               }]}>
                 {t('scan.selectItem')}
               </Text>
-              <TouchableOpacity onPress={() => setItemSelectorVisible(false)}>
+              <TouchableOpacity onPress={() => {
+                setItemSelectorVisible(false);
+                setItemSearchQuery('');
+              }}>
                 <Text style={[styles.itemSelectorClose, {
                   color: theme.colors.textLight,
                   fontSize: theme.typography.fontSize['2xl'],
@@ -557,8 +584,26 @@ export const ScanReviewScreen: React.FC = () => {
                 </Text>
               </TouchableOpacity>
             </View>
+            <TextInput
+              style={[styles.itemSearchInput, {
+                backgroundColor: theme.colors.background,
+                color: theme.colors.text,
+                fontSize: theme.typography.fontSize.md,
+                paddingHorizontal: theme.spacing.smd,
+                paddingVertical: theme.spacing.sm,
+                marginHorizontal: theme.spacing.md,
+                marginBottom: theme.spacing.smd,
+                borderRadius: theme.borderRadius.sm,
+                borderColor: theme.colors.border,
+              }]}
+              placeholder={t('scan.searchItems')}
+              placeholderTextColor={theme.colors.textLight}
+              value={itemSearchQuery}
+              onChangeText={setItemSearchQuery}
+              autoFocus
+            />
             <FlatList
-              data={catalogItems}
+              data={filteredCatalogItems}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
@@ -722,6 +767,10 @@ const styles = StyleSheet.create({
   },
   itemSelectorClose: {
     // fontSize, padding applied inline via theme tokens
+  },
+  itemSearchInput: {
+    // backgroundColor, color, fontSize, padding, margin, borderRadius, borderColor applied inline via theme tokens
+    borderWidth: 1,
   },
   itemSelectorList: {
     // paddingHorizontal applied inline via theme tokens

@@ -18,7 +18,7 @@ import { useTheme } from '../../theme';
 import { SettingsSection, SettingsRow } from '../../components/settings';
 
 // App information
-const APP_NAME = 'GroceryOne';
+const APP_NAME = 'GroOne';
 const APP_VERSION = '1.0.0';
 const APP_DESCRIPTION = 'Your grocery management solution for efficient picking lists and inventory tracking.';
 

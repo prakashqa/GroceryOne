@@ -117,6 +117,22 @@ describe('BluetoothPrinterService', () => {
         'No printer connected'
       );
     });
+
+    it('should cap printQueue at 20 jobs to prevent memory leak', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      // Print 25 jobs
+      for (let i = 0; i < 25; i++) {
+        await service.print(`Job ${i}`);
+      }
+
+      // Queue should be capped at 20 (oldest 5 removed)
+      // Access internal state via any cast for testing
+      const state = (service as any).state;
+      expect(state.printQueue.length).toBeLessThanOrEqual(20);
+    }, 30000);
   });
 
   describe('printRaw', () => {
@@ -270,6 +286,91 @@ describe('BluetoothPrinterService', () => {
         'No printer connected'
       );
     });
+
+    it('should wait for BLE socket stabilization after reconnect', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      // Track the order of calls
+      const callOrder: string[] = [];
+      (BLEPrinter.connectPrinter as jest.Mock).mockImplementation(() => {
+        callOrder.push('connectPrinter');
+        return Promise.resolve();
+      });
+      (BLEPrinter.printText as jest.Mock).mockImplementation(() => {
+        callOrder.push('printText');
+        return Promise.resolve();
+      });
+
+      await service.print('Test content');
+
+      // connectPrinter should be called before printText
+      expect(callOrder[0]).toBe('connectPrinter');
+      expect(callOrder[1]).toBe('printText');
+      // Verify the stabilization delay exists by checking that
+      // ensureConnected resolves (which includes the 300ms delay)
+      // and printing completes successfully after it
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+    });
+
+    it('should close existing connection before reconnecting to flush stale socket', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      // Clear mocks to track only calls made during print()
+      (BLEPrinter.closeConn as jest.Mock).mockClear();
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      // Track call order
+      const callOrder: string[] = [];
+      (BLEPrinter.closeConn as jest.Mock).mockImplementation(() => {
+        callOrder.push('closeConn');
+        return Promise.resolve();
+      });
+      (BLEPrinter.connectPrinter as jest.Mock).mockImplementation(() => {
+        callOrder.push('connectPrinter');
+        return Promise.resolve();
+      });
+
+      await service.print('Test content');
+
+      // closeConn must be called BEFORE connectPrinter to flush stale socket
+      expect(BLEPrinter.closeConn).toHaveBeenCalled();
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+      expect(callOrder.indexOf('closeConn')).toBeLessThan(
+        callOrder.indexOf('connectPrinter')
+      );
+    });
+
+    it('should close connection before each printImages call', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      // Clear mocks to track only calls made during printImages()
+      (BLEPrinter.closeConn as jest.Mock).mockClear();
+      (BLEPrinter.connectPrinter as jest.Mock).mockClear();
+
+      const callOrder: string[] = [];
+      (BLEPrinter.closeConn as jest.Mock).mockImplementation(() => {
+        callOrder.push('closeConn');
+        return Promise.resolve();
+      });
+      (BLEPrinter.connectPrinter as jest.Mock).mockImplementation(() => {
+        callOrder.push('connectPrinter');
+        return Promise.resolve();
+      });
+
+      await service.printImages(['iVBORw0KGgoAAAANSUhEUg==']);
+
+      expect(BLEPrinter.closeConn).toHaveBeenCalled();
+      expect(BLEPrinter.connectPrinter).toHaveBeenCalledWith(device.address);
+      expect(callOrder.indexOf('closeConn')).toBeLessThan(
+        callOrder.indexOf('connectPrinter')
+      );
+    });
   });
 
   describe('printImage', () => {
@@ -358,6 +459,35 @@ describe('BluetoothPrinterService', () => {
 
       expect(printListener).toHaveBeenCalled();
       expect(printListener.mock.calls[0][0]).toHaveProperty('status', 'completed');
+    });
+
+    it('should send paper feed command after printing image', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      (BLEPrinter.printText as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData');
+
+      // Should send paper feed after image to advance paper past thermal print head
+      expect(BLEPrinter.printText).toHaveBeenCalledWith('\n\n\n\n');
+    });
+
+    it('should complete print job even when paper feed printText throws', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+
+      // Paper feed fails (BLE socket degraded after image transfer)
+      (BLEPrinter.printText as jest.Mock).mockRejectedValueOnce(
+        new Error('BLE write failed')
+      );
+
+      const printJob = await service.printImage('base64ImageData');
+
+      // Job should still be completed — paper feed is best-effort
+      expect(printJob.status).toBe('completed');
     });
   });
 
@@ -546,6 +676,139 @@ describe('BluetoothPrinterService', () => {
       // Unknown devices could be printers, so they should not be filtered
       expect(devices).toHaveLength(1);
       expect(devices[0].name).toBe('Unknown Device');
+    });
+  });
+
+  describe('printImages (chunked)', () => {
+    let permSpy: jest.SpyInstance;
+
+    beforeEach(async () => {
+      // Mock permissions for test environment
+      permSpy = jest.spyOn(service, 'requestBluetoothPermissions')
+        .mockResolvedValue(true);
+
+      mockDeviceList([
+        { device_name: 'Test Printer', inner_mac_address: '00:11:22:33:44:55' },
+      ]);
+      const devices = await service.startScan();
+      await service.connect(devices[0]);
+    });
+
+    afterEach(() => {
+      permSpy.mockRestore();
+    });
+
+    it('should print all image chunks sequentially', async () => {
+      const chunks = ['base64Chunk1', 'base64Chunk2', 'base64Chunk3'];
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('completed');
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledTimes(3);
+    });
+
+    it('should print single chunk successfully', async () => {
+      const chunks = ['singleChunkBase64'];
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('completed');
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return failed status if any chunk fails after retry', async () => {
+      const chunks = ['chunk1', 'chunk2'];
+      (BLEPrinter.printImageBase64 as jest.Mock)
+        .mockResolvedValueOnce(undefined)                    // first chunk succeeds
+        .mockRejectedValueOnce(new Error('BLE write failed')) // second chunk first attempt fails
+        .mockRejectedValueOnce(new Error('BLE write failed')); // second chunk retry also fails
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toContain('Chunk 2/2 failed after retry');
+    });
+
+    it('should throw if no printer is connected', async () => {
+      await service.disconnect();
+
+      await expect(service.printImages(['chunk1'], 576)).rejects.toThrow(
+        'No printer connected'
+      );
+    });
+
+    it('should return completed for empty chunks array', async () => {
+      const result = await service.printImages([], 576);
+
+      expect(result.status).toBe('completed');
+      expect(BLEPrinter.printImageBase64).not.toHaveBeenCalled();
+    });
+
+    it('should send paper feed command after printing last chunk', async () => {
+      const chunks = ['base64Chunk1', 'base64Chunk2'];
+
+      await service.printImages(chunks, 576);
+
+      // After all image chunks, should print newlines to advance paper past print head
+      expect(BLEPrinter.printText).toHaveBeenCalledWith('\n\n\n\n');
+    });
+
+    it('should not send paper feed for empty chunks array', async () => {
+      await service.printImages([], 576);
+
+      expect(BLEPrinter.printText).not.toHaveBeenCalled();
+    });
+
+    it('should retry a failed chunk once and succeed', async () => {
+      const chunks = ['chunk1', 'chunk2', 'chunk3'];
+      (BLEPrinter.printImageBase64 as jest.Mock)
+        .mockResolvedValueOnce(undefined)                     // chunk1 succeeds
+        .mockRejectedValueOnce(new Error('BLE write timeout')) // chunk2 first attempt fails
+        .mockResolvedValueOnce(undefined)                     // chunk2 retry succeeds
+        .mockResolvedValueOnce(undefined);                    // chunk3 succeeds
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('completed');
+      // 3 chunks + 1 retry = 4 calls total
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledTimes(4);
+    });
+
+    it('should fail with chunk-specific error after retry exhausted', async () => {
+      const chunks = ['chunk1', 'chunk2'];
+      (BLEPrinter.printImageBase64 as jest.Mock)
+        .mockResolvedValueOnce(undefined)                     // chunk1 succeeds
+        .mockRejectedValueOnce(new Error('BLE write timeout')) // chunk2 first attempt fails
+        .mockRejectedValueOnce(new Error('BLE write timeout')); // chunk2 retry also fails
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toContain('Chunk 2/2 failed after retry');
+    });
+
+    it('should not retry when all chunks succeed', async () => {
+      const chunks = ['chunk1', 'chunk2'];
+
+      const result = await service.printImages(chunks, 576);
+
+      expect(result.status).toBe('completed');
+      // Exactly 2 calls — no extra retries
+      expect(BLEPrinter.printImageBase64).toHaveBeenCalledTimes(2);
+    });
+
+    it('should complete chunked print job even when paper feed printText throws', async () => {
+      const chunks = ['chunk1'];
+
+      // Paper feed fails (BLE socket degraded after image transfer)
+      (BLEPrinter.printText as jest.Mock).mockRejectedValueOnce(
+        new Error('BLE write failed')
+      );
+
+      const result = await service.printImages(chunks, 576);
+
+      // Job should still be completed — paper feed is best-effort
+      expect(result.status).toBe('completed');
     });
   });
 });

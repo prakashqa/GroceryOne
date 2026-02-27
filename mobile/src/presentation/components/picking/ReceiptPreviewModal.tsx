@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../../theme';
-import { stripFormatMarkers } from '../../../domain/utils/receiptGenerator';
+import { formatForPreview } from '../../../domain/utils/receiptGenerator';
 
 interface ReceiptPreviewModalProps {
   visible: boolean;
@@ -110,54 +110,11 @@ const ReceiptPreviewModal: React.FC<ReceiptPreviewModalProps> = ({
                 { color: theme.colors.text },
               ]}
             >
-              {stripFormatMarkers(receiptText)}
+              {formatForPreview(receiptText)}
             </Text>
           </View>
         </ScrollView>
 
-        {/* Footer Actions */}
-        <View
-          style={[
-            styles.footer,
-            {
-              backgroundColor: theme.colors.surface,
-              borderTopColor: theme.colors.border,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[
-              styles.footerButton,
-              styles.cancelButton,
-              { borderColor: theme.colors.border },
-            ]}
-            onPress={onClose}
-            activeOpacity={0.7}
-            disabled={isPrinting}
-          >
-            <Text style={[styles.footerButtonText, { color: theme.colors.text }]}>
-              {cancelButtonText}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.footerButton,
-              styles.footerPrintButton,
-              { backgroundColor: theme.colors.primary },
-              isPrinting && styles.printButtonDisabled,
-            ]}
-            onPress={onPrint}
-            activeOpacity={0.7}
-            disabled={isPrinting}
-          >
-            {isPrinting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.footerPrintText}>{printButtonText}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </View>
     </Modal>
   );
@@ -226,35 +183,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     letterSpacing: 0,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
-    borderTopWidth: 1,
-    gap: 12,
-  },
-  footerButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  footerButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footerPrintButton: {
-    flex: 1,
-  },
-  footerPrintText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 

@@ -19,6 +19,20 @@ import { baseApi } from '../../data/api/baseApi';
  * @param tenantSlug - The tenant slug whose data should be cleared from AsyncStorage.
  *                     If undefined, only Redux state is cleared (AsyncStorage is skipped).
  */
+/**
+ * Clear tenant-specific data from Redux only — preserves AsyncStorage cache.
+ * Call during: session logout (logoutSession).
+ * The user is returning to the same tenant, so keeping the AsyncStorage cache
+ * allows cart hydration Phase 1 to restore carts instantly from cache on re-login.
+ *
+ * @param dispatch - Redux dispatch function
+ */
+export const clearTenantDataInMemoryOnly = (dispatch: AppDispatch): void => {
+  dispatch(resetMultiCart());
+  dispatch(resetCatalog());
+  dispatch(baseApi.util.resetApiState());
+};
+
 export const clearAllTenantData = async (
   dispatch: AppDispatch,
   tenantSlug?: string

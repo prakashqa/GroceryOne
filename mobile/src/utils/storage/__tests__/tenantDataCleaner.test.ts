@@ -3,7 +3,7 @@
  * TDD tests for centralized tenant data clearing during transitions
  */
 
-import { clearAllTenantData } from '../tenantDataCleaner';
+import { clearAllTenantData, clearTenantDataInMemoryOnly } from '../tenantDataCleaner';
 import { resetMultiCart } from '../../../store/slices/multiCartSlice';
 import { resetCatalog } from '../../../store/slices/catalogSlice';
 import { baseApi } from '../../../data/api/baseApi';
@@ -103,5 +103,55 @@ describe('clearAllTenantData', () => {
     expect(multiCartStorage.clearMultiCartState).toHaveBeenCalledTimes(1);
     expect(multiCartStorage.clearPendingSyncQueue).toHaveBeenCalledTimes(1);
     expect(catalogStorage.clearCatalogState).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('clearTenantDataInMemoryOnly', () => {
+  const mockDispatch = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should dispatch resetMultiCart to clear Redux cart state', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'multiCart/resetMultiCart' })
+    );
+  });
+
+  it('should dispatch resetCatalog to clear Redux catalog state', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'catalog/resetCatalog' })
+    );
+  });
+
+  it('should dispatch resetApiState to clear API cache', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'api/resetApiState' })
+    );
+  });
+
+  it('should NOT clear AsyncStorage cart state', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(multiCartStorage.clearMultiCartState).not.toHaveBeenCalled();
+  });
+
+  it('should NOT clear AsyncStorage sync queue', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(multiCartStorage.clearPendingSyncQueue).not.toHaveBeenCalled();
+  });
+
+  it('should NOT clear AsyncStorage catalog state', () => {
+    clearTenantDataInMemoryOnly(mockDispatch);
+
+    expect(catalogStorage.clearCatalogState).not.toHaveBeenCalled();
   });
 });

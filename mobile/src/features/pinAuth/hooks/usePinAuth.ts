@@ -31,7 +31,7 @@ import { PinSecureStorage } from '../services/PinSecureStorage';
 import { PinHashService } from '../services/PinHashService';
 import { PinAuthApi } from '../services/PinAuthApi';
 import { PIN_CONFIG } from '../constants';
-import { clearAllTenantData } from '../../../utils/storage/tenantDataCleaner';
+import { clearAllTenantData, clearTenantDataInMemoryOnly } from '../../../utils/storage/tenantDataCleaner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PinState, PinVerificationResult, UsePinAuthReturn } from '../types/pin.types';
 
@@ -341,10 +341,19 @@ export function usePinAuth(): UsePinAuthReturn {
 
       // Update tenant context from backend response if changed
       const responseTenant = data.tenantSlug;
+      // Resolve friendly tenant name: use Redux if it differs from slug,
+      // otherwise read the persisted name from SecureStore (covers relaunch
+      // where RootNavigator sets tenant.name to the slug).
+      let resolvedName = responseTenant;
       if (responseTenant) {
+        const reduxName = tenant?.name;
+        const hasFriendlyName = reduxName && reduxName !== responseTenant;
+        const persistedName = hasFriendlyName ? null : await PinSecureStorage.getTenantName();
+        resolvedName = (hasFriendlyName ? reduxName : persistedName) || responseTenant;
+
         dispatch(setTenant({
           id: data.user?.tenantId || '',
-          name: tenant?.name || responseTenant,
+          name: resolvedName,
           slug: responseTenant,
           status: 'active',
           subscriptionPlan: 'premium',
@@ -395,10 +404,9 @@ export function usePinAuth(): UsePinAuthReturn {
         }
 
         // Persist friendly tenant name for offline display
-        const tenantName = tenant?.name;
-        if (tenantName && tenantName !== responseTenant) {
+        if (resolvedName && resolvedName !== responseTenant) {
           // Only persist if name differs from slug (i.e. it's a friendly name)
-          await PinSecureStorage.storeTenantName(tenantName);
+          await PinSecureStorage.storeTenantName(resolvedName);
         }
       } catch (err) {
         console.error('[usePinAuth] Failed to persist login context:', err);
@@ -549,13 +557,14 @@ export function usePinAuth(): UsePinAuthReturn {
     try {
       dispatch(setLoading(true));
 
-      const currentTenantSlug = tenant?.slug;
-
       // 1. Clear PIN verification (isPinVerified = false, keeps isPinSet = true)
       dispatch(clearVerificationAction());
 
-      // 2. Clear tenant-specific cached data (carts, catalog, API cache)
-      await clearAllTenantData(dispatch, currentTenantSlug);
+      // 2. Clear Redux state only — preserve AsyncStorage cart/catalog cache.
+      // logoutSession is a session-end, NOT a tenant switch. The user will
+      // re-login to the SAME tenant via PIN, so keeping the AsyncStorage cache
+      // lets cart hydration Phase 1 restore carts instantly from cache.
+      clearTenantDataInMemoryOnly(dispatch);
 
       // 3. Clear auth state (user, tokens) so no stale credentials remain
       dispatch(logout());
@@ -564,7 +573,7 @@ export function usePinAuth(): UsePinAuthReturn {
       dispatch(setError(errorMessage));
       dispatch(setLoading(false));
     }
-  }, [dispatch, tenant]);
+  }, [dispatch]);
 
   /**
    * Check if PIN is configured for user

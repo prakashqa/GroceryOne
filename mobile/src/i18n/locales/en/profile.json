@@ -235,6 +235,7 @@
       "merchantNameHelper": "Display name shown in UPI apps when customer scans QR",
       "infoText": "Configure your UPI ID to enable QR code payments. When you select UPI as payment method, a QR code with your UPI details will be shown for customers to scan and pay."
     },
+    "reconnecting": "Reconnecting...",
     "logout": "Logout",
     "logoutConfirm": "Are you sure you want to logout?",
     "darkMode": "Dark Mode",
@@ -242,7 +243,7 @@
     "changePassword": "Change Password",
     "deleteAccount": "Delete Account",
     "about": {
-      "title": "About GroceryOne",
+      "title": "About GroOne",
       "version": "Version",
       "description": "Your grocery management solution for efficient picking lists and inventory tracking.",
       "legal": "Legal",

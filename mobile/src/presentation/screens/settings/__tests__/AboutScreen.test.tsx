@@ -10,7 +10,7 @@ describe('AboutScreen', () => {
   it('should render app name', () => {
     const { getByText } = renderWithProviders(<AboutScreen />);
 
-    expect(getByText('GroceryOne')).toBeTruthy();
+    expect(getByText('GroOne')).toBeTruthy();
   });
 
   it('should render app description', () => {

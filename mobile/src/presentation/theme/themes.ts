@@ -214,7 +214,7 @@ const textStyles = {
 
 /**
  * Light Theme
- * Matches existing GroceryOne design with green primary color
+ * Matches existing GroOne design with green primary color
  */
 export const lightTheme: Theme = {
   mode: 'light',
