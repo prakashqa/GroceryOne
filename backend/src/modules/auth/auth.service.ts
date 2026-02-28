@@ -3,7 +3,7 @@
  * Handles authentication with tenant context
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -233,5 +233,47 @@ export class AuthService {
 
     await this.tokenBlacklistService.blacklist(token, Math.max(ttl, 0));
     this.logger.log('User logged out, token blacklisted');
+  }
+
+  /**
+   * Refresh access token using a valid refresh token.
+   * Implements token rotation: the old refresh token is blacklisted.
+   * @param refreshToken - The refresh token string
+   * @returns New access and refresh tokens
+   */
+  async refreshTokens(refreshToken: string): Promise<AuthTokens> {
+    // 1. Verify the refresh token signature + expiry
+    let payload: JwtPayload;
+    try {
+      payload = this.jwtService.verify(refreshToken) as JwtPayload;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // 2. Check if token has been blacklisted (rotated out)
+    if (await this.tokenBlacklistService.isBlacklisted(refreshToken)) {
+      throw new UnauthorizedException('Refresh token has been revoked');
+    }
+
+    // 3. Verify user still exists and is active
+    const user = await this.userRepository.findOne({
+      where: { id: payload.sub, status: 'active' },
+      relations: ['tenant'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer active');
+    }
+
+    // 4. Blacklist old refresh token (rotation)
+    const decoded = this.jwtService.decode(refreshToken) as { exp?: number } | null;
+    const ttl = decoded?.exp
+      ? decoded.exp - Math.floor(Date.now() / 1000)
+      : 604800; // 7 days default for refresh tokens
+    await this.tokenBlacklistService.blacklist(refreshToken, Math.max(ttl, 0));
+
+    // 5. Issue new token pair
+    this.logger.log(`Token refreshed for user ${user.email || user.phone}`);
+    return this.login(user);
   }
 }

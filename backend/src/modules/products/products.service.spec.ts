@@ -9,10 +9,12 @@ import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { Item } from './entities/item.entity';
+import { CategoriesService } from '../categories/categories.service';
 import {
   TENANT_A_ID,
   TENANT_B_ID,
   buildMockItem,
+  buildMockCategory,
   createMockQueryBuilder,
 } from '../../test-utils';
 
@@ -41,6 +43,10 @@ describe('ProductsService', () => {
     createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
+  const mockCategoriesService = {
+    findOne: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,6 +55,10 @@ describe('ProductsService', () => {
           provide: getRepositoryToken(Item),
           useValue: mockItemRepository,
         },
+        {
+          provide: CategoriesService,
+          useValue: mockCategoriesService,
+        },
       ],
     }).compile();
 
@@ -56,6 +66,9 @@ describe('ProductsService', () => {
     itemRepository = module.get<Repository<Item>>(getRepositoryToken(Item));
 
     jest.clearAllMocks();
+
+    // Default: categoryId validation passes (category belongs to tenant)
+    mockCategoriesService.findOne.mockResolvedValue(buildMockCategory());
   });
 
   describe('create', () => {
@@ -101,6 +114,46 @@ describe('ProductsService', () => {
       });
     });
 
+    it('should validate categoryId belongs to same tenant', async () => {
+      const categoryA = buildMockCategory();
+      const createDto = {
+        slug: 'test-item',
+        name: 'Test Item',
+        categoryId: categoryA.id,
+        compareAtPrice: 100,
+      };
+
+      mockCategoriesService.findOne.mockResolvedValue(categoryA);
+      mockItemRepository.findOne.mockResolvedValue(null);
+      mockItemRepository.create.mockReturnValue({ ...createDto, tenantId: TENANT_A_ID });
+      mockItemRepository.save.mockResolvedValue({ ...createDto, tenantId: TENANT_A_ID });
+
+      await service.create(createDto, TENANT_A_ID);
+
+      expect(mockCategoriesService.findOne).toHaveBeenCalledWith(
+        categoryA.id,
+        TENANT_A_ID,
+      );
+    });
+
+    it('should reject item creation with cross-tenant categoryId', async () => {
+      const crossTenantCategoryId = 'cat-b-uuid';
+      const createDto = {
+        slug: 'cross-tenant-item',
+        name: 'Cross Tenant Item',
+        categoryId: crossTenantCategoryId,
+        compareAtPrice: 100,
+      };
+
+      mockCategoriesService.findOne.mockRejectedValue(
+        new NotFoundException(`Category with ID '${crossTenantCategoryId}' not found`),
+      );
+
+      await expect(service.create(createDto, TENANT_A_ID))
+        .rejects.toThrow(NotFoundException);
+      expect(mockItemRepository.create).not.toHaveBeenCalled();
+    });
+
     it('should reject duplicate slug within same tenant', async () => {
       const createDto = {
         slug: 'atta-1kg',
@@ -142,6 +195,19 @@ describe('ProductsService', () => {
       expect(result[0].tenantId).toBe(TENANT_A_ID);
     });
 
+    it('should apply tenant filter on category join', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findAll(false, TENANT_A_ID);
+
+      expect(queryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'item.category',
+        'category',
+        'category.tenantId = :categoryTenantId',
+        { categoryTenantId: TENANT_A_ID },
+      );
+    });
+
     it('should require tenantId parameter', async () => {
       await expect(service.findAll(false, undefined as any))
         .rejects.toThrow();
@@ -159,6 +225,19 @@ describe('ProductsService', () => {
         { tenantId: TENANT_A_ID },
       );
       expect(result).toHaveLength(1);
+    });
+
+    it('should apply tenant filter on category join', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findByCategory('cat-a-uuid', false, TENANT_A_ID);
+
+      expect(queryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'item.category',
+        'category',
+        'category.tenantId = :categoryTenantId',
+        { categoryTenantId: TENANT_A_ID },
+      );
     });
 
     it('should require tenantId parameter', async () => {
@@ -234,6 +313,25 @@ describe('ProductsService', () => {
 
       await expect(service.update('item-a-uuid', { name: 'Hack' }, TENANT_B_ID))
         .rejects.toThrow(NotFoundException);
+    });
+
+    it('should validate categoryId belongs to same tenant when updating category', async () => {
+      const crossTenantCategoryId = 'cat-b-uuid';
+
+      mockItemRepository.findOne.mockResolvedValue(mockItemTenantA);
+      mockCategoriesService.findOne.mockRejectedValue(
+        new NotFoundException(`Category with ID '${crossTenantCategoryId}' not found`),
+      );
+
+      await expect(
+        service.update('item-a-uuid', { categoryId: crossTenantCategoryId }, TENANT_A_ID),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockCategoriesService.findOne).toHaveBeenCalledWith(
+        crossTenantCategoryId,
+        TENANT_A_ID,
+      );
+      expect(mockItemRepository.save).not.toHaveBeenCalled();
     });
 
     it('should scope slug duplicate check by tenant when updating slug', async () => {

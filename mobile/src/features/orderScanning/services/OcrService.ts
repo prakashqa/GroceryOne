@@ -4,7 +4,17 @@
  */
 
 import * as FileSystem from 'expo-file-system';
-import { OcrResult, DetectedLanguage } from '../types/scanning.types';
+import { OcrResult, DetectedLanguage, ScanErrorType } from '../types/scanning.types';
+
+/**
+ * Configuration for OcrService
+ */
+export interface OcrServiceConfig {
+  timeoutMs?: number;       // default: 30000
+  maxRetries?: number;      // default: 2
+  initialDelayMs?: number;  // default: 1000
+  onRetry?: (attempt: number, maxRetries: number) => void;
+}
 
 const GOOGLE_VISION_API_URL = 'https://vision.googleapis.com/v1/images:annotate';
 
@@ -16,31 +26,66 @@ const TELUGU_REGEX = /[\u0C00-\u0C7F]/;
 
 export class OcrService {
   private apiKey: string;
+  private timeoutMs: number;
+  private maxRetries: number;
+  private initialDelayMs: number;
+  private config: OcrServiceConfig;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, config?: OcrServiceConfig) {
     if (!apiKey) {
       throw new Error('API key is required');
     }
     this.apiKey = apiKey;
+    this.config = config || {};
+    this.timeoutMs = config?.timeoutMs ?? 30000;
+    this.maxRetries = config?.maxRetries ?? 2;
+    this.initialDelayMs = config?.initialDelayMs ?? 1000;
   }
 
   /**
    * Process an image and extract text using Google Cloud Vision API
+   * Supports timeout and external cancellation via AbortSignal.
    */
-  async processImage(imageUri: string): Promise<OcrResult> {
+  async processImage(imageUri: string, externalSignal?: AbortSignal): Promise<OcrResult> {
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), this.timeoutMs);
+
+    // Compose: abort if EITHER timeout OR external cancel fires
+    const composedController = new AbortController();
+    const abortComposed = () => composedController.abort();
+    timeoutController.signal.addEventListener('abort', abortComposed);
+    externalSignal?.addEventListener('abort', abortComposed);
+
     try {
       // Read image file and convert to base64
       const base64Image = await this.readImageAsBase64(imageUri);
 
       // Call Google Cloud Vision API
-      const response = await this.callVisionApi(base64Image);
+      const response = await this.callVisionApi(base64Image, composedController.signal);
+
+      // Clean up timer on success
+      clearTimeout(timeoutId);
 
       // Parse the response
       return this.parseApiResponse(response);
     } catch (error) {
+      clearTimeout(timeoutId);
+
+      // Check cancellation causes in priority order
+      if (externalSignal?.aborted) {
+        return this.createErrorResult('Scan cancelled', 'cancelled');
+      }
+      if (timeoutController.signal.aborted) {
+        return this.createErrorResult('Request timed out', 'timeout');
+      }
+
       return this.createErrorResult(
-        error instanceof Error ? error.message : 'Unknown error occurred'
+        error instanceof Error ? error.message : 'Unknown error occurred',
+        'unknown'
       );
+    } finally {
+      timeoutController.signal.removeEventListener('abort', abortComposed);
+      externalSignal?.removeEventListener('abort', abortComposed);
     }
   }
 
@@ -57,7 +102,7 @@ export class OcrService {
   /**
    * Call Google Cloud Vision API
    */
-  private async callVisionApi(base64Image: string): Promise<unknown> {
+  private async callVisionApi(base64Image: string, signal?: AbortSignal): Promise<unknown> {
     const requestBody = {
       requests: [
         {
@@ -83,6 +128,7 @@ export class OcrService {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
+      signal,
     });
 
     if (!response.ok) {
@@ -126,7 +172,7 @@ export class OcrService {
     const textAnnotations = firstResponse?.textAnnotations || [];
 
     if (!fullText && textAnnotations.length === 0) {
-      return this.createErrorResult('No text detected in image');
+      return this.createErrorResult('No text detected in image', 'no_text');
     }
 
     // Use full text if available, otherwise use first annotation
@@ -174,15 +220,107 @@ export class OcrService {
   }
 
   /**
-   * Create an error result
+   * Check if the device is online by making a lightweight HEAD request.
+   * Uses Google's generate_204 endpoint with a 3s timeout.
    */
-  private createErrorResult(errorMessage: string): OcrResult {
+  static async isOnline(): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      await fetch('https://clients3.google.com/generate_204', {
+        method: 'HEAD',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Process image with automatic retry and exponential backoff.
+   * Wraps processImage() — retries on network/server errors, never retries
+   * on cancellation, 4xx errors, or non-retryable content errors (no_text, no_items).
+   */
+  async processImageWithRetry(
+    imageUri: string,
+    externalSignal?: AbortSignal
+  ): Promise<OcrResult> {
+    // Pre-flight offline check
+    const online = await OcrService.isOnline();
+    if (!online) {
+      return this.createErrorResult('No internet connection', 'offline');
+    }
+
+    let lastResult: OcrResult | null = null;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      // Check cancellation before each attempt
+      if (externalSignal?.aborted) {
+        return this.createErrorResult('Scan cancelled', 'cancelled');
+      }
+
+      // Backoff delay before retries (not before first attempt)
+      if (attempt > 0) {
+        this.config.onRetry?.(attempt, this.maxRetries);
+        const delay = this.initialDelayMs * Math.pow(2, attempt - 1);
+        await this.sleep(delay, externalSignal);
+
+        // Check cancellation after sleep
+        if (externalSignal?.aborted) {
+          return this.createErrorResult('Scan cancelled', 'cancelled');
+        }
+      }
+
+      lastResult = await this.processImage(imageUri, externalSignal);
+
+      // Success — return immediately
+      if (lastResult.success) return lastResult;
+
+      // Don't retry non-retryable error types
+      const nonRetryableTypes: ScanErrorType[] = ['cancelled', 'no_text', 'no_items'];
+      if (lastResult.errorType && nonRetryableTypes.includes(lastResult.errorType)) {
+        return lastResult;
+      }
+
+      // Don't retry 4xx client errors
+      if (lastResult.error?.includes('API request failed: 4')) {
+        return lastResult;
+      }
+    }
+
+    return lastResult!;
+  }
+
+  /**
+   * Sleep for specified milliseconds, interruptible by AbortSignal
+   */
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      const timer = setTimeout(resolve, ms);
+      signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          resolve();
+        },
+        { once: true }
+      );
+    });
+  }
+
+  /**
+   * Create an error result with optional error type classification
+   */
+  private createErrorResult(errorMessage: string, errorType?: ScanErrorType): OcrResult {
     return {
       success: false,
       rawText: '',
       lines: [],
       detectedLanguage: 'en',
       error: errorMessage,
+      errorType,
     };
   }
 }

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { CreateCartDto, UpdateCartDto, AddCartItemDto, UpdateCartItemDto } from './dto';
+import { ProductsService } from '../products/products.service';
 
 /**
  * Validates that tenantId is provided
@@ -29,6 +30,7 @@ export class CartService {
     private readonly cartRepository: Repository<Cart>,
     @InjectRepository(CartItem)
     private readonly cartItemRepository: Repository<CartItem>,
+    private readonly productsService: ProductsService,
   ) {}
 
   /**
@@ -48,10 +50,19 @@ export class CartService {
     }
 
     // Server injects tenantId - ignore any client-provided value
+    // Extract createdAt before spreading DTO to avoid TypeORM conflict
+    const { createdAt: clientCreatedAt, ...dtoWithoutCreatedAt } = createCartDto;
     const cart = this.cartRepository.create({
-      ...createCartDto,
+      ...dtoWithoutCreatedAt,
       tenantId,
     });
+    // Preserve original client-side creation timestamp for date-based filtering.
+    // When the mobile app syncs a cart that was created offline or with delayed
+    // connectivity, the client sends the original creation time so the backend
+    // stores it instead of using the current server time (@CreateDateColumn default).
+    if (clientCreatedAt) {
+      cart.createdAt = new Date(clientCreatedAt);
+    }
     const saved = await this.cartRepository.save(cart);
     this.logger.log(`Created cart: ${saved.name} (${saved.id}) for tenant ${tenantId}`);
     return saved;
@@ -69,7 +80,7 @@ export class CartService {
     const query = this.cartRepository.createQueryBuilder('cart')
       .leftJoinAndSelect('cart.items', 'cartItem')
       .leftJoinAndSelect('cartItem.item', 'item')
-      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.category', 'category', 'category.tenantId = :categoryTenantId', { categoryTenantId: tenantId })
       .orderBy('cart.updatedAt', 'DESC');
 
     // Always filter by tenant for data isolation
@@ -118,7 +129,7 @@ export class CartService {
     const query = this.cartRepository.createQueryBuilder('cart')
       .leftJoinAndSelect('cart.items', 'cartItem')
       .leftJoinAndSelect('cartItem.item', 'item')
-      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.category', 'category', 'category.tenantId = :categoryTenantId', { categoryTenantId: tenantId })
       .where('cart.isActive = :isActive', { isActive: true });
 
     // Always filter by tenant for data isolation
@@ -184,6 +195,9 @@ export class CartService {
 
     await this.findOne(cartId, tenantId); // Verify cart exists and belongs to tenant
 
+    // Validate item belongs to the same tenant
+    await this.productsService.findOne(addCartItemDto.itemId, tenantId);
+
     // Check if item already exists in cart
     const existingItem = await this.cartItemRepository.findOne({
       where: { cartId, itemId: addCartItemDto.itemId },
@@ -221,7 +235,7 @@ export class CartService {
     await this.findOne(cartId, tenantId);
 
     const cartItem = await this.cartItemRepository.findOne({
-      where: { cartId, itemId },
+      where: { cartId, itemId, tenantId },
     });
 
     if (!cartItem) {
@@ -254,7 +268,7 @@ export class CartService {
     await this.findOne(cartId, tenantId);
 
     const cartItem = await this.cartItemRepository.findOne({
-      where: { cartId, itemId },
+      where: { cartId, itemId, tenantId },
     });
 
     if (!cartItem) {
@@ -274,7 +288,7 @@ export class CartService {
     validateTenantId(tenantId);
 
     await this.findOne(cartId, tenantId); // Verify cart exists and belongs to tenant
-    await this.cartItemRepository.delete({ cartId });
+    await this.cartItemRepository.delete({ cartId, tenantId });
     this.logger.log(`Cleared all items from cart ${cartId}`);
   }
 

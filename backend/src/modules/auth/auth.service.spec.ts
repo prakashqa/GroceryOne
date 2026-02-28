@@ -36,6 +36,7 @@ describe('AuthService', () => {
   const mockJwtService = {
     sign: jest.fn(),
     decode: jest.fn(),
+    verify: jest.fn(),
   };
 
   const mockTokenBlacklistService = {
@@ -329,6 +330,73 @@ describe('AuthService', () => {
         'token-without-exp',
         3600,
       );
+    });
+  });
+
+  describe('refreshTokens', () => {
+    const validPayload = {
+      sub: 'user-123',
+      tenantId: 'tenant-123',
+      email: 'test@example.com',
+      role: 'admin',
+    };
+
+    it('should issue new tokens for a valid refresh token', async () => {
+      mockJwtService.verify.mockReturnValue(validPayload);
+      mockTokenBlacklistService.isBlacklisted.mockResolvedValue(false);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockTokenBlacklistService.blacklist.mockResolvedValue(undefined);
+      mockJwtService.sign
+        .mockReturnValueOnce('new-access-token')
+        .mockReturnValueOnce('new-refresh-token');
+
+      const result = await service.refreshTokens('old-refresh-token');
+
+      expect(result.accessToken).toBe('new-access-token');
+      expect(result.refreshToken).toBe('new-refresh-token');
+      expect(result.expiresIn).toBe(3600);
+      expect(result.user.id).toBe(mockUser.id);
+    });
+
+    it('should blacklist the old refresh token (token rotation)', async () => {
+      mockJwtService.verify.mockReturnValue(validPayload);
+      mockTokenBlacklistService.isBlacklisted.mockResolvedValue(false);
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockTokenBlacklistService.blacklist.mockResolvedValue(undefined);
+      mockJwtService.sign.mockReturnValue('token');
+
+      await service.refreshTokens('old-refresh-token');
+
+      expect(mockTokenBlacklistService.blacklist).toHaveBeenCalledWith(
+        'old-refresh-token',
+        expect.any(Number),
+      );
+    });
+
+    it('should reject an expired or invalid refresh token', async () => {
+      mockJwtService.verify.mockImplementation(() => {
+        throw new Error('jwt expired');
+      });
+
+      await expect(service.refreshTokens('expired-token'))
+        .rejects.toThrow();
+    });
+
+    it('should reject a blacklisted refresh token', async () => {
+      mockJwtService.verify.mockReturnValue(validPayload);
+      mockTokenBlacklistService.isBlacklisted.mockResolvedValue(true);
+
+      await expect(service.refreshTokens('blacklisted-token'))
+        .rejects.toThrow();
+    });
+
+    it('should reject if user is no longer active', async () => {
+      mockJwtService.verify.mockReturnValue(validPayload);
+      mockTokenBlacklistService.isBlacklisted.mockResolvedValue(false);
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.refreshTokens('valid-token'))
+        .rejects.toThrow();
     });
   });
 });

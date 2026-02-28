@@ -34,6 +34,17 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+// Mock useGetCartsQuery (ManageCartsScreen now fetches from backend)
+jest.mock('../../../../data/api/cartApi', () => ({
+  ...jest.requireActual('../../../../data/api/cartApi'),
+  useGetCartsQuery: () => ({
+    data: undefined,
+    isLoading: false,
+    isFetching: false,
+    refetch: jest.fn(),
+  }),
+}));
+
 // Type for test state access
 type TestState = {
   multiCart: {

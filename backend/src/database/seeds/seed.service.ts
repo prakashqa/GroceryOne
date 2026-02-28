@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { Category } from '../../modules/categories/entities/category.entity';
 import { Item } from '../../modules/products/entities/item.entity';
 import { Tenant } from '../../tenant/entities/tenant.entity';
-import { SEED_CATEGORIES, SEED_ITEMS } from './seed-data';
+import { getTenantSeedData, CategorySeed, ItemSeed } from './seed-data';
 
 export interface SeedReport {
   categoriesBefore: number;
@@ -75,25 +75,29 @@ export class SeedService {
       this.logger.log('Starting database seed...');
       this.logger.log(`Before: ${report.categoriesBefore} categories, ${report.itemsBefore} items`);
 
-      // Get all tenants to seed data for each one
+      // Get all tenants to seed tenant-specific data
       const tenants = await this.tenantRepository.find();
       if (tenants.length === 0) {
-        this.logger.warn('No tenants found. Seeding without tenant association.');
+        this.logger.warn('No tenants found. Cannot seed tenant-specific data. Run tenant seed first.');
+        return report;
       }
 
-      // Seed for each tenant (or once without tenant if none exist)
-      const tenantIds = tenants.length > 0 ? tenants.map(t => t.id) : [undefined];
-      for (const tenantId of tenantIds) {
-        if (tenantId) {
-          const tenant = tenants.find(t => t.id === tenantId);
-          this.logger.log(`Seeding data for tenant: ${tenant?.name} (${tenant?.slug})`);
+      // Seed distinct data for each tenant
+      for (const tenant of tenants) {
+        try {
+          this.logger.log(`Seeding data for tenant: ${tenant.name} (${tenant.slug})`);
+          const { categories, items } = getTenantSeedData(tenant.slug);
+
+          // Seed categories for this tenant
+          const categoryMap = await this.seedCategories(categories, report, tenant.id);
+
+          // Seed items for this tenant
+          await this.seedItems(items, categoryMap, report, tenant.id);
+        } catch (error) {
+          const errMsg = `Failed to seed tenant '${tenant.slug}': ${error instanceof Error ? error.message : String(error)}`;
+          this.logger.error(errMsg);
+          report.errors.push(errMsg);
         }
-
-        // Seed categories
-        const categoryMap = await this.seedCategories(report, tenantId);
-
-        // Seed items
-        await this.seedItems(categoryMap, report, tenantId);
       }
 
       // Get counts after
@@ -121,18 +125,14 @@ export class SeedService {
   /**
    * Seed categories
    */
-  private async seedCategories(report: SeedReport, tenantId?: string): Promise<Map<string, string>> {
+  private async seedCategories(categories: CategorySeed[], report: SeedReport, tenantId: string): Promise<Map<string, string>> {
     const categoryMap = new Map<string, string>(); // slug -> id
 
-    for (const seedCategory of SEED_CATEGORIES) {
+    for (const seedCategory of categories) {
       try {
         // Check if category already exists for this tenant
-        const whereCondition: any = { slug: seedCategory.slug };
-        if (tenantId) {
-          whereCondition.tenantId = tenantId;
-        }
         const existing = await this.categoryRepository.findOne({
-          where: whereCondition,
+          where: { slug: seedCategory.slug, tenantId },
         });
 
         if (existing) {
@@ -149,7 +149,7 @@ export class SeedService {
           icon: seedCategory.icon,
           sortOrder: seedCategory.sortOrder,
           isActive: true,
-          ...(tenantId && { tenantId }),
+          tenantId,
         });
 
         const saved = await this.categoryRepository.save(category);
@@ -170,8 +170,8 @@ export class SeedService {
   /**
    * Seed items
    */
-  private async seedItems(categoryMap: Map<string, string>, report: SeedReport, tenantId?: string): Promise<void> {
-    for (const seedItem of SEED_ITEMS) {
+  private async seedItems(items: ItemSeed[], categoryMap: Map<string, string>, report: SeedReport, tenantId: string): Promise<void> {
+    for (const seedItem of items) {
       try {
         // Get category ID
         const categoryId = categoryMap.get(seedItem.categorySlug);
@@ -183,12 +183,8 @@ export class SeedService {
         }
 
         // Check if item already exists for this tenant
-        const whereCondition: any = { slug: seedItem.slug };
-        if (tenantId) {
-          whereCondition.tenantId = tenantId;
-        }
         const existing = await this.itemRepository.findOne({
-          where: whereCondition,
+          where: { slug: seedItem.slug, tenantId },
         });
 
         if (existing) {
@@ -214,7 +210,7 @@ export class SeedService {
           compareAtPrice: seedItem.compareAtPrice,
           sortOrder: seedItem.sortOrder,
           isActive: true,
-          ...(tenantId && { tenantId }),
+          tenantId,
         });
 
         const saved = await this.itemRepository.save(item);
@@ -230,10 +226,11 @@ export class SeedService {
   }
 
   /**
-   * Clear all seed data (use with caution!)
+   * Clear seed data, optionally scoped to a specific tenant
+   * @param tenantId If provided, only deletes data for this tenant
    */
-  async clearSeedData(): Promise<{ categoriesDeleted: number; itemsDeleted: number }> {
-    this.logger.warn('Clearing all seed data...');
+  async clearSeedData(tenantId?: string): Promise<{ categoriesDeleted: number; itemsDeleted: number }> {
+    this.logger.warn(`Clearing seed data${tenantId ? ` for tenant ${tenantId}` : ' (all tenants)'}...`);
 
     // Get counts before deletion
     const itemsDeleted = await this.itemRepository.count();
@@ -241,18 +238,24 @@ export class SeedService {
 
     // Delete items first (foreign key constraint) using query builder
     if (itemsDeleted > 0) {
-      await this.itemRepository.createQueryBuilder()
+      const itemQuery = this.itemRepository.createQueryBuilder()
         .delete()
-        .from(Item)
-        .execute();
+        .from(Item);
+      if (tenantId) {
+        itemQuery.where('tenant_id = :tenantId', { tenantId });
+      }
+      await itemQuery.execute();
     }
 
     // Delete categories using query builder
     if (categoriesDeleted > 0) {
-      await this.categoryRepository.createQueryBuilder()
+      const categoryQuery = this.categoryRepository.createQueryBuilder()
         .delete()
-        .from(Category)
-        .execute();
+        .from(Category);
+      if (tenantId) {
+        categoryQuery.where('tenant_id = :tenantId', { tenantId });
+      }
+      await categoryQuery.execute();
     }
 
     this.logger.log(`Cleared ${categoriesDeleted} categories and ${itemsDeleted} items`);

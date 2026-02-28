@@ -10,7 +10,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,10 +25,16 @@ import {
   setProcessing,
   setOcrResult,
   setMatchResults,
-  setError,
+  setScanError,
+  setRetryState,
+  clearSession,
   selectIsProcessing,
   selectProcessingStep,
+  selectScanError,
+  selectRetryAttempt,
+  selectMaxRetries,
 } from '../store/scanSlice';
+import { SCAN_ERROR_CONFIG, ScanErrorType } from '../types/scanning.types';
 import { selectItems } from '../../../store/slices/catalogSlice';
 import { OcrService } from '../services/OcrService';
 import { TextParser } from '../services/TextParser';
@@ -57,27 +62,53 @@ export const CameraCaptureScreen: React.FC = () => {
   const dispatch = useDispatch();
 
   const cameraRef = useRef<CameraView>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastImageUriRef = useRef<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [flashEnabled, setFlashEnabled] = useState(false);
 
   const isProcessing = useSelector(selectIsProcessing);
   const processingStep = useSelector(selectProcessingStep);
+  const scanError = useSelector(selectScanError);
+  const retryAttempt = useSelector(selectRetryAttempt);
+  const maxRetries = useSelector(selectMaxRetries);
   const catalogItems = useSelector(selectItems);
 
   const processImage = useCallback(
     async (imageUri: string) => {
+      lastImageUriRef.current = imageUri;
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       try {
         // Start session
         dispatch(startSession(imageUri));
 
-        // OCR Processing
+        // OCR Processing with retry + timeout + offline detection
         dispatch(setProcessing('ocr'));
-        const ocrService = new OcrService(GOOGLE_VISION_API_KEY);
-        const ocrResult = await ocrService.processImage(imageUri);
+        const ocrService = new OcrService(GOOGLE_VISION_API_KEY, {
+          timeoutMs: 30000,
+          maxRetries: 2,
+          initialDelayMs: 1000,
+          onRetry: (attempt, max) => {
+            dispatch(setRetryState({ attempt, maxRetries: max }));
+            dispatch(setProcessing('retrying'));
+          },
+        });
+
+        const ocrResult = await ocrService.processImageWithRetry(
+          imageUri,
+          controller.signal
+        );
 
         if (!ocrResult.success) {
-          dispatch(setError(ocrResult.error || 'OCR failed'));
-          Alert.alert(t('error'), ocrResult.error || t('scan.noTextDetected'));
+          const errorType: ScanErrorType = ocrResult.errorType || 'unknown';
+          const errorConfig = SCAN_ERROR_CONFIG[errorType];
+          dispatch(setScanError({
+            type: errorType,
+            message: t(`scan.errors.${errorType}`, { defaultValue: errorConfig.defaultMessage }),
+            retryable: errorConfig.retryable,
+          }));
           return;
         }
 
@@ -92,8 +123,11 @@ export const CameraCaptureScreen: React.FC = () => {
         );
 
         if (parsedItems.length === 0) {
-          dispatch(setError('No items detected'));
-          Alert.alert(t('error'), t('scan.noTextDetected'));
+          dispatch(setScanError({
+            type: 'no_items',
+            message: t('scan.errors.no_items', { defaultValue: SCAN_ERROR_CONFIG.no_items.defaultMessage }),
+            retryable: false,
+          }));
           return;
         }
 
@@ -129,12 +163,29 @@ export const CameraCaptureScreen: React.FC = () => {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
-        dispatch(setError(errorMessage));
-        Alert.alert(t('error'), errorMessage);
+        dispatch(setScanError({
+          type: 'unknown',
+          message: errorMessage,
+          retryable: true,
+        }));
       }
     },
     [dispatch, navigation, catalogItems, t]
   );
+
+  const handleCancel = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    if (lastImageUriRef.current) {
+      processImage(lastImageUriRef.current);
+    }
+  }, [processImage]);
+
+  const handleDismissError = useCallback(() => {
+    dispatch(clearSession());
+  }, [dispatch]);
 
   const handleCapture = useCallback(async () => {
     if (!cameraRef.current || isProcessing) return;
@@ -225,6 +276,8 @@ export const CameraCaptureScreen: React.FC = () => {
         return t('scan.processing');
       case 'matching':
         return t('scan.matching');
+      case 'retrying':
+        return t('scan.retrying', { attempt: retryAttempt, max: maxRetries });
       default:
         return t('scan.processing');
     }
@@ -293,6 +346,75 @@ export const CameraCaptureScreen: React.FC = () => {
               fontSize: theme.typography.fontSize.lg,
               color: theme.colors.textInverse,
             }]}>{getProcessingText()}</Text>
+            {retryAttempt > 0 && (
+              <Text style={[styles.retryText, {
+                marginTop: theme.spacing.sm,
+                fontSize: theme.typography.fontSize.md,
+                color: theme.colors.textInverse,
+              }]}>
+                {t('scan.retrying', { attempt: retryAttempt, max: maxRetries })}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.cancelButton, {
+                marginTop: theme.spacing.lg,
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: theme.spacing.smd,
+                borderRadius: theme.borderRadius.sm,
+              }]}
+              onPress={handleCancel}
+            >
+              <Text style={[styles.cancelText, {
+                fontSize: theme.typography.fontSize.lg,
+                color: theme.colors.textInverse,
+              }]}>{t('scan.cancelScan')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Error Overlay */}
+        {!isProcessing && scanError && (
+          <View style={styles.errorOverlay}>
+            <Text style={[styles.errorIcon, { fontSize: 48 }]}>
+              {scanError.type === 'offline' ? '📡' : '⚠️'}
+            </Text>
+            <Text style={[styles.errorMessage, {
+              marginTop: theme.spacing.md,
+              fontSize: theme.typography.fontSize.lg,
+              color: theme.colors.textInverse,
+              paddingHorizontal: theme.spacing.xl,
+            }]}>{scanError.message}</Text>
+            {scanError.retryable && (
+              <TouchableOpacity
+                style={[styles.retryButton, {
+                  marginTop: theme.spacing.lg,
+                  paddingHorizontal: theme.spacing.xl,
+                  paddingVertical: theme.spacing.smd,
+                  borderRadius: theme.borderRadius.sm,
+                  backgroundColor: theme.colors.primary,
+                }]}
+                onPress={handleRetry}
+              >
+                <Text style={[styles.retryButtonText, {
+                  fontSize: theme.typography.fontSize.lg,
+                  fontWeight: theme.typography.fontWeight.semibold,
+                  color: theme.colors.buttonPrimaryText,
+                }]}>{t('scan.retry')}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.goBackButton, {
+                marginTop: theme.spacing.md,
+                paddingHorizontal: theme.spacing.lg,
+                paddingVertical: theme.spacing.sm,
+              }]}
+              onPress={handleDismissError}
+            >
+              <Text style={[styles.goBackText, {
+                fontSize: theme.typography.fontSize.md,
+                color: theme.colors.textInverse,
+              }]}>{t('goBack')}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -407,6 +529,48 @@ const styles = StyleSheet.create({
   },
   processingText: {
     // marginTop, fontSize, color applied inline via theme tokens
+  },
+  retryText: {
+    // marginTop, fontSize, color applied inline via theme tokens
+    opacity: 0.8,
+  },
+  cancelButton: {
+    // marginTop, paddingHorizontal, paddingVertical, borderRadius applied inline via theme tokens
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  cancelText: {
+    // fontSize, color applied inline via theme tokens
+    textAlign: 'center',
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorIcon: {
+    // fontSize applied inline
+  },
+  errorMessage: {
+    // marginTop, fontSize, color, paddingHorizontal applied inline via theme tokens
+    textAlign: 'center',
+  },
+  retryButton: {
+    // marginTop, paddingHorizontal, paddingVertical, borderRadius, backgroundColor applied inline via theme tokens
+  },
+  retryButtonText: {
+    // fontSize, fontWeight, color applied inline via theme tokens
+    textAlign: 'center',
+  },
+  goBackButton: {
+    // marginTop, paddingHorizontal, paddingVertical applied inline via theme tokens
+  },
+  goBackText: {
+    // fontSize, color applied inline via theme tokens
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    opacity: 0.7,
   },
   controls: {
     flexDirection: 'row',

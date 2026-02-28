@@ -1,6 +1,9 @@
 /**
- * Enhanced Seed Data
- * Cleaned, deduplicated, and organized categories and items
+ * Tenant-Isolated Seed Data
+ * Each tenant has its own distinct categories and items with zero overlap.
+ *
+ * FreshMart (premium): Raw ingredients, bulk grocery — grains, rice, dals, oils, spices, vegetables, beverages, essentials, personal care
+ * QuickBasket (standard): Convenience store — dairy, fruits, snacks, bakery, frozen foods, cleaning, baby care, ready-to-cook
  */
 
 export interface CategorySeed {
@@ -23,11 +26,12 @@ export interface ItemSeed {
   sortOrder: number;
 }
 
-/**
- * 9 Core Categories (removed Bath & Body, Laundry, Chips & Biscuits, Baby Care)
- * Consolidated duplicate categories (dal-pulses + dals-pulses, oil-ghee + oils)
- */
-export const SEED_CATEGORIES: CategorySeed[] = [
+// =============================================================================
+// FreshMart Groceries — Premium, full-service Indian grocery store
+// 9 categories, ~113 items focused on raw ingredients and bulk buying
+// =============================================================================
+
+export const FRESHMART_CATEGORIES: CategorySeed[] = [
   { slug: 'grains-flour', name: 'Grains & Flour', nameTe: 'ధాన్యాలు & పిండులు', icon: '🌾', sortOrder: 1 },
   { slug: 'rice', name: 'Rice', nameTe: 'బియ్యం', icon: '🍚', sortOrder: 2 },
   { slug: 'dals-pulses', name: 'Dals & Pulses', nameTe: 'పప్పులు', icon: '🫘', sortOrder: 3 },
@@ -39,11 +43,8 @@ export const SEED_CATEGORIES: CategorySeed[] = [
   { slug: 'personal-care', name: 'Personal Care', nameTe: 'వ్యక్తిగత సంరక్షణ', icon: '🧴', sortOrder: 9 },
 ];
 
-/**
- * Enhanced Items (duplicates removed, better organization)
- */
-export const SEED_ITEMS: ItemSeed[] = [
-  // ========== Grains & Flour (Combined Atta-Rice + Flours-Rava) ==========
+export const FRESHMART_ITEMS: ItemSeed[] = [
+  // ========== Grains & Flour ==========
   // Wheat Products
   { slug: 'gf-001', categorySlug: 'grains-flour', name: 'Wheat Flour / Atta', nameTe: 'గోధుమ పిండి', unit: 'kg', defaultQuantity: 5, price: 48, compareAtPrice: 48, sortOrder: 1 },
   { slug: 'gf-002', categorySlug: 'grains-flour', name: 'Maida (All Purpose Flour)', nameTe: 'మైదా', unit: 'kg', defaultQuantity: 1, price: 42, compareAtPrice: 42, sortOrder: 2 },
@@ -79,7 +80,7 @@ export const SEED_ITEMS: ItemSeed[] = [
   { slug: 'rc-010', categorySlug: 'rice', name: 'Broken Rice / Idli Rava', nameTe: 'రవ్వ బియ్యం', unit: 'kg', defaultQuantity: 1, price: 48, compareAtPrice: 48, sortOrder: 10 },
   { slug: 'rc-011', categorySlug: 'rice', name: 'Brown Rice', nameTe: 'బ్రౌన్ రైస్', unit: 'kg', defaultQuantity: 1, price: 95, compareAtPrice: 95, sortOrder: 11 },
 
-  // ========== Dals & Pulses (Consolidated) ==========
+  // ========== Dals & Pulses ==========
   // Common Split Dals
   { slug: 'dl-001', categorySlug: 'dals-pulses', name: 'Toor Dal / Arhar Dal', nameTe: 'కంది పప్పు', unit: 'kg', defaultQuantity: 2, price: 160, compareAtPrice: 160, sortOrder: 1 },
   { slug: 'dl-002', categorySlug: 'dals-pulses', name: 'Moong Dal (Split)', nameTe: 'పెసర పప్పు', unit: 'kg', defaultQuantity: 1, price: 140, compareAtPrice: 140, sortOrder: 2 },
@@ -96,7 +97,7 @@ export const SEED_ITEMS: ItemSeed[] = [
   { slug: 'dl-011', categorySlug: 'dals-pulses', name: 'Horse Gram', nameTe: 'ఉలవలు', unit: 'kg', defaultQuantity: 1, price: 85, compareAtPrice: 85, sortOrder: 11 },
   { slug: 'dl-012', categorySlug: 'dals-pulses', name: 'Black Gram (Whole)', nameTe: 'నల్ల ఉలవలు', unit: 'kg', defaultQuantity: 1, price: 135, compareAtPrice: 135, sortOrder: 12 },
 
-  // ========== Oils & Ghee (Consolidated) ==========
+  // ========== Oils & Ghee ==========
   // Cooking Oils
   { slug: 'ol-001', categorySlug: 'oils-ghee', name: 'Sunflower Oil', nameTe: 'సన్‌ఫ్లవర్ నూనె', unit: 'L', defaultQuantity: 2, price: 145, compareAtPrice: 145, sortOrder: 1 },
   { slug: 'ol-002', categorySlug: 'oils-ghee', name: 'Groundnut Oil', nameTe: 'వేరుశెనగ నూనె', unit: 'L', defaultQuantity: 2, price: 195, compareAtPrice: 195, sortOrder: 2 },
@@ -190,7 +191,7 @@ export const SEED_ITEMS: ItemSeed[] = [
   { slug: 'es-012', categorySlug: 'daily-essentials', name: 'Almonds', nameTe: 'బాదం పప్పు', unit: 'gm', defaultQuantity: 250, price: 1920, compareAtPrice: 1920, sortOrder: 12 },       // 1920/kg
   { slug: 'es-013', categorySlug: 'daily-essentials', name: 'Raisins', nameTe: 'ఎండుద్రాక్ష', unit: 'gm', defaultQuantity: 250, price: 720, compareAtPrice: 720, sortOrder: 13 },       // 720/kg
 
-  // ========== Personal Care (gm→per-KG, ml→per-L prices) ==========
+  // ========== Personal Care (gm->per-KG, ml->per-L prices) ==========
   // Oral Care
   { slug: 'pc-001', categorySlug: 'personal-care', name: 'Toothpaste', nameTe: 'టూత్‌పేస్ట్', unit: 'gm', defaultQuantity: 200, price: 425, compareAtPrice: 425, sortOrder: 1 },    // 425/kg
   { slug: 'pc-002', categorySlug: 'personal-care', name: 'Toothbrush', nameTe: 'టూత్‌బ్రష్', unit: 'pcs', defaultQuantity: 2, price: 35, compareAtPrice: 35, sortOrder: 2 },
@@ -217,41 +218,146 @@ export const SEED_ITEMS: ItemSeed[] = [
   { slug: 'pc-015', categorySlug: 'personal-care', name: 'Hand Sanitizer', nameTe: 'హ్యాండ్ శానిటైజర్', unit: 'ml', defaultQuantity: 200, price: 475, compareAtPrice: 475, sortOrder: 15 }, // 475/L
 ];
 
+// =============================================================================
+// QuickBasket Store — Standard, convenience-oriented store
+// 8 categories, ~80 items focused on ready-to-use products and daily needs
+// =============================================================================
+
+export const QUICKBASKET_CATEGORIES: CategorySeed[] = [
+  { slug: 'dairy-eggs', name: 'Dairy & Eggs', nameTe: 'పాల ఉత్పత్తులు & గుడ్లు', icon: '🥛', sortOrder: 1 },
+  { slug: 'fruits', name: 'Fruits', nameTe: 'పండ్లు', icon: '🍎', sortOrder: 2 },
+  { slug: 'snacks-namkeen', name: 'Snacks & Namkeen', nameTe: 'చిరుతిండ్లు & నమ్కీన్', icon: '🍿', sortOrder: 3 },
+  { slug: 'bakery-bread', name: 'Bakery & Bread', nameTe: 'బేకరీ & బ్రెడ్', icon: '🍞', sortOrder: 4 },
+  { slug: 'frozen-foods', name: 'Frozen Foods', nameTe: 'ఫ్రోజెన్ ఆహారాలు', icon: '🧊', sortOrder: 5 },
+  { slug: 'cleaning-household', name: 'Cleaning & Household', nameTe: 'శుభ్రపరచడం & గృహ సామగ్రి', icon: '🧹', sortOrder: 6 },
+  { slug: 'baby-care', name: 'Baby Care', nameTe: 'శిశు సంరక్షణ', icon: '👶', sortOrder: 7 },
+  { slug: 'ready-to-cook', name: 'Ready to Cook', nameTe: 'వంటకు సిద్ధం', icon: '🍝', sortOrder: 8 },
+];
+
+export const QUICKBASKET_ITEMS: ItemSeed[] = [
+  // ========== Dairy & Eggs ==========
+  { slug: 'qb-dy-001', categorySlug: 'dairy-eggs', name: 'Full Cream Milk', nameTe: 'ఫుల్ క్రీమ్ పాలు', unit: 'L', defaultQuantity: 1, price: 60, compareAtPrice: 62, sortOrder: 1 },
+  { slug: 'qb-dy-002', categorySlug: 'dairy-eggs', name: 'Toned Milk', nameTe: 'టోన్డ్ పాలు', unit: 'L', defaultQuantity: 1, price: 50, compareAtPrice: 52, sortOrder: 2 },
+  { slug: 'qb-dy-003', categorySlug: 'dairy-eggs', name: 'Curd / Dahi', nameTe: 'పెరుగు', unit: 'kg', defaultQuantity: 1, price: 60, compareAtPrice: 65, sortOrder: 3 },
+  { slug: 'qb-dy-004', categorySlug: 'dairy-eggs', name: 'Paneer', nameTe: 'పనీర్', unit: 'gm', defaultQuantity: 200, price: 400, compareAtPrice: 420, sortOrder: 4 },          // 400/kg
+  { slug: 'qb-dy-005', categorySlug: 'dairy-eggs', name: 'Butter', nameTe: 'వెన్న', unit: 'gm', defaultQuantity: 500, price: 560, compareAtPrice: 580, sortOrder: 5 },           // 560/kg
+  { slug: 'qb-dy-006', categorySlug: 'dairy-eggs', name: 'Cheese Slices', nameTe: 'చీజ్ స్లైసులు', unit: 'gm', defaultQuantity: 200, price: 700, compareAtPrice: 750, sortOrder: 6 }, // 700/kg
+  { slug: 'qb-dy-007', categorySlug: 'dairy-eggs', name: 'Eggs (Farm)', nameTe: 'గుడ్లు (ఫార్మ్)', unit: 'pcs', defaultQuantity: 12, price: 7, compareAtPrice: 8, sortOrder: 7 },
+  { slug: 'qb-dy-008', categorySlug: 'dairy-eggs', name: 'Buttermilk', nameTe: 'మజ్జిగ', unit: 'L', defaultQuantity: 1, price: 30, compareAtPrice: 35, sortOrder: 8 },
+  { slug: 'qb-dy-009', categorySlug: 'dairy-eggs', name: 'Fresh Cream', nameTe: 'ఫ్రెష్ క్రీమ్', unit: 'ml', defaultQuantity: 200, price: 300, compareAtPrice: 320, sortOrder: 9 },  // 300/L
+  { slug: 'qb-dy-010', categorySlug: 'dairy-eggs', name: 'Flavoured Yogurt', nameTe: 'ఫ్లేవర్డ్ యోగర్ట్', unit: 'gm', defaultQuantity: 200, price: 350, compareAtPrice: 380, sortOrder: 10 }, // 350/kg
+
+  // ========== Fruits ==========
+  { slug: 'qb-fr-001', categorySlug: 'fruits', name: 'Banana', nameTe: 'అరటిపండు', unit: 'pcs', defaultQuantity: 12, price: 5, compareAtPrice: 5, sortOrder: 1 },
+  { slug: 'qb-fr-002', categorySlug: 'fruits', name: 'Apple (Shimla)', nameTe: 'ఆపిల్ (శిమ్లా)', unit: 'kg', defaultQuantity: 1, price: 180, compareAtPrice: 200, sortOrder: 2 },
+  { slug: 'qb-fr-003', categorySlug: 'fruits', name: 'Mango (Banganapalli)', nameTe: 'మామిడి (బంగినపల్లి)', unit: 'kg', defaultQuantity: 1, price: 120, compareAtPrice: 140, sortOrder: 3 },
+  { slug: 'qb-fr-004', categorySlug: 'fruits', name: 'Grapes (Green)', nameTe: 'ద్రాక్ష (ఆకుపచ్చ)', unit: 'kg', defaultQuantity: 1, price: 100, compareAtPrice: 110, sortOrder: 4 },
+  { slug: 'qb-fr-005', categorySlug: 'fruits', name: 'Pomegranate', nameTe: 'దానిమ్మ', unit: 'kg', defaultQuantity: 1, price: 160, compareAtPrice: 180, sortOrder: 5 },
+  { slug: 'qb-fr-006', categorySlug: 'fruits', name: 'Papaya', nameTe: 'బొప్పాయి', unit: 'kg', defaultQuantity: 1, price: 40, compareAtPrice: 45, sortOrder: 6 },
+  { slug: 'qb-fr-007', categorySlug: 'fruits', name: 'Orange (Nagpur)', nameTe: 'నారింజ (నాగ్‌పూర్)', unit: 'kg', defaultQuantity: 1, price: 80, compareAtPrice: 90, sortOrder: 7 },
+  { slug: 'qb-fr-008', categorySlug: 'fruits', name: 'Watermelon', nameTe: 'పుచ్చకాయ', unit: 'kg', defaultQuantity: 2, price: 25, compareAtPrice: 30, sortOrder: 8 },
+  { slug: 'qb-fr-009', categorySlug: 'fruits', name: 'Guava', nameTe: 'జామకాయ', unit: 'kg', defaultQuantity: 1, price: 60, compareAtPrice: 70, sortOrder: 9 },
+  { slug: 'qb-fr-010', categorySlug: 'fruits', name: 'Sapota (Chikoo)', nameTe: 'సపోటా', unit: 'kg', defaultQuantity: 1, price: 80, compareAtPrice: 90, sortOrder: 10 },
+
+  // ========== Snacks & Namkeen (gm items use per-KG prices) ==========
+  { slug: 'qb-sn-001', categorySlug: 'snacks-namkeen', name: 'Potato Chips (Salted)', nameTe: 'ఆలూ చిప్స్ (ఉప్పు)', unit: 'gm', defaultQuantity: 200, price: 500, compareAtPrice: 500, sortOrder: 1 },   // 500/kg
+  { slug: 'qb-sn-002', categorySlug: 'snacks-namkeen', name: 'Glucose Biscuits', nameTe: 'గ్లూకోజ్ బిస్కట్‌లు', unit: 'gm', defaultQuantity: 500, price: 200, compareAtPrice: 200, sortOrder: 2 },     // 200/kg
+  { slug: 'qb-sn-003', categorySlug: 'snacks-namkeen', name: 'Cream Biscuits', nameTe: 'క్రీమ్ బిస్కట్‌లు', unit: 'gm', defaultQuantity: 200, price: 450, compareAtPrice: 500, sortOrder: 3 },         // 450/kg
+  { slug: 'qb-sn-004', categorySlug: 'snacks-namkeen', name: 'Namkeen Mixture', nameTe: 'నమ్కీన్ మిక్చర్', unit: 'gm', defaultQuantity: 500, price: 360, compareAtPrice: 400, sortOrder: 4 },           // 360/kg
+  { slug: 'qb-sn-005', categorySlug: 'snacks-namkeen', name: 'Murukku', nameTe: 'ముర్కులు', unit: 'gm', defaultQuantity: 250, price: 480, compareAtPrice: 480, sortOrder: 5 },                            // 480/kg
+  { slug: 'qb-sn-006', categorySlug: 'snacks-namkeen', name: 'Dry Fruit Biscuits', nameTe: 'డ్రై ఫ్రూట్ బిస్కట్‌లు', unit: 'gm', defaultQuantity: 200, price: 600, compareAtPrice: 650, sortOrder: 6 }, // 600/kg
+  { slug: 'qb-sn-007', categorySlug: 'snacks-namkeen', name: 'Rusk (Toast)', nameTe: 'రస్క్ (టోస్ట్)', unit: 'gm', defaultQuantity: 400, price: 350, compareAtPrice: 380, sortOrder: 7 },               // 350/kg
+  { slug: 'qb-sn-008', categorySlug: 'snacks-namkeen', name: 'Peanut Chikki', nameTe: 'వేరుశెనగ చిక్కి', unit: 'gm', defaultQuantity: 250, price: 320, compareAtPrice: 340, sortOrder: 8 },             // 320/kg
+  { slug: 'qb-sn-009', categorySlug: 'snacks-namkeen', name: 'Banana Chips', nameTe: 'అరటి చిప్స్', unit: 'gm', defaultQuantity: 200, price: 440, compareAtPrice: 480, sortOrder: 9 },                   // 440/kg
+  { slug: 'qb-sn-010', categorySlug: 'snacks-namkeen', name: 'Marie Biscuits', nameTe: 'మేరీ బిస్కట్‌లు', unit: 'gm', defaultQuantity: 250, price: 280, compareAtPrice: 300, sortOrder: 10 },             // 280/kg
+
+  // ========== Bakery & Bread ==========
+  { slug: 'qb-bk-001', categorySlug: 'bakery-bread', name: 'White Bread', nameTe: 'వైట్ బ్రెడ్', unit: 'pcs', defaultQuantity: 1, price: 40, compareAtPrice: 45, sortOrder: 1 },
+  { slug: 'qb-bk-002', categorySlug: 'bakery-bread', name: 'Brown Bread (Whole Wheat)', nameTe: 'బ్రౌన్ బ్రెడ్ (గోధుమ)', unit: 'pcs', defaultQuantity: 1, price: 50, compareAtPrice: 55, sortOrder: 2 },
+  { slug: 'qb-bk-003', categorySlug: 'bakery-bread', name: 'Pav Buns', nameTe: 'పావ్ బన్నులు', unit: 'pcs', defaultQuantity: 8, price: 5, compareAtPrice: 6, sortOrder: 3 },
+  { slug: 'qb-bk-004', categorySlug: 'bakery-bread', name: 'Milk Bread', nameTe: 'మిల్క్ బ్రెడ్', unit: 'pcs', defaultQuantity: 1, price: 45, compareAtPrice: 50, sortOrder: 4 },
+  { slug: 'qb-bk-005', categorySlug: 'bakery-bread', name: 'Vanilla Cake', nameTe: 'వెనిల్లా కేక్', unit: 'gm', defaultQuantity: 500, price: 500, compareAtPrice: 540, sortOrder: 5 },   // 500/kg
+  { slug: 'qb-bk-006', categorySlug: 'bakery-bread', name: 'Fruit Bun', nameTe: 'ఫ్రూట్ బన్', unit: 'pcs', defaultQuantity: 4, price: 12, compareAtPrice: 15, sortOrder: 6 },
+  { slug: 'qb-bk-007', categorySlug: 'bakery-bread', name: 'Khara Bun', nameTe: 'ఖారా బన్', unit: 'pcs', defaultQuantity: 4, price: 10, compareAtPrice: 12, sortOrder: 7 },
+  { slug: 'qb-bk-008', categorySlug: 'bakery-bread', name: 'Dilkush (Sweet Bread)', nameTe: 'దిల్‌కుష్ (తీపి బ్రెడ్)', unit: 'pcs', defaultQuantity: 2, price: 20, compareAtPrice: 25, sortOrder: 8 },
+
+  // ========== Frozen Foods (gm items use per-KG prices, ml items use per-L prices) ==========
+  { slug: 'qb-fz-001', categorySlug: 'frozen-foods', name: 'Frozen Peas', nameTe: 'ఫ్రోజెన్ బటానీలు', unit: 'gm', defaultQuantity: 500, price: 200, compareAtPrice: 220, sortOrder: 1 },          // 200/kg
+  { slug: 'qb-fz-002', categorySlug: 'frozen-foods', name: 'Frozen Sweet Corn', nameTe: 'ఫ్రోజెన్ మొక్కజొన్న', unit: 'gm', defaultQuantity: 500, price: 220, compareAtPrice: 240, sortOrder: 2 },  // 220/kg
+  { slug: 'qb-fz-003', categorySlug: 'frozen-foods', name: 'Frozen Parathas', nameTe: 'ఫ్రోజెన్ పరాఠాలు', unit: 'pcs', defaultQuantity: 5, price: 25, compareAtPrice: 28, sortOrder: 3 },
+  { slug: 'qb-fz-004', categorySlug: 'frozen-foods', name: 'Ice Cream (Vanilla)', nameTe: 'ఐస్ క్రీమ్ (వెనిల్లా)', unit: 'ml', defaultQuantity: 500, price: 320, compareAtPrice: 350, sortOrder: 4 }, // 320/L
+  { slug: 'qb-fz-005', categorySlug: 'frozen-foods', name: 'Frozen Mixed Vegetables', nameTe: 'ఫ్రోజెన్ కూరగాయలు', unit: 'gm', defaultQuantity: 500, price: 180, compareAtPrice: 200, sortOrder: 5 }, // 180/kg
+  { slug: 'qb-fz-006', categorySlug: 'frozen-foods', name: 'Frozen Samosas', nameTe: 'ఫ్రోజెన్ సమోసాలు', unit: 'pcs', defaultQuantity: 10, price: 15, compareAtPrice: 18, sortOrder: 6 },
+  { slug: 'qb-fz-007', categorySlug: 'frozen-foods', name: 'Ice Cream (Chocolate)', nameTe: 'ఐస్ క్రీమ్ (చాక్లెట్)', unit: 'ml', defaultQuantity: 500, price: 350, compareAtPrice: 380, sortOrder: 7 }, // 350/L
+  { slug: 'qb-fz-008', categorySlug: 'frozen-foods', name: 'Frozen French Fries', nameTe: 'ఫ్రోజెన్ ఫ్రెంచ్ ఫ్రైస్', unit: 'gm', defaultQuantity: 500, price: 260, compareAtPrice: 280, sortOrder: 8 }, // 260/kg
+
+  // ========== Cleaning & Household (gm items per-KG, ml items per-L) ==========
+  { slug: 'qb-cl-001', categorySlug: 'cleaning-household', name: 'Detergent Powder', nameTe: 'డిటర్జెంట్ పౌడర్', unit: 'kg', defaultQuantity: 1, price: 120, compareAtPrice: 130, sortOrder: 1 },
+  { slug: 'qb-cl-002', categorySlug: 'cleaning-household', name: 'Liquid Detergent', nameTe: 'లిక్విడ్ డిటర్జెంట్', unit: 'L', defaultQuantity: 1, price: 180, compareAtPrice: 200, sortOrder: 2 },
+  { slug: 'qb-cl-003', categorySlug: 'cleaning-household', name: 'Dish Wash Liquid', nameTe: 'డిష్ వాష్ లిక్విడ్', unit: 'ml', defaultQuantity: 500, price: 280, compareAtPrice: 300, sortOrder: 3 },  // 280/L
+  { slug: 'qb-cl-004', categorySlug: 'cleaning-household', name: 'Dish Wash Bar', nameTe: 'డిష్ వాష్ బార్', unit: 'gm', defaultQuantity: 500, price: 160, compareAtPrice: 180, sortOrder: 4 },         // 160/kg
+  { slug: 'qb-cl-005', categorySlug: 'cleaning-household', name: 'Floor Cleaner', nameTe: 'ఫ్లోర్ క్లీనర్', unit: 'L', defaultQuantity: 1, price: 140, compareAtPrice: 160, sortOrder: 5 },
+  { slug: 'qb-cl-006', categorySlug: 'cleaning-household', name: 'Toilet Cleaner', nameTe: 'టాయిలెట్ క్లీనర్', unit: 'ml', defaultQuantity: 500, price: 200, compareAtPrice: 220, sortOrder: 6 },     // 200/L
+  { slug: 'qb-cl-007', categorySlug: 'cleaning-household', name: 'Broom (Soft)', nameTe: 'చీపురు (మెత్తని)', unit: 'pcs', defaultQuantity: 1, price: 80, compareAtPrice: 90, sortOrder: 7 },
+  { slug: 'qb-cl-008', categorySlug: 'cleaning-household', name: 'Steel Scrubber', nameTe: 'స్టీల్ స్క్రబ్బర్', unit: 'pcs', defaultQuantity: 3, price: 15, compareAtPrice: 18, sortOrder: 8 },
+  { slug: 'qb-cl-009', categorySlug: 'cleaning-household', name: 'Garbage Bags', nameTe: 'చెత్త సంచులు', unit: 'pcs', defaultQuantity: 30, price: 4, compareAtPrice: 5, sortOrder: 9 },
+  { slug: 'qb-cl-010', categorySlug: 'cleaning-household', name: 'Glass Cleaner', nameTe: 'గ్లాస్ క్లీనర్', unit: 'ml', defaultQuantity: 500, price: 240, compareAtPrice: 260, sortOrder: 10 },       // 240/L
+
+  // ========== Baby Care (gm items per-KG, ml items per-L) ==========
+  { slug: 'qb-bc-001', categorySlug: 'baby-care', name: 'Baby Diapers (Small)', nameTe: 'బేబీ డయాపర్లు (చిన్న)', unit: 'pcs', defaultQuantity: 40, price: 14, compareAtPrice: 15, sortOrder: 1 },
+  { slug: 'qb-bc-002', categorySlug: 'baby-care', name: 'Baby Diapers (Medium)', nameTe: 'బేబీ డయాపర్లు (మధ్యమ)', unit: 'pcs', defaultQuantity: 34, price: 17, compareAtPrice: 18, sortOrder: 2 },
+  { slug: 'qb-bc-003', categorySlug: 'baby-care', name: 'Baby Cereal', nameTe: 'బేబీ సీరియల్', unit: 'gm', defaultQuantity: 300, price: 567, compareAtPrice: 600, sortOrder: 3 },                    // 567/kg
+  { slug: 'qb-bc-004', categorySlug: 'baby-care', name: 'Baby Soap', nameTe: 'బేబీ సబ్బు', unit: 'gm', defaultQuantity: 75, price: 933, compareAtPrice: 1000, sortOrder: 4 },                        // 933/kg
+  { slug: 'qb-bc-005', categorySlug: 'baby-care', name: 'Baby Wipes', nameTe: 'బేబీ వైప్స్', unit: 'pcs', defaultQuantity: 72, price: 4, compareAtPrice: 5, sortOrder: 5 },
+  { slug: 'qb-bc-006', categorySlug: 'baby-care', name: 'Baby Shampoo', nameTe: 'బేబీ షాంపూ', unit: 'ml', defaultQuantity: 200, price: 600, compareAtPrice: 650, sortOrder: 6 },                     // 600/L
+  { slug: 'qb-bc-007', categorySlug: 'baby-care', name: 'Baby Lotion', nameTe: 'బేబీ లోషన్', unit: 'ml', defaultQuantity: 200, price: 500, compareAtPrice: 550, sortOrder: 7 },                      // 500/L
+  { slug: 'qb-bc-008', categorySlug: 'baby-care', name: 'Baby Oil', nameTe: 'బేబీ ఆయిల్', unit: 'ml', defaultQuantity: 200, price: 450, compareAtPrice: 500, sortOrder: 8 },                         // 450/L
+
+  // ========== Ready to Cook (gm items per-KG, ml items per-L) ==========
+  { slug: 'qb-rc-001', categorySlug: 'ready-to-cook', name: 'Instant Noodles', nameTe: 'ఇన్స్టంట్ నూడుల్స్', unit: 'gm', defaultQuantity: 280, price: 500, compareAtPrice: 500, sortOrder: 1 },       // 500/kg
+  { slug: 'qb-rc-002', categorySlug: 'ready-to-cook', name: 'Pasta (Penne)', nameTe: 'పాస్తా (పెన్నె)', unit: 'gm', defaultQuantity: 500, price: 240, compareAtPrice: 260, sortOrder: 2 },              // 240/kg
+  { slug: 'qb-rc-003', categorySlug: 'ready-to-cook', name: 'Tomato Ketchup', nameTe: 'టమోటో కెచప్', unit: 'gm', defaultQuantity: 500, price: 300, compareAtPrice: 320, sortOrder: 3 },                // 300/kg
+  { slug: 'qb-rc-004', categorySlug: 'ready-to-cook', name: 'Soy Sauce', nameTe: 'సోయా సాస్', unit: 'ml', defaultQuantity: 200, price: 450, compareAtPrice: 500, sortOrder: 4 },                       // 450/L
+  { slug: 'qb-rc-005', categorySlug: 'ready-to-cook', name: 'Mango Pickle', nameTe: 'ఆవకాయ', unit: 'gm', defaultQuantity: 500, price: 400, compareAtPrice: 420, sortOrder: 5 },                       // 400/kg
+  { slug: 'qb-rc-006', categorySlug: 'ready-to-cook', name: 'Lemon Pickle', nameTe: 'నిమ్మకాయ ఊరగాయ', unit: 'gm', defaultQuantity: 300, price: 467, compareAtPrice: 500, sortOrder: 6 },              // 467/kg
+  { slug: 'qb-rc-007', categorySlug: 'ready-to-cook', name: 'Ready-mix Gulab Jamun', nameTe: 'రెడీ-మిక్స్ గులాబ్ జామూన్', unit: 'gm', defaultQuantity: 200, price: 400, compareAtPrice: 450, sortOrder: 7 }, // 400/kg
+  { slug: 'qb-rc-008', categorySlug: 'ready-to-cook', name: 'Ready-mix Idli', nameTe: 'రెడీ-మిక్స్ ఇడ్లీ', unit: 'gm', defaultQuantity: 500, price: 200, compareAtPrice: 220, sortOrder: 8 },         // 200/kg
+  { slug: 'qb-rc-009', categorySlug: 'ready-to-cook', name: 'Vermicelli (Sevai)', nameTe: 'సేమియా', unit: 'gm', defaultQuantity: 500, price: 160, compareAtPrice: 180, sortOrder: 9 },                 // 160/kg
+  { slug: 'qb-rc-010', categorySlug: 'ready-to-cook', name: 'Green Chilli Sauce', nameTe: 'పచ్చి మిరప సాస్', unit: 'ml', defaultQuantity: 200, price: 350, compareAtPrice: 380, sortOrder: 10 },       // 350/L
+];
+
+// =============================================================================
+// Tenant-specific seed data lookup
+// =============================================================================
+
+export interface TenantSeedData {
+  categories: CategorySeed[];
+  items: ItemSeed[];
+}
+
+const TENANT_SEED_MAP: Record<string, TenantSeedData> = {
+  freshmart: { categories: FRESHMART_CATEGORIES, items: FRESHMART_ITEMS },
+  quickbasket: { categories: QUICKBASKET_CATEGORIES, items: QUICKBASKET_ITEMS },
+};
+
 /**
- * Summary of changes:
- *
- * 1. REMOVED CATEGORIES:
- *    - Bath & Body (merged essential items into Personal Care)
- *    - Laundry Detergents (removed completely)
- *    - Chips & Biscuits (removed completely)
- *    - Makeup & Cosmetics (removed completely)
- *    - Baby Care (removed completely)
- *
- * 2. CONSOLIDATED CATEGORIES:
- *    - 'dal-pulses' + 'dals-pulses' → 'dals-pulses'
- *    - 'oil-ghee' + 'oils' → 'oils-ghee'
- *    - 'atta-rice' + 'flours-rava' → 'grains-flour'
- *    - 'tea-coffee' → 'beverages'
- *
- * 3. REMOVED DUPLICATE ITEMS:
- *    - Multiple instances of same dal types
- *    - Duplicate rice varieties
- *    - Duplicate oil types
- *    - Brand-specific items (converted to generic names)
- *
- * 4. ENHANCEMENTS:
- *    - Added Telugu translations (nameTe) for all items
- *    - Better organization within categories
- *    - More logical grouping (Premium, Daily Use, Specialty)
- *    - Added missing common items (dry fruits, baking items, etc.)
- *    - Standardized quantities to more realistic defaults
- *    - Changed spices from 'kg' to 'gm' for better UX
- *    - Better slug naming (hierarchical codes)
- *    - Complete personal care essentials
- *
- * 5. FINAL STRUCTURE:
- *    - 9 core categories
- *    - ~155 unique items
- *    - 100% Telugu translation coverage
- *    - Focus on groceries and daily essentials
+ * Get tenant-specific seed data by tenant slug.
+ * Throws if the slug is unrecognized.
  */
+export function getTenantSeedData(tenantSlug: string): TenantSeedData {
+  const data = TENANT_SEED_MAP[tenantSlug];
+  if (!data) {
+    throw new Error(`No seed data defined for tenant slug: '${tenantSlug}'`);
+  }
+  return data;
+}
+
+// =============================================================================
+// Backward-compatible aliases (deprecated — use tenant-specific exports)
+// =============================================================================
+
+/** @deprecated Use FRESHMART_CATEGORIES or getTenantSeedData() */
+export const SEED_CATEGORIES = FRESHMART_CATEGORIES;
+
+/** @deprecated Use FRESHMART_ITEMS or getTenantSeedData() */
+export const SEED_ITEMS = FRESHMART_ITEMS;

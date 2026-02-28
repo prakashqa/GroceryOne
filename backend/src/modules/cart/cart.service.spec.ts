@@ -10,10 +10,12 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { Cart, CartStatus } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
+import { ProductsService } from '../products/products.service';
 import {
   TENANT_A_ID,
   TENANT_B_ID,
   buildMockCart,
+  buildMockItem,
   createMockQueryBuilder,
 } from '../../test-utils';
 
@@ -53,6 +55,10 @@ describe('CartService', () => {
     delete: jest.fn(),
   };
 
+  const mockProductsService = {
+    findOne: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -65,6 +71,10 @@ describe('CartService', () => {
           provide: getRepositoryToken(CartItem),
           useValue: mockCartItemRepository,
         },
+        {
+          provide: ProductsService,
+          useValue: mockProductsService,
+        },
       ],
     }).compile();
 
@@ -73,6 +83,9 @@ describe('CartService', () => {
     cartItemRepository = module.get<Repository<CartItem>>(getRepositoryToken(CartItem));
 
     jest.clearAllMocks();
+
+    // Default: item validation passes (item belongs to tenant)
+    mockProductsService.findOne.mockResolvedValue(buildMockItem());
   });
 
   describe('create', () => {
@@ -165,6 +178,19 @@ describe('CartService', () => {
       expect(result[0].tenantId).toBe(TENANT_A_ID);
     });
 
+    it('should apply tenant filter on category join', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockCartTenantA]);
+
+      await service.findAll('user-a-uuid', undefined, TENANT_A_ID);
+
+      expect(queryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'item.category',
+        'category',
+        'category.tenantId = :categoryTenantId',
+        { categoryTenantId: TENANT_A_ID },
+      );
+    });
+
     it('should require tenantId parameter', async () => {
       await expect(service.findAll('user-a-uuid', undefined, undefined as any))
         .rejects.toThrow();
@@ -215,6 +241,19 @@ describe('CartService', () => {
         { tenantId: TENANT_A_ID },
       );
       expect(result?.tenantId).toBe(TENANT_A_ID);
+    });
+
+    it('should apply tenant filter on category join', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(mockCartTenantA);
+
+      await service.findActiveCart('user-a-uuid', undefined, TENANT_A_ID);
+
+      expect(queryBuilderMock.leftJoinAndSelect).toHaveBeenCalledWith(
+        'item.category',
+        'category',
+        'category.tenantId = :categoryTenantId',
+        { categoryTenantId: TENANT_A_ID },
+      );
     });
 
     it('should require tenantId parameter', async () => {
@@ -285,6 +324,39 @@ describe('CartService', () => {
       expect(result).toEqual(newCartItem);
     });
 
+    it('should validate itemId belongs to same tenant', async () => {
+      const addItemDto = { itemId: 'item-a-uuid', quantity: 2 };
+      const mockItem = buildMockItem();
+      const newCartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', ...addItemDto };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockProductsService.findOne.mockResolvedValue(mockItem);
+      mockCartItemRepository.findOne.mockResolvedValue(null);
+      mockCartItemRepository.create.mockReturnValue(newCartItem);
+      mockCartItemRepository.save.mockResolvedValue(newCartItem);
+
+      await service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID);
+
+      expect(mockProductsService.findOne).toHaveBeenCalledWith(
+        'item-a-uuid',
+        TENANT_A_ID,
+      );
+    });
+
+    it('should reject adding cross-tenant item to cart', async () => {
+      const crossTenantItemId = 'item-b-uuid';
+      const addItemDto = { itemId: crossTenantItemId, quantity: 1 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockProductsService.findOne.mockRejectedValue(
+        new NotFoundException(`Item with ID '${crossTenantItemId}' not found`),
+      );
+
+      await expect(service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID))
+        .rejects.toThrow(NotFoundException);
+      expect(mockCartItemRepository.create).not.toHaveBeenCalled();
+    });
+
     it('should throw NotFoundException when cart belongs to different tenant', async () => {
       mockCartRepository.findOne.mockResolvedValue(null);
 
@@ -309,6 +381,20 @@ describe('CartService', () => {
       const result = await service.updateItem('cart-a-uuid', 'item-uuid', { quantity: 5 }, TENANT_A_ID);
 
       expect(result.quantity).toBe(5);
+    });
+
+    it('should include tenantId in cartItem query', async () => {
+      const cartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', itemId: 'item-uuid', quantity: 1 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(cartItem);
+      mockCartItemRepository.save.mockResolvedValue({ ...cartItem, quantity: 3 });
+
+      await service.updateItem('cart-a-uuid', 'item-uuid', { quantity: 3 }, TENANT_A_ID);
+
+      expect(mockCartItemRepository.findOne).toHaveBeenCalledWith({
+        where: { cartId: 'cart-a-uuid', itemId: 'item-uuid', tenantId: TENANT_A_ID },
+      });
     });
 
     it('should throw NotFoundException when cart belongs to different tenant', async () => {
@@ -337,6 +423,20 @@ describe('CartService', () => {
       expect(mockCartItemRepository.delete).toHaveBeenCalledWith('cart-item-uuid');
     });
 
+    it('should include tenantId in cartItem query', async () => {
+      const cartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', itemId: 'item-uuid', quantity: 1 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(cartItem);
+      mockCartItemRepository.delete.mockResolvedValue({ affected: 1 });
+
+      await service.removeItem('cart-a-uuid', 'item-uuid', TENANT_A_ID);
+
+      expect(mockCartItemRepository.findOne).toHaveBeenCalledWith({
+        where: { cartId: 'cart-a-uuid', itemId: 'item-uuid', tenantId: TENANT_A_ID },
+      });
+    });
+
     it('should throw NotFoundException when cart belongs to different tenant', async () => {
       mockCartRepository.findOne.mockResolvedValue(null);
 
@@ -357,7 +457,19 @@ describe('CartService', () => {
 
       await service.clearCart('cart-a-uuid', TENANT_A_ID);
 
-      expect(mockCartItemRepository.delete).toHaveBeenCalledWith({ cartId: 'cart-a-uuid' });
+      expect(mockCartItemRepository.delete).toHaveBeenCalledWith({ cartId: 'cart-a-uuid', tenantId: TENANT_A_ID });
+    });
+
+    it('should include tenantId in cartItem delete', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.delete.mockResolvedValue({ affected: 5 });
+
+      await service.clearCart('cart-a-uuid', TENANT_A_ID);
+
+      expect(mockCartItemRepository.delete).toHaveBeenCalledWith({
+        cartId: 'cart-a-uuid',
+        tenantId: TENANT_A_ID,
+      });
     });
 
     it('should throw NotFoundException when cart belongs to different tenant', async () => {

@@ -177,6 +177,59 @@ describe('AddQuantityModal', () => {
     });
   });
 
+  describe('cart-aware behavior', () => {
+    const mockOnRemove = jest.fn();
+
+    it('should show in-cart banner when quantityInCart > 0', () => {
+      const { getByTestId } = renderModal({ quantityInCart: 5 });
+      expect(getByTestId('in-cart-banner')).toBeTruthy();
+    });
+
+    it('should not show in-cart banner when quantityInCart is 0', () => {
+      const { queryByTestId } = renderModal();
+      expect(queryByTestId('in-cart-banner')).toBeNull();
+    });
+
+    it('should display formatted cart quantity in banner', () => {
+      const { getByTestId } = renderModal({ quantityInCart: 5 });
+      const banner = getByTestId('in-cart-banner');
+      // Should contain "5 kg in cart" text
+      expect(banner).toBeTruthy();
+    });
+
+    it('should show Update Cart button text when item is in cart', () => {
+      const { getByText } = renderModal({ quantityInCart: 5 });
+      expect(getByText('Update Cart')).toBeTruthy();
+    });
+
+    it('should show Add to Cart button text when item is NOT in cart', () => {
+      const { getByText } = renderModal();
+      expect(getByText('Add to Cart')).toBeTruthy();
+    });
+
+    it('should show Remove from Cart button when item is in cart and onRemove provided', () => {
+      const { getByTestId } = renderModal({ quantityInCart: 5, onRemove: mockOnRemove });
+      expect(getByTestId('remove-from-cart-button')).toBeTruthy();
+    });
+
+    it('should not show Remove button when item is NOT in cart', () => {
+      const { queryByTestId } = renderModal({ onRemove: mockOnRemove });
+      expect(queryByTestId('remove-from-cart-button')).toBeNull();
+    });
+
+    it('should not show Remove button when onRemove is not provided', () => {
+      const { queryByTestId } = renderModal({ quantityInCart: 5 });
+      expect(queryByTestId('remove-from-cart-button')).toBeNull();
+    });
+
+    it('should call onRemove with itemId and close modal when Remove is pressed', () => {
+      const { getByTestId } = renderModal({ quantityInCart: 5, onRemove: mockOnRemove });
+      fireEvent.press(getByTestId('remove-from-cart-button'));
+      expect(mockOnRemove).toHaveBeenCalledWith(mockItem.id);
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('responsive styling', () => {
     const { useResponsiveStyles } = require('../../../../hooks/useResponsiveStyles');
 

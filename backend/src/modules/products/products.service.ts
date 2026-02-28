@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Item } from './entities/item.entity';
 import { CreateItemDto, UpdateItemDto } from './dto';
+import { CategoriesService } from '../categories/categories.service';
 
 function validateTenantId(tenantId: string | undefined): asserts tenantId is string {
   if (!tenantId) {
@@ -23,6 +24,7 @@ export class ProductsService {
   constructor(
     @InjectRepository(Item)
     private readonly itemRepository: Repository<Item>,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -30,6 +32,9 @@ export class ProductsService {
    */
   async create(createItemDto: CreateItemDto, tenantId?: string): Promise<Item> {
     validateTenantId(tenantId);
+
+    // Validate categoryId belongs to the same tenant
+    await this.categoriesService.findOne(createItemDto.categoryId, tenantId);
 
     // Check for duplicate slug within this tenant
     const existingItem = await this.itemRepository.findOne({
@@ -56,7 +61,7 @@ export class ProductsService {
     validateTenantId(tenantId);
 
     const query = this.itemRepository.createQueryBuilder('item')
-      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.category', 'category', 'category.tenantId = :categoryTenantId', { categoryTenantId: tenantId })
       .select([
         'item.id',
         'item.slug',
@@ -105,7 +110,7 @@ export class ProductsService {
     validateTenantId(tenantId);
 
     const query = this.itemRepository.createQueryBuilder('item')
-      .leftJoinAndSelect('item.category', 'category')
+      .leftJoinAndSelect('item.category', 'category', 'category.tenantId = :categoryTenantId', { categoryTenantId: tenantId })
       .select([
         'item.id',
         'item.slug',
@@ -191,6 +196,11 @@ export class ProductsService {
     validateTenantId(tenantId);
 
     const item = await this.findOne(id, tenantId);
+
+    // Validate categoryId belongs to the same tenant when changing category
+    if (updateItemDto.categoryId && updateItemDto.categoryId !== item.categoryId) {
+      await this.categoriesService.findOne(updateItemDto.categoryId, tenantId);
+    }
 
     // Check for duplicate slug if slug is being updated (scoped by tenant)
     if (updateItemDto.slug && updateItemDto.slug !== item.slug) {

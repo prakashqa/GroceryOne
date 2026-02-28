@@ -8,6 +8,7 @@ import { Item } from '../../../domain/types/picking';
 import {
   ScanState,
   ScanSession,
+  ScanError,
   OcrResult,
   MatchResult,
   MatchConfidence,
@@ -27,6 +28,9 @@ const initialState: ScanState = {
   isProcessing: false,
   processingStep: null,
   error: null,
+  scanError: null,
+  retryAttempt: 0,
+  maxRetries: 2,
 };
 
 const scanSlice = createSlice({
@@ -50,6 +54,8 @@ const scanSlice = createSlice({
       state.isProcessing = false;
       state.processingStep = null;
       state.error = null;
+      state.scanError = null;
+      state.retryAttempt = 0;
     },
 
     /**
@@ -179,7 +185,7 @@ const scanSlice = createSlice({
     },
 
     /**
-     * Set error state
+     * Set error state (legacy — string only, kept for backward compat)
      */
     setError: (state, action: PayloadAction<string>) => {
       state.error = action.payload;
@@ -192,6 +198,28 @@ const scanSlice = createSlice({
     },
 
     /**
+     * Set structured scan error with type, message, and retry metadata
+     */
+    setScanError: (state, action: PayloadAction<ScanError>) => {
+      state.scanError = action.payload;
+      state.isProcessing = false;
+      if (state.currentSession) {
+        state.currentSession.status = 'error';
+      }
+    },
+
+    /**
+     * Set retry state (current attempt and max retries)
+     */
+    setRetryState: (
+      state,
+      action: PayloadAction<{ attempt: number; maxRetries: number }>
+    ) => {
+      state.retryAttempt = action.payload.attempt;
+      state.maxRetries = action.payload.maxRetries;
+    },
+
+    /**
      * Clear the current session and reset state
      */
     clearSession: (state) => {
@@ -199,6 +227,8 @@ const scanSlice = createSlice({
       state.isProcessing = false;
       state.processingStep = null;
       state.error = null;
+      state.scanError = null;
+      state.retryAttempt = 0;
     },
   },
 });
@@ -215,6 +245,8 @@ export const {
   selectCart,
   setSessionStatus,
   setError,
+  setScanError,
+  setRetryState,
   clearSession,
 } = scanSlice.actions;
 
@@ -237,6 +269,15 @@ export const selectMatchResults = (state: RootState): MatchResult[] =>
 
 export const selectError = (state: RootState): string | null =>
   state.scan.error;
+
+export const selectScanError = (state: RootState): ScanError | null =>
+  state.scan.scanError;
+
+export const selectRetryAttempt = (state: RootState): number =>
+  state.scan.retryAttempt;
+
+export const selectMaxRetries = (state: RootState): number =>
+  state.scan.maxRetries;
 
 export const selectSessionStatus = (state: RootState): ScanSessionStatus | null =>
   state.scan.currentSession?.status || null;

@@ -18,7 +18,7 @@ const DEFAULT_CONFIG: FuzzyMatcherConfig = {
   exactMatchThreshold: 100,
   highConfidenceThreshold: 85,
   mediumConfidenceThreshold: 65,
-  lowConfidenceThreshold: 45,
+  lowConfidenceThreshold: 55,
   maxAlternatives: 3,
 };
 
@@ -66,14 +66,16 @@ export class FuzzyMatcher {
     getSynonyms?: (itemId: string) => string[]
   ): IndexedItem[] {
     return items.map((item) => {
-      const teluguName = getTranslatedName(item.id);
+      const i18nTelugu = getTranslatedName(item.id);
+      // Use item.nameTe from backend as primary source, fall back to i18n translation
+      const teluguName = item.nameTe || (i18nTelugu !== item.id ? i18nTelugu : '');
       const synonyms = getSynonyms ? getSynonyms(item.id) : [];
       return {
         item,
         englishName: item.name,
-        teluguName: teluguName !== item.id ? teluguName : '',
+        teluguName,
         normalizedEnglish: this.normalize(item.name),
-        normalizedTelugu: teluguName !== item.id ? this.normalizeTelugu(teluguName) : '',
+        normalizedTelugu: teluguName ? this.normalizeTelugu(teluguName) : '',
         tokens: this.tokenize(item.name),
         teluguSynonyms: synonyms,
         normalizedTeluguSynonyms: synonyms.map((s) => this.normalizeTelugu(s)),
@@ -164,12 +166,19 @@ export class FuzzyMatcher {
     // Check if one contains the other
     if (normalizedTarget.includes(normalizedSearch)) {
       const ratio = normalizedSearch.length / normalizedTarget.length;
-      return Math.round(70 + ratio * 30);
+      // Only give high contains boost for meaningful substrings (3+ chars, 30%+ ratio)
+      if (normalizedSearch.length >= 3 && ratio >= 0.3) {
+        return Math.round(70 + ratio * 30);
+      }
+      return Math.round(ratio * 60);
     }
 
     if (normalizedSearch.includes(normalizedTarget)) {
       const ratio = normalizedTarget.length / normalizedSearch.length;
-      return Math.round(70 + ratio * 30);
+      if (normalizedTarget.length >= 3 && ratio >= 0.3) {
+        return Math.round(70 + ratio * 30);
+      }
+      return Math.round(ratio * 60);
     }
 
     // Levenshtein-based similarity
@@ -197,12 +206,18 @@ export class FuzzyMatcher {
     // Check if one contains the other
     if (normalizedTarget.includes(normalizedSearch)) {
       const ratio = normalizedSearch.length / normalizedTarget.length;
-      return Math.round(70 + ratio * 30);
+      if (normalizedSearch.length >= 3 && ratio >= 0.3) {
+        return Math.round(70 + ratio * 30);
+      }
+      return Math.round(ratio * 60);
     }
 
     if (normalizedSearch.includes(normalizedTarget)) {
       const ratio = normalizedTarget.length / normalizedSearch.length;
-      return Math.round(70 + ratio * 30);
+      if (normalizedTarget.length >= 3 && ratio >= 0.3) {
+        return Math.round(70 + ratio * 30);
+      }
+      return Math.round(ratio * 60);
     }
 
     // Levenshtein-based similarity

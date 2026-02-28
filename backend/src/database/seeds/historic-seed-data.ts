@@ -3,7 +3,7 @@
  * Generates realistic historical cart data for testing Reports & Analytics
  */
 
-import { SEED_ITEMS } from './seed-data';
+import { FRESHMART_ITEMS } from './seed-data';
 
 export interface HistoricCartSeed {
   name: string;
@@ -35,7 +35,7 @@ function daysAgo(days: number, hours = 0, minutes = 0): Date {
  * Helper to get random items from catalog
  */
 function getRandomItems(count: number): HistoricCartItemSeed[] {
-  const shuffled = [...SEED_ITEMS].sort(() => Math.random() - 0.5);
+  const shuffled = [...FRESHMART_ITEMS].sort(() => Math.random() - 0.5);
   const selected = shuffled.slice(0, count);
 
   return selected.map((item) => ({

@@ -304,9 +304,66 @@ describe('FuzzyMatcher', () => {
       expect(matcher.getConfidenceLevel(85)).toBe('high');
       expect(matcher.getConfidenceLevel(75)).toBe('medium');
       expect(matcher.getConfidenceLevel(65)).toBe('medium');
+      expect(matcher.getConfidenceLevel(60)).toBe('low');
       expect(matcher.getConfidenceLevel(55)).toBe('low');
-      expect(matcher.getConfidenceLevel(45)).toBe('low');
+      expect(matcher.getConfidenceLevel(45)).toBe('none');
       expect(matcher.getConfidenceLevel(30)).toBe('none');
+    });
+  });
+
+  describe('OCR noise fragment rejection', () => {
+    it('should NOT match short fragment "da" with medium+ confidence', () => {
+      const result = matcher.match('da', 'en');
+      // "da" is contained in "toor dal" — old code gives 70+ (medium)
+      // After fix: short fragments (<3 chars) should get proportional score
+      if (result.matchedItem) {
+        expect(result.confidenceScore).toBeLessThan(65);
+      }
+    });
+
+    it('should NOT match short fragment "al" with medium+ confidence', () => {
+      const result = matcher.match('al', 'en');
+      if (result.matchedItem) {
+        expect(result.confidenceScore).toBeLessThan(65);
+      }
+    });
+
+    it('should NOT match short fragment "ur" with medium+ confidence', () => {
+      const result = matcher.match('ur', 'en');
+      if (result.matchedItem) {
+        expect(result.confidenceScore).toBeLessThan(65);
+      }
+    });
+
+    it('should NOT match OCR artifact "kg" to any item', () => {
+      const result = matcher.match('kg', 'en');
+      // "kg" vs short item names could get Levenshtein score above old threshold
+      expect(result.confidence).toBe('none');
+      expect(result.matchedItem).toBeNull();
+    });
+
+    it('should still match legitimate substring "Toor" to "Toor Dal" with high confidence', () => {
+      const result = matcher.match('Toor', 'en');
+      expect(result.matchedItem?.id).toBe('dal-1');
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(70);
+    });
+
+    it('should still match "Colgate" to "Colgate Toothpaste" (length >= 3, ratio >= 0.3)', () => {
+      const result = matcher.match('Colgate', 'en');
+      expect(result.matchedItem?.id).toBe('bath-6');
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(70);
+    });
+
+    it('should still match "Sunflower Oil" to "Fortune Sunflower Oil"', () => {
+      const result = matcher.match('Sunflower Oil', 'en');
+      expect(result.matchedItem?.id).toBe('oil-1');
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(70);
+    });
+
+    it('should still match "Dal" (3 chars, ratio >= 0.3) to dal items', () => {
+      const result = matcher.match('Dal', 'en');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(65);
     });
   });
 
@@ -554,6 +611,190 @@ describe('FuzzyMatcher', () => {
       // Should still match since mockGetTranslatedName maps dal-1 to కందిపప్పు
       expect(result.matchedItem).not.toBeNull();
       expect(result.matchedItem?.id).toBe('dal-1');
+    });
+  });
+
+  describe('item.nameTe backend Telugu name matching', () => {
+    // Simulates backend items with dynamic IDs that have NO i18n translation keys
+    // but DO have nameTe from the backend database
+    const backendItems: Item[] = [
+      {
+        id: 'item-1772260869572-n5u64o0',
+        categoryId: 'dal-pulses',
+        name: 'Toor Dal',
+        nameTe: 'కందిపప్పు',
+        unit: 'kg',
+        defaultQuantity: 1,
+      },
+      {
+        id: 'item-1772260869573-a8b2c1',
+        categoryId: 'dal-pulses',
+        name: 'Moong Dal',
+        nameTe: 'పెసరపప్పు',
+        unit: 'kg',
+        defaultQuantity: 1,
+      },
+      {
+        id: 'item-1772260869574-x9y3z2',
+        categoryId: 'dal-pulses',
+        name: 'Chana Dal',
+        nameTe: 'శనగపప్పు',
+        unit: 'kg',
+        defaultQuantity: 1,
+      },
+      {
+        id: 'item-1772260869575-m4n5o6',
+        categoryId: 'atta-rice',
+        name: 'Basmati Rice',
+        nameTe: 'బాస్మతి బియ్యం',
+        unit: 'kg',
+        defaultQuantity: 1,
+      },
+    ];
+
+    // Simulates getTeluguItemName returning itemId when no i18n key exists
+    const noI18nTranslation = (itemId: string): string => itemId;
+
+    let backendMatcher: FuzzyMatcher;
+
+    beforeEach(() => {
+      backendMatcher = new FuzzyMatcher(backendItems, noI18nTranslation);
+    });
+
+    it('should match Telugu text to item using item.nameTe when i18n translation is missing', () => {
+      const result = backendMatcher.match('కందిపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('item-1772260869572-n5u64o0');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should match different Telugu items to different backend items via nameTe', () => {
+      const result1 = backendMatcher.match('కందిపప్పు', 'te');
+      const result2 = backendMatcher.match('పెసరపప్పు', 'te');
+
+      expect(result1.matchedItem).not.toBeNull();
+      expect(result2.matchedItem).not.toBeNull();
+      // CRITICAL: Each Telugu term must match to a DIFFERENT item
+      expect(result1.matchedItem?.id).toBe('item-1772260869572-n5u64o0');
+      expect(result2.matchedItem?.id).toBe('item-1772260869573-a8b2c1');
+      expect(result1.matchedItem?.id).not.toBe(result2.matchedItem?.id);
+    });
+
+    it('should prefer item.nameTe over missing i18n translation', () => {
+      // When i18n returns itemId (no translation found), nameTe should be used
+      const result = backendMatcher.match('శనగపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('item-1772260869574-x9y3z2');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should prefer i18n translation over item.nameTe when both exist', () => {
+      // Create items where i18n returns a different name than nameTe
+      const itemsWithBoth: Item[] = [
+        {
+          id: 'dal-i18n',
+          categoryId: 'dal-pulses',
+          name: 'Toor Dal',
+          nameTe: 'తూర్ దాల్ బ్యాక్‌ఎండ్',
+          unit: 'kg',
+          defaultQuantity: 1,
+        },
+      ];
+
+      // i18n returns a valid translation (not the itemId)
+      const i18nWithTranslation = (itemId: string): string => {
+        if (itemId === 'dal-i18n') return 'కందిపప్పు';
+        return itemId;
+      };
+
+      const mixedMatcher = new FuzzyMatcher(itemsWithBoth, i18nWithTranslation);
+
+      // nameTe should take priority since it's from the backend
+      // But the item should still be matchable via nameTe
+      const result = mixedMatcher.match('తూర్ దాల్ బ్యాక్‌ఎండ్', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('dal-i18n');
+    });
+
+    it('should fuzzy match against item.nameTe with OCR vowel variations', () => {
+      // OCR might confuse long/short vowels in the nameTe value
+      // కందిపప్పు with slight vowel variation should still match
+      const result = backendMatcher.match('కంది పప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('item-1772260869572-n5u64o0');
+      expect(result.confidenceScore).toBeGreaterThanOrEqual(65);
+    });
+
+    it('should match Telugu synonym even when nameTe is the primary source', () => {
+      const backendItemsWithSynonyms: Item[] = [
+        {
+          id: 'item-backend-dal',
+          categoryId: 'dal-pulses',
+          name: 'Toor Dal',
+          nameTe: 'తూర్ దాల్',
+          unit: 'kg',
+          defaultQuantity: 1,
+        },
+      ];
+
+      const synonyms: Record<string, string[]> = {
+        'item-backend-dal': ['కందిపప్పు'],
+      };
+
+      const matcherWithSynonyms = new FuzzyMatcher(
+        backendItemsWithSynonyms,
+        noI18nTranslation,
+        (id) => synonyms[id] || []
+      );
+
+      // Should match via synonym even though nameTe is different
+      const result = matcherWithSynonyms.match('కందిపప్పు', 'te');
+      expect(result.matchedItem).not.toBeNull();
+      expect(result.matchedItem?.id).toBe('item-backend-dal');
+      expect(result.confidence).toBe('exact');
+    });
+
+    it('should handle items with no nameTe and no i18n gracefully', () => {
+      const itemsWithoutTelugu: Item[] = [
+        {
+          id: 'item-no-telugu',
+          categoryId: 'dal-pulses',
+          name: 'Some Item',
+          // No nameTe field
+          unit: 'kg',
+          defaultQuantity: 1,
+        },
+      ];
+
+      const noTeluguMatcher = new FuzzyMatcher(itemsWithoutTelugu, noI18nTranslation);
+      const result = noTeluguMatcher.match('కందిపప్పు', 'te');
+      expect(result.confidence).toBe('none');
+      expect(result.matchedItem).toBeNull();
+    });
+
+    it('should match all scanned Telugu items correctly (real-world scenario)', () => {
+      // Simulates a full scan of 4 Telugu items matching to 4 different backend items
+      const results = backendMatcher.matchAll(
+        ['కందిపప్పు', 'పెసరపప్పు', 'శనగపప్పు', 'బాస్మతి బియ్యం'],
+        'te'
+      );
+
+      expect(results).toHaveLength(4);
+      expect(results[0].matchedItem?.id).toBe('item-1772260869572-n5u64o0');
+      expect(results[1].matchedItem?.id).toBe('item-1772260869573-a8b2c1');
+      expect(results[2].matchedItem?.id).toBe('item-1772260869574-x9y3z2');
+      expect(results[3].matchedItem?.id).toBe('item-1772260869575-m4n5o6');
+
+      // All should be exact matches
+      results.forEach((r) => {
+        expect(r.confidence).toBe('exact');
+        expect(r.matchedItem).not.toBeNull();
+      });
+
+      // All should match to DIFFERENT items
+      const matchedIds = results.map((r) => r.matchedItem?.id);
+      const uniqueIds = new Set(matchedIds);
+      expect(uniqueIds.size).toBe(4);
     });
   });
 });

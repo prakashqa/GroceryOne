@@ -4,7 +4,7 @@
  * Default view shows all carts with quick filters for Today, Yesterday, and date picker
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   FlatList,
   Alert,
   Platform,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,7 +34,10 @@ import {
   setActiveCart,
   deleteCart,
   renameCart,
+  syncCartsFromBackend,
 } from '../../../store/slices/multiCartSlice';
+import { selectTenant } from '../../../store/slices/tenantSlice';
+import { useGetCartsQuery } from '../../../data/api/cartApi';
 import { ManagedCart } from '../../../domain/types/picking';
 import CartListItem from '../../components/picking/CartListItem';
 import CreateCartModal from '../../components/picking/CreateCartModal';
@@ -64,6 +69,53 @@ const ManageCartsScreen: React.FC = () => {
   const todaysCarts = useSelector(selectTodaysCarts, shallowEqual);
   const yesterdaysCarts = useSelector(selectYesterdaysCarts, shallowEqual);
   const sortedCarts = useSelector(selectCartsSortedByDate);
+  const tenant = useSelector(selectTenant);
+
+  // Fetch carts from backend API (skip when tenant context is unavailable)
+  const skipQuery = !tenant?.slug;
+  const {
+    data: backendCarts,
+    isLoading: isApiLoading,
+    isFetching,
+    refetch,
+  } = useGetCartsQuery({}, { skip: skipQuery });
+
+  // Sync backend carts to Redux store when data arrives
+  useEffect(() => {
+    if (backendCarts && backendCarts.length > 0) {
+      dispatch(
+        syncCartsFromBackend({
+          carts: backendCarts.map((cart) => ({
+            id: cart.id,
+            name: cart.name,
+            status: cart.status,
+            createdAt: cart.createdAt,
+            updatedAt: cart.updatedAt,
+            paidAt: cart.paidAt,
+            paidAmount: cart.paidAmount,
+            items: cart.items.map((item) => ({
+              itemId: item.itemId,
+              quantity: item.quantity,
+              priceSnapshot: item.priceSnapshot,
+              addedAt: item.addedAt,
+              item: item.item
+                ? {
+                    id: item.item.id,
+                    categoryId: item.item.category?.id || item.item.categoryId,
+                    name: item.item.name,
+                    nameTe: item.item.nameTe,
+                    unit: item.item.unit,
+                    defaultQuantity: item.item.defaultQuantity,
+                    price: item.item.price,
+                  }
+                : undefined,
+            })),
+          })),
+          replaceAll: true, // Full replace — ManageCartsScreen needs complete view
+        })
+      );
+    }
+  }, [backendCarts, dispatch]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -216,9 +268,12 @@ const ManageCartsScreen: React.FC = () => {
   }, []);
 
   const handleDateChange = useCallback(
-    (_event: unknown, date?: Date) => {
+    (event: { type: string }, date?: Date) => {
       setShowDatePicker(Platform.OS === 'ios');
-      if (date) {
+      // Only update filter when user explicitly selects a date (event.type === 'set').
+      // On Android v8+, dismiss still provides a date value — checking event.type
+      // prevents silently switching filter to 'custom' when picker is dismissed.
+      if (event.type === 'set' && date) {
         setSelectedDate(date);
         setDateFilter('custom');
       }
@@ -281,6 +336,19 @@ const ManageCartsScreen: React.FC = () => {
         };
     }
   }, [allCarts.length, dateFilter, t]);
+
+  const renderLoadingState = useCallback(
+    () => (
+      <View style={[styles.emptyContainer, { paddingHorizontal: theme.spacing.xl + theme.spacing.sm }]}>
+        <ActivityIndicator
+          size="large"
+          color={theme.colors.primary}
+          testID="carts-loading-indicator"
+        />
+      </View>
+    ),
+    [theme]
+  );
 
   const renderEmptyState = useCallback(
     () => {
@@ -425,8 +493,15 @@ const ManageCartsScreen: React.FC = () => {
             filteredCarts.length === 0 && styles.listContentEmpty,
           ]}
           columnWrapperStyle={responsiveStyles.listColumns > 1 ? { gap: responsiveStyles.gridGap } : undefined}
-          ListEmptyComponent={renderEmptyState}
+          ListEmptyComponent={isApiLoading ? renderLoadingState : renderEmptyState}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isFetching && !isApiLoading}
+              onRefresh={refetch}
+              testID="carts-refresh-control"
+            />
+          }
         />
       </View>
 

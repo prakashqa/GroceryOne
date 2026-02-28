@@ -397,6 +397,42 @@ describe('reportCalculations', () => {
       expect(result).toHaveLength(1);
       expect(result[0].itemId).toBe('item1');
     });
+
+    it('should handle floating-point precision in quantity aggregation', () => {
+      // In JS: 1.1 + 2.2 = 3.3000000000000003 — must round to 3.3
+      const carts: ManagedCart[] = [
+        createMockCart('1', 'paid', [
+          createMockCartItem('item1', CAT_GRAINS, 'Paneer', 1.1, 400),
+        ], '2024-01-15T10:00:00.000Z', 440),
+        createMockCart('2', 'paid', [
+          createMockCartItem('item1', CAT_GRAINS, 'Paneer', 2.2, 400),
+        ], '2024-01-15T11:00:00.000Z', 880),
+      ];
+
+      const result = calculateTopProducts(carts, mockCategories);
+
+      expect(result[0].quantity).toBe(3.3);
+      expect(String(result[0].quantity)).toBe('3.3');
+    });
+
+    it('should handle floating-point precision in revenue aggregation', () => {
+      // In JS: 0.1 * 33 = 3.3000000000000003 — per-item revenue has fp error
+      // Accumulated across carts, errors compound
+      const carts: ManagedCart[] = [
+        createMockCart('1', 'paid', [
+          createMockCartItem('item1', CAT_GRAINS, 'Spice', 1.1, 100),
+        ], '2024-01-15T10:00:00.000Z', 110),
+        createMockCart('2', 'paid', [
+          createMockCartItem('item1', CAT_GRAINS, 'Spice', 2.2, 100),
+        ], '2024-01-15T11:00:00.000Z', 220),
+      ];
+
+      const result = calculateTopProducts(carts, mockCategories);
+
+      // 1.1*100 + 2.2*100 = 110 + 220 = 330 (clean in this case)
+      // But quantity must be rounded: 1.1 + 2.2 = 3.3 not 3.3000000000000003
+      expect(result[0].quantity).toBe(3.3);
+    });
   });
 
   describe('calculateCategoryBreakdown', () => {

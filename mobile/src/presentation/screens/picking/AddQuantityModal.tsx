@@ -24,6 +24,8 @@ import {
   getAlternateUnit,
   normalizeToBaseUnit,
   getPresetQuantitiesForUnit,
+  formatQuantityWithUnit,
+  getBaseUnit,
   type ItemUnit,
 } from '../../../domain/utils/unitConversion';
 import { useTheme } from '../../theme';
@@ -33,8 +35,11 @@ import { useResponsiveStyles } from '../../../hooks';
 interface AddQuantityModalProps {
   visible: boolean;
   item: Item | null;
+  quantityInCart?: number;
+  displayUnitInCart?: ItemUnit;
   onClose: () => void;
   onAddToCart: (item: Item, quantity: number, displayUnit?: ItemUnit) => void;
+  onRemove?: (itemId: string) => void;
 }
 
 // Get category display name for title
@@ -48,8 +53,11 @@ const getCategoryDisplayName = (categoryId: string): string => {
 const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
   visible,
   item,
+  quantityInCart = 0,
+  displayUnitInCart,
   onClose,
   onAddToCart,
+  onRemove,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation('common');
@@ -138,6 +146,16 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
   const showUnitToggle = item && isConvertibleUnit(item.unit);
   const alternateUnit = item ? getAlternateUnit(item.unit) : null;
 
+  // Format cart quantity for display in banner
+  const isInCart = quantityInCart > 0;
+  const formattedCartQty = item && isInCart
+    ? formatQuantityWithUnit(
+        quantityInCart,
+        getBaseUnit(item.unit),
+        displayUnitInCart || item.unit
+      ).formatted
+    : '';
+
   // Reset state when modal opens or item changes
   useEffect(() => {
     if (visible && item) {
@@ -186,6 +204,12 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
 
     setCustomQuantity(sanitizedText);
   }, [selectedUnit]);
+
+  const handleRemove = useCallback(() => {
+    if (!item || !onRemove) return;
+    onRemove(item.id);
+    onClose();
+  }, [item, onRemove, onClose]);
 
   const handleAddToCart = useCallback(() => {
     if (!item) return;
@@ -245,6 +269,35 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
                     <Text style={[styles.closeButtonText, dynamicStyles.closeButtonText, { color: theme.colors.textSecondary }]}>×</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* In Cart Banner */}
+                {isInCart && (
+                  <View
+                    style={[
+                      styles.inCartBanner,
+                      {
+                        backgroundColor: theme.colors.successBackground,
+                        borderRadius: theme.borderRadius.sm,
+                        padding: theme.spacing.smd,
+                        marginBottom: theme.spacing.md,
+                      },
+                    ]}
+                    testID="in-cart-banner"
+                  >
+                    <Text
+                      style={[
+                        styles.inCartBannerText,
+                        {
+                          color: theme.colors.text,
+                          fontSize: Math.round(14 * responsiveStyles.fontScale),
+                          fontWeight: theme.typography.fontWeight.semibold,
+                        },
+                      ]}
+                    >
+                      {t('picking.inCartQty', { quantity: formattedCartQty })}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Unit Toggle (for kg/gm and L/ml) */}
                 {showUnitToggle && alternateUnit && (
@@ -381,15 +434,47 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                {/* Add to Cart Button */}
+                {/* Add to Cart / Update Cart Button */}
                 <TouchableOpacity
                   style={[styles.addToCartButton, dynamicStyles.addToCartButton, { backgroundColor: theme.colors.primary }]}
                   onPress={handleAddToCart}
                   testID="add-to-cart-button"
                 >
                   <Text style={[styles.cartIcon, dynamicStyles.cartIcon]}>🛒</Text>
-                  <Text style={[styles.addToCartText, dynamicStyles.addToCartText]}>{t('picking.addToCart')}</Text>
+                  <Text style={[styles.addToCartText, dynamicStyles.addToCartText]}>
+                    {isInCart ? t('picking.updateCart') : t('picking.addToCart')}
+                  </Text>
                 </TouchableOpacity>
+
+                {/* Remove from Cart Button */}
+                {isInCart && onRemove && (
+                  <TouchableOpacity
+                    style={[
+                      styles.removeButton,
+                      {
+                        borderColor: theme.colors.error || '#ff6b6b',
+                        borderRadius: theme.borderRadius.md,
+                        paddingVertical: Math.round(12 * responsiveStyles.fontScale),
+                        marginTop: theme.spacing.smd,
+                      },
+                    ]}
+                    onPress={handleRemove}
+                    testID="remove-from-cart-button"
+                  >
+                    <Text
+                      style={[
+                        styles.removeButtonText,
+                        {
+                          color: theme.colors.error || '#ff6b6b',
+                          fontSize: Math.round(14 * responsiveStyles.fontScale),
+                          fontWeight: theme.typography.fontWeight.semibold,
+                        },
+                      ]}
+                    >
+                      {t('picking.removeFromCart')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
@@ -500,6 +585,22 @@ const styles = StyleSheet.create({
   },
   addToCartText: {
     fontSize: 16,
+  },
+  inCartBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inCartBannerText: {
+    fontSize: 14,
+  },
+  removeButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    paddingVertical: 12,
+  },
+  removeButtonText: {
+    fontSize: 14,
   },
 });
 

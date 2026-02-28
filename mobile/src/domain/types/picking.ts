@@ -92,6 +92,7 @@ export interface MultiCartState {
   activeCartId: string | null;
   isHydrated: boolean;
   lastSyncedAt: string | null;
+  deletedCartIds: string[];
 }
 
 // =============================================================================

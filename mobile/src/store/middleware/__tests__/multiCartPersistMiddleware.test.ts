@@ -448,18 +448,18 @@ describe('multiCartPersistMiddleware', () => {
       expect(JSON.parse(fetchCall[1].body).quantity).toBe(4);
     });
 
-    it('should send PUT or DELETE when item is decremented via decrementItemInActiveCart', async () => {
+    it('should send DELETE when item is removed via decrementItemInActiveCart (minus = remove)', async () => {
       const store = createTestStore();
       await setupCartWithBackendAndItems(store);
 
-      mockApiSuccess({});
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
       store.dispatch(decrementItemInActiveCart('item-sync'));
       await advanceAndFlush();
 
-      const fetchCall = getFetchCall('PUT', '/items/');
+      // Decrement now removes the item entirely, so middleware sends DELETE
+      const fetchCall = getFetchCall('DELETE', '/items/item-sync');
       expect(fetchCall).toBeDefined();
-      // Item had qty 3, decrement by 1 = 2
-      expect(JSON.parse(fetchCall[1].body).quantity).toBe(2);
+      expect(fetchCall[0]).toBe(`${API_CONFIG.BASE_URL}/carts/backend-sync-uuid/items/item-sync`);
     });
   });
 

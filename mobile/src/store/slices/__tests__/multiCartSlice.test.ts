@@ -81,6 +81,7 @@ describe('multiCartSlice', () => {
     activeCartId: null,
     isHydrated: false,
     lastSyncedAt: null,
+    deletedCartIds: [],
   };
 
   // === Shared Mock Items ===
@@ -493,6 +494,105 @@ describe('multiCartSlice', () => {
 
       expect(state.activeCartId).toBe('cart-2');
     });
+
+    it('should add deleted cart ID to deletedCartIds', () => {
+      const stateWithCart: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const state = multiCartReducer(stateWithCart, deleteCart('cart-1'));
+      expect(state.deletedCartIds).toContain('cart-1');
+    });
+
+    it('should add backendId to deletedCartIds when cart has backendId', () => {
+      const stateWithCart: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          backendId: 'backend-uuid-123',
+          name: 'Cart 1',
+          items: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const state = multiCartReducer(stateWithCart, deleteCart('cart-1'));
+      expect(state.deletedCartIds).toContain('cart-1');
+      expect(state.deletedCartIds).toContain('backend-uuid-123');
+    });
+  });
+
+  describe('syncCartsFromBackend should respect deletedCartIds', () => {
+    it('should NOT restore a cart whose ID is in deletedCartIds', () => {
+      // Simulate: user deleted cart-1 locally, then backend sync arrives
+      const stateAfterDelete: MultiCartState = {
+        ...initialState,
+        carts: [],
+        activeCartId: null,
+        deletedCartIds: ['backend-uuid-1'],
+      };
+
+      const state = multiCartReducer(
+        stateAfterDelete,
+        syncCartsFromBackend({
+          carts: [createBackendCart('backend-uuid-1', 'Deleted Cart')],
+          replaceAll: true,
+        })
+      );
+
+      // The deleted cart should NOT be restored
+      expect(state.carts.find((c) => c.id === 'backend-uuid-1')).toBeUndefined();
+    });
+
+    it('should still restore non-deleted carts from backend', () => {
+      const stateAfterDelete: MultiCartState = {
+        ...initialState,
+        carts: [],
+        activeCartId: null,
+        deletedCartIds: ['backend-uuid-deleted'],
+      };
+
+      const state = multiCartReducer(
+        stateAfterDelete,
+        syncCartsFromBackend({
+          carts: [
+            createBackendCart('backend-uuid-deleted', 'Deleted Cart'),
+            createBackendCart('backend-uuid-kept', 'Kept Cart'),
+          ],
+          replaceAll: true,
+        })
+      );
+
+      expect(state.carts).toHaveLength(1);
+      expect(state.carts[0].id).toBe('backend-uuid-kept');
+    });
+  });
+
+  describe('clearDeletedCartId', () => {
+    it('should remove a cart ID from deletedCartIds', () => {
+      const stateWithDeletedIds: MultiCartState = {
+        ...initialState,
+        deletedCartIds: ['cart-1', 'backend-uuid-1'],
+      };
+
+      // Import clearDeletedCartId (will fail until implemented)
+      const { clearDeletedCartId } = require('../multiCartSlice');
+      const state = multiCartReducer(stateWithDeletedIds, clearDeletedCartId('cart-1'));
+      expect(state.deletedCartIds).not.toContain('cart-1');
+      expect(state.deletedCartIds).toContain('backend-uuid-1');
+    });
   });
 
   describe('renameCart', () => {
@@ -842,7 +942,7 @@ describe('multiCartSlice', () => {
       expect(state.carts[0].items).toHaveLength(0);
     });
 
-    it('should decrement by default quantity when quantity is greater', () => {
+    it('should remove item entirely when quantity is greater than default', () => {
       const stateWithItem: MultiCartState = {
         ...initialState,
         carts: [{
@@ -859,7 +959,47 @@ describe('multiCartSlice', () => {
       const action = decrementItemInActiveCart(mockItem.id);
       const state = multiCartReducer(stateWithItem, action);
 
-      expect(state.carts[0].items[0].quantity).toBe(5);
+      expect(state.carts[0].items).toHaveLength(0);
+    });
+
+    it('should remove item regardless of quantity amount (e.g. 20kg)', () => {
+      const stateWithItem: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [{ item: mockItem, quantity: 20, addedAt: new Date().toISOString() }],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const action = decrementItemInActiveCart(mockItem.id);
+      const state = multiCartReducer(stateWithItem, action);
+
+      expect(state.carts[0].items).toHaveLength(0);
+    });
+
+    it('should remove item when quantity was added via modal (non-default quantity)', () => {
+      const stateWithItem: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-1',
+          name: 'Cart 1',
+          items: [{ item: mockItem, quantity: 3, addedAt: new Date().toISOString() }],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'draft',
+        }],
+        activeCartId: 'cart-1',
+      };
+
+      const action = decrementItemInActiveCart(mockItem.id);
+      const state = multiCartReducer(stateWithItem, action);
+
+      expect(state.carts[0].items).toHaveLength(0);
     });
   });
 
@@ -907,8 +1047,8 @@ describe('multiCartSlice', () => {
       price: 340,
     };
 
-    it('should decrement gm item by base-unit equivalent of defaultQuantity', () => {
-      // 250gm = 0.25kg. Starting at 0.5kg, after decrement: 0.5 - 0.25 = 0.25kg
+    it('should remove gm item entirely regardless of quantity', () => {
+      // 250gm = 0.25kg. Starting at 0.5kg, decrement should remove item entirely
       const stateWithGmItem: MultiCartState = {
         ...initialState,
         carts: [{
@@ -925,7 +1065,7 @@ describe('multiCartSlice', () => {
       const action = decrementItemInActiveCart(mockGmItem.id);
       const state = multiCartReducer(stateWithGmItem, action);
 
-      expect(state.carts[0].items[0].quantity).toBeCloseTo(0.25);
+      expect(state.carts[0].items).toHaveLength(0);
     });
 
     it('should remove gm item when at base-unit default quantity', () => {
@@ -1221,7 +1361,7 @@ describe('multiCartSlice', () => {
         expect(state.carts[0].items[0].priceSnapshot).toBe(100.0);
       });
 
-      it('should preserve priceSnapshot when using decrementItemInActiveCart', () => {
+      it('should remove item entirely when using decrementItemInActiveCart', () => {
         const stateWithItem: MultiCartState = {
           ...stateWithActiveCart,
           carts: [{
@@ -1238,8 +1378,8 @@ describe('multiCartSlice', () => {
         const action = decrementItemInActiveCart('priced-1');
         const state = multiCartReducer(stateWithItem, action);
 
-        // priceSnapshot should be preserved after decrement
-        expect(state.carts[0].items[0].priceSnapshot).toBe(100.0);
+        // Decrement now removes item entirely (minus = remove)
+        expect(state.carts[0].items).toHaveLength(0);
       });
     });
 

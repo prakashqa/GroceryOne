@@ -26,6 +26,7 @@ import { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { PinLoginDto } from './dto/pin-login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResolveTenantDto } from './dto/resolve-tenant.dto';
 import { User } from '../users/entities/user.entity';
 
@@ -130,6 +131,25 @@ export class AuthController {
     }
 
     return this.authService.login(user);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token using refresh token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tokens refreshed successfully',
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1...',
+        refreshToken: 'eyJhbGciOiJIUzI1...',
+        expiresIn: 3600,
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
   @Post('resolve-tenant')

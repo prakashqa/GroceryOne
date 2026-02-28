@@ -12,7 +12,7 @@ import {
   removeFromPendingSyncQueue,
   loadPendingSyncQueue,
 } from '../../utils/storage/multiCartStorage';
-import { updateCartBackendId } from '../slices/multiCartSlice';
+import { updateCartBackendId, clearDeletedCartId } from '../slices/multiCartSlice';
 import {
   operationStarted,
   operationCompleted,
@@ -151,9 +151,13 @@ const syncCartToBackend = async (
     // Build request body — tenantId is NOT included here because the backend
     // injects it server-side from the X-Tenant-ID header. Sending it in the body
     // triggers a 400 error due to forbidNonWhitelisted validation.
+    // Include createdAt to preserve original local creation timestamp on the backend.
+    // This ensures date-based filters (Today/Yesterday) remain accurate even when
+    // the sync is delayed (e.g., cart created yesterday but synced today).
     const requestBody = {
       name: cart.name,
       status: cart.status,
+      createdAt: cart.createdAt,
     };
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/carts`, {
@@ -722,6 +726,9 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
           try {
             await deleteCartFromBackend(backendId, storeAPI.getState);
             storeAPI.dispatch(operationCompleted({ type: 'cart', id: deletedCartId }));
+            // Clear deleted cart IDs so future syncs don't filter stale entries
+            storeAPI.dispatch(clearDeletedCartId(deletedCartId));
+            storeAPI.dispatch(clearDeletedCartId(backendId));
           } catch (error) {
             storeAPI.dispatch(operationFailed({
               type: 'cart',

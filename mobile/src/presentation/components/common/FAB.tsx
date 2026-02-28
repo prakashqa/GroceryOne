@@ -84,7 +84,7 @@ export const FAB: React.FC<FABProps> = ({
         accessibilityRole="button"
         testID={testID}
       >
-        <Icon name={icon as any} size="lg" color="textInverse" />
+        <Icon name={icon as any} size="lg" color="onPrimary" />
       </TouchableOpacity>
     </Animated.View>
   );

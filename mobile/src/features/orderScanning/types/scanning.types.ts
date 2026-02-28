@@ -23,7 +23,45 @@ export type ItemUnit = 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
 /**
  * Processing steps for the scanning pipeline
  */
-export type ProcessingStep = 'ocr' | 'parsing' | 'matching';
+export type ProcessingStep = 'ocr' | 'parsing' | 'matching' | 'retrying';
+
+/**
+ * Classified error types for the scanning pipeline
+ */
+export type ScanErrorType =
+  | 'timeout'
+  | 'offline'
+  | 'cancelled'
+  | 'api_error'
+  | 'no_text'
+  | 'no_items'
+  | 'unknown';
+
+/**
+ * Structured error with type, message, and retry metadata
+ */
+export interface ScanError {
+  type: ScanErrorType;
+  message: string;
+  retryable: boolean;
+  statusCode?: number;
+}
+
+/**
+ * Default error metadata per type (message fallbacks and retry policy)
+ */
+export const SCAN_ERROR_CONFIG: Record<
+  ScanErrorType,
+  { defaultMessage: string; retryable: boolean }
+> = {
+  timeout: { defaultMessage: 'Request timed out. Please try again.', retryable: true },
+  offline: { defaultMessage: 'No internet connection.', retryable: true },
+  cancelled: { defaultMessage: 'Scan cancelled.', retryable: false },
+  api_error: { defaultMessage: 'Server error. Please try again.', retryable: true },
+  no_text: { defaultMessage: 'No text detected in image.', retryable: false },
+  no_items: { defaultMessage: 'No items could be parsed.', retryable: false },
+  unknown: { defaultMessage: 'Something went wrong.', retryable: true },
+};
 
 /**
  * Session status for tracking scan progress
@@ -59,6 +97,7 @@ export interface OcrResult {
   detectedLanguage: DetectedLanguage;
   textBlocks?: OcrTextBlock[];
   error?: string;
+  errorType?: ScanErrorType;
 }
 
 /**
@@ -124,6 +163,9 @@ export interface ScanState {
   isProcessing: boolean;
   processingStep: ProcessingStep | null;
   error: string | null;
+  scanError: ScanError | null;
+  retryAttempt: number;
+  maxRetries: number;
 }
 
 /**

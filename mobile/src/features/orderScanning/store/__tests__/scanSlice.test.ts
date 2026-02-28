@@ -20,8 +20,13 @@ import scanReducer, {
   selectProcessingStep,
   selectMatchResults,
   selectError,
+  setScanError,
+  setRetryState,
+  selectScanError,
+  selectRetryAttempt,
+  selectMaxRetries,
 } from '../scanSlice';
-import { ScanState, OcrResult, MatchResult, MatchConfidence } from '../../types/scanning.types';
+import { ScanState, ScanError, OcrResult, MatchResult, MatchConfidence } from '../../types/scanning.types';
 import { Item } from '../../../../domain/types/picking';
 
 // Mock items for testing
@@ -61,6 +66,9 @@ describe('scanSlice', () => {
     isProcessing: false,
     processingStep: null,
     error: null,
+    scanError: null,
+    retryAttempt: 0,
+    maxRetries: 2,
   };
 
   describe('initial state', () => {
@@ -381,6 +389,13 @@ describe('scanSlice', () => {
         isProcessing: true,
         processingStep: 'matching',
         error: 'Some error',
+        scanError: {
+          type: 'api_error',
+          message: 'Server error',
+          retryable: true,
+        },
+        retryAttempt: 2,
+        maxRetries: 2,
         currentSession: {
           id: 'test',
           imageUri: 'test.jpg',
@@ -413,6 +428,13 @@ describe('scanSlice', () => {
         isProcessing: true,
         processingStep: 'matching' as const,
         error: 'Test error',
+        scanError: {
+          type: 'timeout' as const,
+          message: 'Request timed out',
+          retryable: true,
+        },
+        retryAttempt: 1,
+        maxRetries: 2,
       },
     };
 
@@ -439,6 +461,171 @@ describe('scanSlice', () => {
 
     it('selectError should return error', () => {
       expect(selectError(mockRootState)).toBe('Test error');
+    });
+
+    it('selectScanError should return structured scan error', () => {
+      expect(selectScanError(mockRootState)).toEqual({
+        type: 'timeout',
+        message: 'Request timed out',
+        retryable: true,
+      });
+    });
+
+    it('selectScanError should return null when no error', () => {
+      const noErrorState = {
+        scan: { ...mockRootState.scan, scanError: null },
+      };
+      expect(selectScanError(noErrorState)).toBeNull();
+    });
+
+    it('selectRetryAttempt should return current retry attempt', () => {
+      expect(selectRetryAttempt(mockRootState)).toBe(1);
+    });
+
+    it('selectMaxRetries should return max retries', () => {
+      expect(selectMaxRetries(mockRootState)).toBe(2);
+    });
+  });
+
+  describe('setScanError', () => {
+    it('should set structured scan error with type, message, and retryable', () => {
+      const stateWithSession: ScanState = {
+        ...initialState,
+        isProcessing: true,
+        processingStep: 'ocr',
+        currentSession: {
+          id: 'test',
+          imageUri: 'test.jpg',
+          status: 'processing',
+          matchResults: [],
+          selectedCartId: null,
+          ocrResult: null,
+          createdAt: new Date().toISOString(),
+        },
+      };
+
+      const scanError: ScanError = {
+        type: 'timeout',
+        message: 'Request timed out. Please try again.',
+        retryable: true,
+      };
+
+      const state = scanReducer(stateWithSession, setScanError(scanError));
+
+      expect(state.scanError).toEqual(scanError);
+      expect(state.isProcessing).toBe(false);
+      expect(state.currentSession?.status).toBe('error');
+    });
+
+    it('should set non-retryable error for cancelled scans', () => {
+      const stateWithSession: ScanState = {
+        ...initialState,
+        isProcessing: true,
+        currentSession: {
+          id: 'test',
+          imageUri: 'test.jpg',
+          status: 'processing',
+          matchResults: [],
+          selectedCartId: null,
+          ocrResult: null,
+          createdAt: new Date().toISOString(),
+        },
+      };
+
+      const scanError: ScanError = {
+        type: 'cancelled',
+        message: 'Scan cancelled.',
+        retryable: false,
+      };
+
+      const state = scanReducer(stateWithSession, setScanError(scanError));
+
+      expect(state.scanError?.type).toBe('cancelled');
+      expect(state.scanError?.retryable).toBe(false);
+      expect(state.isProcessing).toBe(false);
+    });
+
+    it('should preserve statusCode when provided', () => {
+      const scanError: ScanError = {
+        type: 'api_error',
+        message: 'Server error',
+        retryable: true,
+        statusCode: 503,
+      };
+
+      const state = scanReducer(initialState, setScanError(scanError));
+
+      expect(state.scanError?.statusCode).toBe(503);
+    });
+  });
+
+  describe('setRetryState', () => {
+    it('should set retry attempt and max retries', () => {
+      const state = scanReducer(
+        initialState,
+        setRetryState({ attempt: 1, maxRetries: 3 })
+      );
+
+      expect(state.retryAttempt).toBe(1);
+      expect(state.maxRetries).toBe(3);
+    });
+
+    it('should update retry attempt on subsequent retries', () => {
+      const stateAfterFirstRetry: ScanState = {
+        ...initialState,
+        retryAttempt: 1,
+        maxRetries: 3,
+      };
+
+      const state = scanReducer(
+        stateAfterFirstRetry,
+        setRetryState({ attempt: 2, maxRetries: 3 })
+      );
+
+      expect(state.retryAttempt).toBe(2);
+    });
+  });
+
+  describe('startSession clears error/retry state', () => {
+    it('should clear scanError and retryAttempt when starting a new session', () => {
+      const stateWithError: ScanState = {
+        ...initialState,
+        scanError: {
+          type: 'timeout',
+          message: 'Request timed out',
+          retryable: true,
+        },
+        retryAttempt: 2,
+        error: 'old error',
+      };
+
+      const state = scanReducer(stateWithError, startSession('new-image.jpg'));
+
+      expect(state.scanError).toBeNull();
+      expect(state.retryAttempt).toBe(0);
+      expect(state.error).toBeNull();
+    });
+  });
+
+  describe('clearSession clears error/retry state', () => {
+    it('should clear scanError and retryAttempt when clearing session', () => {
+      const stateWithError: ScanState = {
+        ...initialState,
+        scanError: {
+          type: 'offline',
+          message: 'No internet',
+          retryable: true,
+        },
+        retryAttempt: 1,
+        isProcessing: true,
+        error: 'some error',
+      };
+
+      const state = scanReducer(stateWithError, clearSession());
+
+      expect(state.scanError).toBeNull();
+      expect(state.retryAttempt).toBe(0);
+      expect(state).toEqual(initialState);
     });
   });
 });

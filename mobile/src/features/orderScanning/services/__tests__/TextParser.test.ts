@@ -866,4 +866,49 @@ describe('TextParser', () => {
       expect(results[1].language).toBe('en');
     });
   });
+
+  describe('minimum item name length filter', () => {
+    it('should filter out single character OCR artifact "a"', () => {
+      const lines = ['Atta 5 kg', 'a', 'Sugar 500 gm'];
+      const results = parser.parseLines(lines, 'en');
+      expect(results).toHaveLength(2);
+      expect(results.map((r) => r.itemName)).toEqual(['Atta', 'Sugar']);
+    });
+
+    it('should filter out two character OCR artifact "ab"', () => {
+      const lines = ['ab', 'Toor Dal 1 kg'];
+      const results = parser.parseLines(lines, 'en');
+      expect(results).toHaveLength(1);
+      expect(results[0].itemName).toBe('Toor Dal');
+    });
+
+    it('should filter out single character OCR artifacts "k" and "x"', () => {
+      const lines = ['k', 'Atta 5 kg', 'x', 'Sugar 500 gm'];
+      const results = parser.parseLines(lines, 'en');
+      expect(results).toHaveLength(2);
+    });
+
+    it('should NOT filter out three character item name "Dal"', () => {
+      const lines = ['Dal 1 kg'];
+      const results = parser.parseLines(lines, 'en');
+      expect(results).toHaveLength(1);
+      expect(results[0].itemName).toBe('Dal');
+    });
+
+    it('should NOT filter out short Telugu item names (multi-codepoint)', () => {
+      // "రవ్వ" (ravva) = 4 Unicode code points — should NOT be filtered
+      const lines = ['రవ్వ 1 kg'];
+      const results = parser.parseLines(lines, 'te');
+      expect(results).toHaveLength(1);
+      expect(results[0].itemName).toBe('రవ్వ');
+    });
+
+    it('should filter out item name that becomes too short after quantity extraction', () => {
+      // "ab 5 kg" → itemName = "ab" (2 chars) → should be filtered
+      const lines = ['ab 5 kg', 'Atta 5 kg'];
+      const results = parser.parseLines(lines, 'en');
+      expect(results).toHaveLength(1);
+      expect(results[0].itemName).toBe('Atta');
+    });
+  });
 });

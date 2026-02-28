@@ -40,6 +40,7 @@ import {
   addItemToActiveCart,
   incrementItemInActiveCart,
   decrementItemInActiveCart,
+  removeItemFromActiveCart,
   selectActiveCart,
   selectActiveCartItems,
   selectActiveCartItemCount,
@@ -134,9 +135,11 @@ const PickingScreen: React.FC = () => {
     });
   }, [i18n.language]);
 
-  // Create default cart if none exists
+  // Create default cart if none exists (once per mount only)
+  const hasAutoCreatedRef = useRef(false);
   React.useEffect(() => {
-    if (totalCartCount === 0) {
+    if (totalCartCount === 0 && !hasAutoCreatedRef.current) {
+      hasAutoCreatedRef.current = true;
       dispatch(createCart({ name: t('picking.defaultCart') }));
     }
   }, [totalCartCount, dispatch, t]);
@@ -257,6 +260,23 @@ const PickingScreen: React.FC = () => {
     },
     [dispatch]
   );
+
+  const handleModalRemove = useCallback(
+    (itemId: string) => {
+      dispatch(removeItemFromActiveCart(itemId));
+    },
+    [dispatch]
+  );
+
+  // Compute selected item's cart state for the modal
+  const selectedItemCartState = useMemo(() => {
+    if (!selectedItem) return { quantity: 0, displayUnit: undefined };
+    const cartItem = cartItems.find((ci) => ci.item.id === selectedItem.id);
+    return {
+      quantity: cartItem?.quantity || 0,
+      displayUnit: cartItem?.displayUnit || undefined,
+    };
+  }, [selectedItem, cartItems]);
 
   const handleGoToManageCarts = useCallback(() => {
     navigation.navigate('ManageCarts');
@@ -439,8 +459,11 @@ const PickingScreen: React.FC = () => {
       <AddQuantityModal
         visible={modalVisible}
         item={selectedItem}
+        quantityInCart={selectedItemCartState.quantity}
+        displayUnitInCart={selectedItemCartState.displayUnit}
         onClose={handleModalClose}
         onAddToCart={handleModalAddToCart}
+        onRemove={handleModalRemove}
       />
 
       <NewCartConfirmModal

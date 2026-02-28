@@ -71,7 +71,7 @@ const ICON_MAP = {
 
 export type IconName = keyof typeof ICON_MAP;
 export type IconSize = 'sm' | 'md' | 'lg' | 'xl';
-export type IconColor = 'icon' | 'primary' | 'secondary' | 'error' | 'warning' | 'success' | 'text' | 'textInverse';
+export type IconColor = 'icon' | 'primary' | 'secondary' | 'error' | 'warning' | 'success' | 'text' | 'textInverse' | 'onPrimary';
 
 const SIZE_MAP: Record<IconSize, number> = {
   sm: 16,
@@ -113,6 +113,8 @@ export const Icon: React.FC<IconProps> = ({
         return theme.colors.text;
       case 'textInverse':
         return theme.colors.textInverse;
+      case 'onPrimary':
+        return '#FFFFFF'; // Always white — Material Design FAB standard
       case 'icon':
       default:
         return theme.colors.icon;

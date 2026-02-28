@@ -121,7 +121,7 @@ const ProductItem: React.FC<ProductItemProps> = ({ product, rank }) => {
             fontSize: theme.typography.fontSize.sm,
           }]}
         >
-          {product.quantity} sold
+          {parseFloat(product.quantity.toFixed(2))} sold
         </Text>
       </View>
     </View>

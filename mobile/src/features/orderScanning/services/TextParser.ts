@@ -286,7 +286,8 @@ export class TextParser {
       if (this.isNonItemLine(trimmed)) continue;
 
       const parsed = this.parseLine(line, language, validItemIndex++);
-      if (parsed.itemName.trim() !== '') {
+      const trimmedName = parsed.itemName.trim();
+      if (trimmedName.length >= 3) {
         results.push(parsed);
       }
     }

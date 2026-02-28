@@ -189,8 +189,8 @@ export const calculateTopProducts = (
         itemNameTe: product.itemNameTe,
         categoryId: product.categoryId,
         categoryName: category?.name,
-        quantity: product.quantity,
-        revenue: product.revenue,
+        quantity: parseFloat(product.quantity.toFixed(2)),
+        revenue: parseFloat(product.revenue.toFixed(2)),
         cartAppearances: product.cartAppearances.size,
       };
     }
@@ -258,9 +258,9 @@ export const calculateCategoryBreakdown = (
         categoryName: category?.name || 'Uncategorized',
         categoryNameTe: category?.nameTe,
         categoryIcon: category?.icon,
-        totalRevenue: catData.totalRevenue,
-        totalQuantity: catData.totalQuantity,
-        percentage: totalRevenue > 0 ? (catData.totalRevenue / totalRevenue) * 100 : 0,
+        totalRevenue: parseFloat(catData.totalRevenue.toFixed(2)),
+        totalQuantity: parseFloat(catData.totalQuantity.toFixed(2)),
+        percentage: totalRevenue > 0 ? parseFloat(((catData.totalRevenue / totalRevenue) * 100).toFixed(1)) : 0,
       };
     }
   );

@@ -3,7 +3,7 @@
  * Screen for reviewing and confirming scanned items before adding to cart
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -73,9 +73,11 @@ export const ScanReviewScreen: React.FC = () => {
     return allCarts.filter((c) => c.status !== 'paid' && c.status !== 'completed');
   }, [allCarts]);
 
-  // Auto-create a default cart if no editable carts exist
+  // Auto-create a default cart if no editable carts exist (once per mount only)
+  const hasAutoCreatedCartRef = useRef(false);
   React.useEffect(() => {
-    if (editableCarts.length === 0) {
+    if (editableCarts.length === 0 && !hasAutoCreatedCartRef.current) {
+      hasAutoCreatedCartRef.current = true;
       dispatch(createCart({ name: t('picking.defaultCart') }));
     }
   }, [editableCarts.length, dispatch, t]);
@@ -100,9 +102,11 @@ export const ScanReviewScreen: React.FC = () => {
     return { total, exact, matched, skipped, notFound };
   }, [matchResults]);
 
-  // Get items ready to add (matched and not skipped)
+  // Get items ready to add (matched, not skipped, and not low confidence)
   const itemsToAdd = useMemo(() => {
-    return matchResults.filter((m) => m.matchedItem && !m.isSkipped);
+    return matchResults.filter(
+      (m) => m.matchedItem && !m.isSkipped && m.confidence !== 'low' && m.confidence !== 'none'
+    );
   }, [matchResults]);
 
   // Filtered catalog items for item selector search
@@ -207,8 +211,20 @@ export const ScanReviewScreen: React.FC = () => {
       return;
     }
 
-    // Add each item to the active cart
+    // Deduplicate: keep only the highest-confidence match per catalog item
+    const deduped = new Map<string, MatchResult>();
     itemsToAdd.forEach((matchResult) => {
+      if (matchResult.matchedItem) {
+        const itemId = matchResult.matchedItem.id;
+        const existing = deduped.get(itemId);
+        if (!existing || matchResult.confidenceScore > (existing.confidenceScore ?? 0)) {
+          deduped.set(itemId, matchResult);
+        }
+      }
+    });
+
+    // Add each deduplicated item to the active cart
+    deduped.forEach((matchResult) => {
       if (matchResult.matchedItem) {
         const rawQuantity =
           matchResult.userOverride?.selectedQuantity ||

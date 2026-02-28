@@ -142,6 +142,9 @@
     "resultsFor": "{{count}} results for \"{{query}}\"",
     "selectQuantity": "Select Quantity",
     "addToCart": "Add to Cart",
+    "updateCart": "Update Cart",
+    "inCartQty": "{{quantity}} in cart",
+    "removeFromCart": "Remove from Cart",
     "cartEmpty": "Your Cart is Empty",
     "startAdding": "Start adding items to create your picking list",
     "browseItems": "Browse Items",
@@ -268,7 +271,19 @@
     "noActiveCart": "No active cart. Please create or select a cart.",
     "cartNotEditable": "The selected cart cannot be modified. Please select a different cart.",
     "addedToCart": "Added {{count}} items to cart",
-    "searchItems": "Search items..."
+    "searchItems": "Search items...",
+    "retry": "Try Again",
+    "retrying": "Retrying... ({{attempt}}/{{max}})",
+    "cancelScan": "Cancel",
+    "errors": {
+      "timeout": "Request timed out. Please try again.",
+      "offline": "No internet connection. Check your network and try again.",
+      "cancelled": "Scan cancelled.",
+      "api_error": "Server error. Please try again later.",
+      "no_text": "No text detected in the image. Try a clearer photo.",
+      "no_items": "No items could be found in the text.",
+      "unknown": "Something went wrong. Please try again."
+    }
   },
   "manageCarts": {
     "title": "Manage Carts",

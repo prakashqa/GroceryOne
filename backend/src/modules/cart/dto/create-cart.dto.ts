@@ -3,7 +3,7 @@
  * Note: tenantId is server-injected from authenticated context, not client-provided
  */
 
-import { IsString, IsOptional, IsUUID, IsEnum, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsEnum, IsISO8601, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CartStatus } from '../entities/cart.entity';
 
@@ -32,4 +32,12 @@ export class CreateCartDto {
   @IsOptional()
   @IsEnum(['draft', 'printed', 'paid', 'completed'])
   status?: CartStatus;
+
+  @ApiPropertyOptional({
+    description: 'Client-side creation timestamp (ISO 8601). Used to preserve the original creation time when the client syncs a cart that was created offline or with delayed connectivity.',
+    example: '2026-02-27T14:30:00.000Z',
+  })
+  @IsOptional()
+  @IsISO8601()
+  createdAt?: string;
 }

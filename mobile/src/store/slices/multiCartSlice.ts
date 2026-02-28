@@ -23,6 +23,7 @@ const initialState: MultiCartState = {
   activeCartId: null,
   isHydrated: false,
   lastSyncedAt: null,
+  deletedCartIds: [],
 };
 
 const multiCartSlice = createSlice({
@@ -68,6 +69,13 @@ const multiCartSlice = createSlice({
       const index = state.carts.findIndex((c) => c.id === cartId);
 
       if (index !== -1) {
+        // Track deleted IDs to prevent syncCartsFromBackend from restoring them
+        if (!state.deletedCartIds) state.deletedCartIds = [];
+        state.deletedCartIds.push(cartId);
+        if (cart?.backendId) {
+          state.deletedCartIds.push(cart.backendId);
+        }
+
         state.carts.splice(index, 1);
 
         // Handle active cart reassignment
@@ -251,8 +259,8 @@ const multiCartSlice = createSlice({
     },
 
     /**
-     * Decrement item quantity by its default quantity
-     * Removes item if quantity would be less than or equal to default
+     * Remove item from active cart via minus button
+     * Always removes the item entirely regardless of quantity
      * Note: Paid carts cannot be modified
      */
     decrementItemInActiveCart: (state, action: PayloadAction<string>) => {
@@ -270,17 +278,7 @@ const multiCartSlice = createSlice({
       );
 
       if (existingIndex >= 0) {
-        const cartItem = cart.items[existingIndex];
-        const { quantity: defaultQty } = normalizeToBaseUnit(
-          cartItem.item.defaultQuantity, cartItem.item.unit
-        );
-
-        if (cartItem.quantity <= defaultQty) {
-          cart.items = cart.items.filter((ci) => ci.item.id !== itemId);
-        } else {
-          cart.items[existingIndex].quantity -= defaultQty;
-        }
-
+        cart.items = cart.items.filter((ci) => ci.item.id !== itemId);
         cart.updatedAt = new Date().toISOString();
       }
     },
@@ -523,7 +521,9 @@ const multiCartSlice = createSlice({
             addedAt: item.addedAt,
             priceSnapshot: item.priceSnapshot,
           })),
-      }));
+      }))
+        // Exclude carts that were locally deleted but not yet confirmed by backend
+        .filter((c) => !(state.deletedCartIds ?? []).includes(c.id));
 
       if (replaceAll) {
         // Merge backend carts with local state, preserving local payment status.
@@ -536,20 +536,36 @@ const multiCartSlice = createSlice({
             (c) => c.id === backendCart.id || c.backendId === backendCart.id
           );
 
-          // LOCAL WINS: if local cart is paid/completed, preserve ALL payment state
-          // regardless of backend status (handles race condition during payment sync)
-          if (localCart && (localCart.status === 'paid' || localCart.status === 'completed')) {
-            const items = localCart.items.length > backendCart.items.length
-              ? localCart.items : backendCart.items;
-            return {
-              ...backendCart,
-              status: localCart.status,
-              paidAt: localCart.paidAt ?? backendCart.paidAt,
-              paidAmount: localCart.paidAmount ?? backendCart.paidAmount,
-              paidItemCount: localCart.paidItemCount ?? backendCart.paidItemCount,
-              paymentInfo: localCart.paymentInfo ?? backendCart.paymentInfo,
-              items,
-            };
+          if (localCart) {
+            // Preserve the earliest createdAt between local and backend.
+            // This handles delayed sync: cart created locally on Day 1 but
+            // synced to backend on Day 2 — keep the original Day 1 timestamp
+            // so date-based filters (Today/Yesterday) remain accurate.
+            const preservedCreatedAt =
+              localCart.createdAt && backendCart.createdAt
+                ? new Date(localCart.createdAt) < new Date(backendCart.createdAt)
+                  ? localCart.createdAt
+                  : backendCart.createdAt
+                : backendCart.createdAt;
+
+            // LOCAL WINS: if local cart is paid/completed, preserve ALL payment state
+            // regardless of backend status (handles race condition during payment sync)
+            if (localCart.status === 'paid' || localCart.status === 'completed') {
+              const items = localCart.items.length > backendCart.items.length
+                ? localCart.items : backendCart.items;
+              return {
+                ...backendCart,
+                createdAt: preservedCreatedAt,
+                status: localCart.status,
+                paidAt: localCart.paidAt ?? backendCart.paidAt,
+                paidAmount: localCart.paidAmount ?? backendCart.paidAmount,
+                paidItemCount: localCart.paidItemCount ?? backendCart.paidItemCount,
+                paymentInfo: localCart.paymentInfo ?? backendCart.paymentInfo,
+                items,
+              };
+            }
+
+            return { ...backendCart, createdAt: preservedCreatedAt };
           }
 
           return backendCart;
@@ -583,11 +599,20 @@ const multiCartSlice = createSlice({
         state.carts = state.carts.map((cart) => {
           const backendCart = convertedCarts.find((c) => c.id === cart.id);
           if (backendCart) {
+            // Preserve the earliest createdAt (handles delayed sync)
+            const preservedCreatedAt =
+              cart.createdAt && backendCart.createdAt
+                ? new Date(cart.createdAt) < new Date(backendCart.createdAt)
+                  ? cart.createdAt
+                  : backendCart.createdAt
+                : backendCart.createdAt;
+
             // LOCAL WINS: preserve paid/completed status and all payment metadata
             // Handles race condition where payment PUT hasn't reached backend yet
             if (cart.status === 'paid' || cart.status === 'completed') {
               return {
                 ...backendCart,
+                createdAt: preservedCreatedAt,
                 status: cart.status,
                 paidAt: cart.paidAt ?? backendCart.paidAt,
                 paidAmount: cart.paidAmount ?? backendCart.paidAmount,
@@ -597,17 +622,26 @@ const multiCartSlice = createSlice({
                   ? cart.items : backendCart.items,
               };
             }
-            return backendCart;
+            return { ...backendCart, createdAt: preservedCreatedAt };
           }
           // Check if a backend cart matches this local cart's backendId
           const matchByBackendId = convertedCarts.find((c) => c.id === cart.backendId);
           if (matchByBackendId) {
+            // Preserve the earliest createdAt (handles delayed sync)
+            const preservedCreatedAt =
+              cart.createdAt && matchByBackendId.createdAt
+                ? new Date(cart.createdAt) < new Date(matchByBackendId.createdAt)
+                  ? cart.createdAt
+                  : matchByBackendId.createdAt
+                : matchByBackendId.createdAt;
+
             // LOCAL WINS: preserve paid/completed status and all payment metadata
             if (cart.status === 'paid' || cart.status === 'completed') {
               return {
                 ...matchByBackendId,
                 id: cart.id,
                 backendId: cart.backendId,
+                createdAt: preservedCreatedAt,
                 status: cart.status,
                 paidAt: cart.paidAt ?? matchByBackendId.paidAt,
                 paidAmount: cart.paidAmount ?? matchByBackendId.paidAmount,
@@ -617,11 +651,12 @@ const multiCartSlice = createSlice({
                   ? cart.items : matchByBackendId.items,
               };
             }
-            // Merge backend data but preserve local id and backendId
+            // Merge backend data but preserve local id, backendId, and earliest createdAt
             return {
               ...matchByBackendId,
               id: cart.id,
               backendId: cart.backendId,
+              createdAt: preservedCreatedAt,
             };
           }
           return cart;
@@ -672,6 +707,14 @@ const multiCartSlice = createSlice({
      * NOT included in the middleware's PERSIST_ACTIONS or IMMEDIATE_PERSIST_ACTIONS.
      */
     clearMultiCartInMemory: () => initialState,
+
+    /**
+     * Remove a cart ID from the deletedCartIds list after backend DELETE succeeds.
+     * Called by the persist middleware once the backend confirms deletion.
+     */
+    clearDeletedCartId: (state, action: PayloadAction<string>) => {
+      state.deletedCartIds = (state.deletedCartIds ?? []).filter((id) => id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     // Reset multiCart to initialState when the user logs out.
@@ -706,6 +749,7 @@ export const {
   updateCartBackendId,
   resetMultiCart,
   clearMultiCartInMemory,
+  clearDeletedCartId,
 } = multiCartSlice.actions;
 
 // Selectors
