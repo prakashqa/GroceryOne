@@ -16,7 +16,7 @@ import Constants from 'expo-constants';
  *
  * Note: Constants.isDevice can be unreliable in Expo dev builds, so .env is preferred.
  */
-const LOCAL_MACHINE_IP = '192.168.0.104'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
+const LOCAL_MACHINE_IP = '192.168.0.102'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
 
 // Cloud Run production API URL
 const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1';
@@ -29,6 +29,11 @@ const getDevBaseUrl = (): string => {
   // Priority 0: Use cloud API if explicitly enabled
   if (USE_CLOUD_API) {
     return CLOUD_API_URL;
+  }
+
+  // Priority 0.5: Web browser runs on the same machine as the backend
+  if (Platform.OS === 'web') {
+    return 'http://localhost:3000/api/v1';
   }
 
   // Detect Android emulator: check Build.FINGERPRINT for "sdk" or "emulator" markers.
@@ -48,15 +53,19 @@ const getDevBaseUrl = (): string => {
     return 'http://10.0.2.2:3000/api/v1';
   }
 
-  // Priority 2: Explicit IP from .env — most reliable for physical devices on LAN
+  // Priority 2: Use LOCAL_MACHINE_IP for physical devices.
+  // This takes priority over Constants.expoConfig?.extra?.localApiIp because
+  // app.json values are embedded at native build time and become stale when
+  // the dev machine's IP changes. LOCAL_MACHINE_IP can be updated in code
+  // and picked up immediately on Metro reload without rebuilding.
+  if (LOCAL_MACHINE_IP) {
+    return `http://${LOCAL_MACHINE_IP}:3000/api/v1`;
+  }
+
+  // Priority 3: Fallback to app.json localApiIp (from native build)
   const envIp = Constants.expoConfig?.extra?.localApiIp;
   if (envIp) {
     return `http://${envIp}:3000/api/v1`;
-  }
-
-  // Priority 3: Physical device without .env IP — use hardcoded LAN IP fallback
-  if (Constants.isDevice) {
-    return `http://${LOCAL_MACHINE_IP}:3000/api/v1`;
   }
 
   // Priority 4: iOS simulator can reach the host via localhost directly.

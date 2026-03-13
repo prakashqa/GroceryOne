@@ -36,6 +36,19 @@ config.resolver.extraNodeModules = {
   'react-native-ping': path.resolve(projectRoot, 'shims', 'react-native-ping.js'),
 };
 
+// Web platform: redirect react-native-linear-gradient → shim that re-exports expo-linear-gradient
+// react-native-linear-gradient uses requireNativeComponent which crashes on web.
+// The shim provides both default and named exports to match the original API.
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && moduleName === 'react-native-linear-gradient') {
+    return {
+      type: 'sourceFile',
+      filePath: path.resolve(projectRoot, 'shims', 'react-native-linear-gradient.js'),
+    };
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 // Performance optimizations
 config.transformer = {
   ...config.transformer,

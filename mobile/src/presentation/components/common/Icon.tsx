@@ -67,6 +67,7 @@ const ICON_MAP = {
   sort: 'sort',
   more: 'dots-vertical',
   menu: 'menu',
+  inventory: 'warehouse',
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

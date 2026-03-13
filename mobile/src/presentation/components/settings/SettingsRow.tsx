@@ -33,6 +33,7 @@ const ICON_NAME_MAP: Record<string, IconName> = {
   category: 'category',
   items: 'item',
   user: 'user',
+  inventory: 'inventory',
 };
 
 const SettingsRow: React.FC<SettingsRowProps> = ({

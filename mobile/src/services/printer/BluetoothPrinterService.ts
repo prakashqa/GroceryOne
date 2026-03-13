@@ -7,7 +7,12 @@
 import { Platform, Alert } from 'react-native';
 // eslint-disable-next-line react-native/split-platform-components
 import { PermissionsAndroid } from 'react-native';
-import { BLEPrinter } from 'react-native-thermal-receipt-printer-image-qr';
+
+// Conditionally require native module — crashes on web
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const BLEPrinter = Platform.OS !== 'web'
+  ? require('react-native-thermal-receipt-printer-image-qr').BLEPrinter
+  : null;
 
 // Bluetooth device interface
 export interface BluetoothDevice {

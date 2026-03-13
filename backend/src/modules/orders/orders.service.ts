@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 /**
  * Validates that tenantId is provided
@@ -43,6 +44,7 @@ export class OrdersService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
     private readonly cartService: CartService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   /**
@@ -117,6 +119,13 @@ export class OrdersService {
       }),
     );
     await this.orderItemRepository.save(orderItems);
+
+    // Deduct stock for all order items
+    await this.inventoryService.deductStockForOrder(
+      orderItemsData.map((oi) => ({ itemId: oi.itemId, quantity: oi.quantity })),
+      savedOrder.id,
+      tenantId,
+    );
 
     // Deactivate the cart
     await this.cartService.update(cartId, { isActive: false }, tenantId);
@@ -227,6 +236,16 @@ export class OrdersService {
     order.cancelledAt = new Date();
 
     const saved = await this.orderRepository.save(order);
+
+    // Restore stock for all order items
+    if (order.items && order.items.length > 0) {
+      await this.inventoryService.restoreStockForOrder(
+        order.items.map((oi) => ({ itemId: oi.itemId, quantity: Number(oi.quantity) })),
+        id,
+        tenantId,
+      );
+    }
+
     this.logger.log(`Order ${order.orderNumber} cancelled: ${reason}`);
     return saved;
   }

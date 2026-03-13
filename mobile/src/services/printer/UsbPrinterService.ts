@@ -4,7 +4,13 @@
  * Uses react-native-thermal-receipt-printer-image-qr USBPrinter module
  */
 
-import { USBPrinter } from 'react-native-thermal-receipt-printer-image-qr';
+import { Platform } from 'react-native';
+
+// Conditionally require native module — crashes on web
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const USBPrinter = Platform.OS !== 'web'
+  ? require('react-native-thermal-receipt-printer-image-qr').USBPrinter
+  : null;
 
 // USB device interface
 export interface UsbDevice {

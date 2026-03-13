@@ -9,9 +9,9 @@
  * to a base64 PNG bitmap, which is then sent to the printer via printImageBase64().
  */
 
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
-const { ReceiptBitmap } = NativeModules;
+const ReceiptBitmap = Platform.OS !== 'web' ? NativeModules.ReceiptBitmap : null;
 
 /**
  * Render pre-formatted receipt text to a base64 PNG image using Android's native Canvas.

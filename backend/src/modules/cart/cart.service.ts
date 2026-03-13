@@ -10,6 +10,7 @@ import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { CreateCartDto, UpdateCartDto, AddCartItemDto, UpdateCartItemDto } from './dto';
 import { ProductsService } from '../products/products.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 /**
  * Validates that tenantId is provided
@@ -31,6 +32,7 @@ export class CartService {
     @InjectRepository(CartItem)
     private readonly cartItemRepository: Repository<CartItem>,
     private readonly productsService: ProductsService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   /**
@@ -204,12 +206,19 @@ export class CartService {
     });
 
     if (existingItem) {
+      // Validate stock for the additional quantity
+      const totalQuantity = Number(existingItem.quantity) + addCartItemDto.quantity;
+      await this.inventoryService.validateStock(addCartItemDto.itemId, totalQuantity, tenantId);
+
       // Update quantity instead of creating new
-      existingItem.quantity = Number(existingItem.quantity) + addCartItemDto.quantity;
+      existingItem.quantity = totalQuantity;
       const updated = await this.cartItemRepository.save(existingItem);
       this.logger.log(`Updated cart item quantity in cart ${cartId}: ${addCartItemDto.itemId}`);
       return updated;
     }
+
+    // Validate stock for the new item quantity
+    await this.inventoryService.validateStock(addCartItemDto.itemId, addCartItemDto.quantity, tenantId);
 
     const cartItem = this.cartItemRepository.create({
       cartId,
@@ -247,6 +256,11 @@ export class CartService {
       await this.cartItemRepository.delete(cartItem.id);
       this.logger.log(`Removed item from cart ${cartId}: ${itemId}`);
       return cartItem;
+    }
+
+    // Validate stock when increasing quantity
+    if (updateCartItemDto.quantity > Number(cartItem.quantity)) {
+      await this.inventoryService.validateStock(itemId, updateCartItemDto.quantity, tenantId);
     }
 
     cartItem.quantity = updateCartItemDto.quantity;

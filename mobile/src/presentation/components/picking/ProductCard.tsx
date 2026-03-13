@@ -52,6 +52,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const isInCart = quantityInCart > 0;
   const productName = getTranslatedItemName(item);
 
+  // Inventory status
+  const isStockTracked = item.trackInventory ?? false;
+  const isOutOfStock = isStockTracked && (item.stockQuantity ?? 0) <= 0;
+  const isLowStock = isStockTracked && !isOutOfStock
+    && (item.stockQuantity ?? 0) <= (item.lowStockThreshold ?? 10);
+
   // Quantity button size: meets WCAG 48px minimum
   const btnSize = isTablet ? 48 : 44;
   const btnHitSlop = { top: 6, bottom: 6, left: 6, right: 6 };
@@ -114,6 +120,64 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 ]}
               >
                 {t('picking.inCart')}
+              </Text>
+            </View>
+          )}
+          {/* Out of Stock Badge */}
+          {isOutOfStock && !isInCart && (
+            <View
+              style={[
+                styles.inCartBadge,
+                {
+                  backgroundColor: theme.colors.error || '#ff6b6b',
+                  borderRadius: theme.borderRadius.sm,
+                  paddingHorizontal: theme.spacing.sm,
+                  paddingVertical: theme.spacing.xs,
+                  marginBottom: theme.spacing.xs,
+                },
+              ]}
+              testID={testID ? `${testID}-out-of-stock` : undefined}
+            >
+              <Text
+                style={[
+                  styles.inCartText,
+                  {
+                    color: theme.colors.textInverse,
+                    fontSize: theme.typography.fontSize.xs,
+                    fontWeight: theme.typography.fontWeight.bold,
+                  },
+                ]}
+              >
+                {t('picking.outOfStock', { defaultValue: 'OUT OF STOCK' })}
+              </Text>
+            </View>
+          )}
+          {/* Low Stock Badge */}
+          {isLowStock && !isInCart && (
+            <View
+              style={[
+                styles.inCartBadge,
+                {
+                  backgroundColor: theme.colors.warning || '#f5a623',
+                  borderRadius: theme.borderRadius.sm,
+                  paddingHorizontal: theme.spacing.sm,
+                  paddingVertical: theme.spacing.xs,
+                  marginBottom: theme.spacing.xs,
+                },
+              ]}
+              testID={testID ? `${testID}-low-stock` : undefined}
+            >
+              <Text
+                style={[
+                  styles.inCartText,
+                  {
+                    color: theme.colors.textInverse,
+                    fontSize: theme.typography.fontSize.xs,
+                    fontWeight: theme.typography.fontWeight.bold,
+                  },
+                ]}
+              >
+                {t('picking.lowStock', { defaultValue: 'LOW STOCK' })}
               </Text>
             </View>
           )}
@@ -314,17 +378,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             style={[
               styles.addButton,
               {
-                backgroundColor: theme.colors.buttonPrimary,
+                backgroundColor: isOutOfStock ? theme.colors.textLight : theme.colors.buttonPrimary,
                 borderRadius: theme.borderRadius.xl,
                 paddingVertical: theme.spacing.sm,
                 paddingHorizontal: theme.spacing.lg,
-                opacity: isPending ? 0.5 : 1,
+                opacity: isPending || isOutOfStock ? 0.5 : 1,
               },
             ]}
             onPress={onAdd}
             activeOpacity={0.8}
-            disabled={isPending}
-            accessibilityLabel={`Add ${productName} to cart`}
+            disabled={isPending || isOutOfStock}
+            accessibilityLabel={isOutOfStock ? `${productName} out of stock` : `Add ${productName} to cart`}
             accessibilityRole="button"
             testID={testID ? `${testID}-add-button` : undefined}
           >

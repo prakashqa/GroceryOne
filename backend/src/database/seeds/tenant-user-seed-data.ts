@@ -72,6 +72,21 @@ export const SEED_TENANTS: TenantSeed[] = [
     currency: 'INR',
     timezone: 'Asia/Kolkata',
   },
+  {
+    name: 'Vijay Parcel POS',
+    slug: 'vijayparcelpos',
+    domain: 'vijayparcelpos.groceryone.local',
+    status: 'active',
+    subscriptionPlan: 'standard',
+    contactEmail: 'contact@vijayparcelpos.com',
+    contactPhone: '+91-9345678901',
+    primaryColor: '#FF5722',
+    secondaryColor: '#FF9800',
+    defaultLanguage: 'te',
+    supportedLanguages: ['te', 'en'],
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
+  },
 ];
 
 /**
@@ -130,6 +145,31 @@ export const SEED_USERS: UserSeed[] = [
     status: 'active',
     preferredLanguage: 'te',
   },
+  // Vijay Parcel POS Users
+  {
+    tenantSlug: 'vijayparcelpos',
+    email: 'admin@vijayparcelpos.com',
+    phone: '+91-9345678902',
+    password: 'Admin@VP123',
+    pin: '2468',
+    firstName: 'Vijay',
+    lastName: 'Reddy',
+    role: 'admin',
+    status: 'active',
+    preferredLanguage: 'te',
+  },
+  {
+    tenantSlug: 'vijayparcelpos',
+    email: 'customer@vijayparcelpos.com',
+    phone: '+91-9345678903',
+    password: 'Customer@VP123',
+    pin: '1357',
+    firstName: 'Srikanth',
+    lastName: 'Naidu',
+    role: 'customer',
+    status: 'active',
+    preferredLanguage: 'te',
+  },
 ];
 
 /**
@@ -145,5 +185,10 @@ export const LOGIN_CREDENTIALS = {
     tenantSlug: 'quickbasket',
     admin: { email: 'admin@quickbasket.com', password: 'Admin@QB123', pin: '4321' },
     customer: { email: 'customer@quickbasket.com', password: 'Customer@QB123', pin: '8765' },
+  },
+  vijayparcelpos: {
+    tenantSlug: 'vijayparcelpos',
+    admin: { email: 'admin@vijayparcelpos.com', password: 'Admin@VP123', pin: '2468' },
+    customer: { email: 'customer@vijayparcelpos.com', password: 'Customer@VP123', pin: '1357' },
   },
 };

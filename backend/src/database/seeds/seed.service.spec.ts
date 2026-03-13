@@ -14,6 +14,8 @@ import {
   FRESHMART_ITEMS,
   QUICKBASKET_CATEGORIES,
   QUICKBASKET_ITEMS,
+  VIJAYPARCELPOS_CATEGORIES,
+  VIJAYPARCELPOS_ITEMS,
   getTenantSeedData,
 } from './seed-data';
 
@@ -62,6 +64,7 @@ describe('SeedService', () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -120,10 +123,11 @@ describe('SeedService', () => {
       }
     });
 
-    it('should seed tenant-specific category counts (FreshMart: 9, QuickBasket: 8)', async () => {
+    it('should seed tenant-specific category counts (FreshMart: 9, QuickBasket: 8, VijayParcelPOS: 12)', async () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -149,15 +153,20 @@ describe('SeedService', () => {
       const tenantBCategories = categoryCreateCalls.filter(
         (c) => c.tenantId === 'tenant-bbb',
       );
+      const tenantCCategories = categoryCreateCalls.filter(
+        (c) => c.tenantId === 'tenant-ccc',
+      );
 
       expect(tenantACategories.length).toBe(FRESHMART_CATEGORIES.length);
       expect(tenantBCategories.length).toBe(QUICKBASKET_CATEGORIES.length);
+      expect(tenantCCategories.length).toBe(VIJAYPARCELPOS_CATEGORIES.length);
     });
 
     it('should seed FreshMart-specific category slugs', async () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -191,6 +200,7 @@ describe('SeedService', () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -220,10 +230,49 @@ describe('SeedService', () => {
       expect(quickbasketSlugs).not.toContain('rice');
     });
 
+    it('should seed VijayParcelPOS-specific category slugs', async () => {
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+        { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      const categoryCreateCalls: any[] = [];
+      categoryRepo.create.mockImplementation((data: any) => {
+        categoryCreateCalls.push(data);
+        return data as Category;
+      });
+      categoryRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `cat-${categoryCreateCalls.length}`, ...data }),
+      );
+      itemRepo.create.mockImplementation((data: any) => data as Item);
+      itemRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `item-${data.slug}`, ...data }),
+      );
+
+      await service.seed();
+
+      const vpSlugs = categoryCreateCalls
+        .filter((c) => c.tenantId === 'tenant-ccc')
+        .map((c) => c.slug);
+
+      expect(vpSlugs).toContain('chicken-items');
+      expect(vpSlugs).toContain('biryani-items');
+      expect(vpSlugs).toContain('seafood-items');
+      // Inventory ingredient categories
+      expect(vpSlugs).toContain('rice-grains');
+      expect(vpSlugs).toContain('spices-powders');
+      expect(vpSlugs).toContain('ready-mix-kitchen');
+      expect(vpSlugs).not.toContain('grains-flour');
+      expect(vpSlugs).not.toContain('dairy-eggs');
+    });
+
     it('should have zero category slug overlap between tenants', async () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -248,12 +297,22 @@ describe('SeedService', () => {
       const quickbasketCatSlugs = new Set(
         categoryCreateCalls.filter((c) => c.tenantId === 'tenant-bbb').map((c) => c.slug),
       );
+      const vpCatSlugs = new Set(
+        categoryCreateCalls.filter((c) => c.tenantId === 'tenant-ccc').map((c) => c.slug),
+      );
 
+      // No overlap between any pair
       for (const slug of freshmartCatSlugs) {
         expect(quickbasketCatSlugs.has(slug)).toBe(false);
+        expect(vpCatSlugs.has(slug)).toBe(false);
       }
       for (const slug of quickbasketCatSlugs) {
         expect(freshmartCatSlugs.has(slug)).toBe(false);
+        expect(vpCatSlugs.has(slug)).toBe(false);
+      }
+      for (const slug of vpCatSlugs) {
+        expect(freshmartCatSlugs.has(slug)).toBe(false);
+        expect(quickbasketCatSlugs.has(slug)).toBe(false);
       }
     });
 
@@ -261,6 +320,7 @@ describe('SeedService', () => {
       const mockTenants = [
         { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
         { id: 'tenant-bbb', slug: 'quickbasket', name: 'QuickBasket Store' } as Tenant,
+        { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,
       ];
       tenantRepo.find.mockResolvedValue(mockTenants);
 
@@ -286,17 +346,32 @@ describe('SeedService', () => {
       const quickbasketItemSlugs = new Set(
         itemCreateCalls.filter((i) => i.tenantId === 'tenant-bbb').map((i) => i.slug),
       );
+      const vpItemSlugs = new Set(
+        itemCreateCalls.filter((i) => i.tenantId === 'tenant-ccc').map((i) => i.slug),
+      );
 
-      // FreshMart items should use standard prefixes, not qb-
+      // FreshMart items should use standard prefixes, not qb- or vp-
       expect(freshmartItemSlugs.has('gf-001')).toBe(true);
       expect(freshmartItemSlugs.has('qb-dy-001')).toBe(false);
+      expect(freshmartItemSlugs.has('vp-ch-001')).toBe(false);
 
       // QuickBasket items should use qb- prefix
       expect(quickbasketItemSlugs.has('qb-dy-001')).toBe(true);
       expect(quickbasketItemSlugs.has('gf-001')).toBe(false);
+      expect(quickbasketItemSlugs.has('vp-ch-001')).toBe(false);
 
-      // Zero overlap
+      // VijayParcelPOS items should use vp- prefix
+      expect(vpItemSlugs.has('vp-ch-001')).toBe(true);
+      expect(vpItemSlugs.has('gf-001')).toBe(false);
+      expect(vpItemSlugs.has('qb-dy-001')).toBe(false);
+
+      // Zero overlap between all pairs
       for (const slug of freshmartItemSlugs) {
+        expect(quickbasketItemSlugs.has(slug)).toBe(false);
+        expect(vpItemSlugs.has(slug)).toBe(false);
+      }
+      for (const slug of vpItemSlugs) {
+        expect(freshmartItemSlugs.has(slug)).toBe(false);
         expect(quickbasketItemSlugs.has(slug)).toBe(false);
       }
     });
@@ -371,19 +446,29 @@ describe('SeedService', () => {
 });
 
 describe('Seed Data Isolation', () => {
-  it('should have zero category slug overlap between tenants', () => {
+  it('should have zero category slug overlap between all tenants', () => {
     const fmSlugs = new Set(FRESHMART_CATEGORIES.map((c) => c.slug));
     const qbSlugs = new Set(QUICKBASKET_CATEGORIES.map((c) => c.slug));
+    const vpSlugs = new Set(VIJAYPARCELPOS_CATEGORIES.map((c) => c.slug));
     for (const slug of fmSlugs) {
       expect(qbSlugs.has(slug)).toBe(false);
+      expect(vpSlugs.has(slug)).toBe(false);
+    }
+    for (const slug of qbSlugs) {
+      expect(vpSlugs.has(slug)).toBe(false);
     }
   });
 
-  it('should have zero item slug overlap between tenants', () => {
+  it('should have zero item slug overlap between all tenants', () => {
     const fmSlugs = new Set(FRESHMART_ITEMS.map((i) => i.slug));
     const qbSlugs = new Set(QUICKBASKET_ITEMS.map((i) => i.slug));
+    const vpSlugs = new Set(VIJAYPARCELPOS_ITEMS.map((i) => i.slug));
     for (const slug of fmSlugs) {
       expect(qbSlugs.has(slug)).toBe(false);
+      expect(vpSlugs.has(slug)).toBe(false);
+    }
+    for (const slug of qbSlugs) {
+      expect(vpSlugs.has(slug)).toBe(false);
     }
   });
 
@@ -413,8 +498,35 @@ describe('Seed Data Isolation', () => {
     expect(data.items).toBe(QUICKBASKET_ITEMS);
   });
 
+  it('getTenantSeedData should return correct data for vijayparcelpos', () => {
+    const data = getTenantSeedData('vijayparcelpos');
+    expect(data.categories).toBe(VIJAYPARCELPOS_CATEGORIES);
+    expect(data.items).toBe(VIJAYPARCELPOS_ITEMS);
+  });
+
   it('getTenantSeedData should throw for unknown tenant', () => {
     expect(() => getTenantSeedData('nonexistent')).toThrow('No seed data defined');
+  });
+
+  it('should have all VijayParcelPOS item categorySlug references match VijayParcelPOS categories', () => {
+    const vpCatSlugs = new Set(VIJAYPARCELPOS_CATEGORIES.map((c) => c.slug));
+    for (const item of VIJAYPARCELPOS_ITEMS) {
+      expect(vpCatSlugs.has(item.categorySlug)).toBe(true);
+    }
+  });
+
+  it('all VijayParcelPOS categories should have Telugu translations', () => {
+    for (const cat of VIJAYPARCELPOS_CATEGORIES) {
+      expect(cat.nameTe).toBeDefined();
+      expect(cat.nameTe!.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all VijayParcelPOS items should have Telugu translations', () => {
+    for (const item of VIJAYPARCELPOS_ITEMS) {
+      expect(item.nameTe).toBeDefined();
+      expect(item.nameTe!.length).toBeGreaterThan(0);
+    }
   });
 
   it('all QuickBasket categories should have Telugu translations', () => {

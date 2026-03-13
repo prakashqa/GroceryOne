@@ -37,8 +37,9 @@ jest.mock('react-i18next', () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         'navigation.dashboard': 'Dashboard',
+        'navigation.items': 'Items',
         'navigation.carts': 'Carts',
-        'navigation.settings': 'Settings',
+        'navigation.more': 'More',
         'picking.cartReview': 'Cart Review',
       };
       return translations[key] || key;
@@ -56,6 +57,18 @@ jest.mock('../../screens/picking', () => ({
   ManageCartsScreen: () => null,
   PickingScreen: () => null,
   CartScreen: () => null,
+}));
+
+jest.mock('../../screens/items', () => ({
+  ItemsScreen: () => null,
+}));
+
+jest.mock('../../screens/more', () => ({
+  MoreScreen: () => null,
+}));
+
+jest.mock('../../screens/inventory', () => ({
+  InventoryDashboardScreen: () => null,
 }));
 
 jest.mock('../../screens/settings', () => ({
@@ -80,14 +93,14 @@ jest.mock('../../../features/orderScanning', () => ({
 // Mock vector icons
 jest.mock('react-native-vector-icons/MaterialIcons', () => 'Icon');
 
-import { BottomTabNavigator, TabParamList, CartsStackParamList, DashboardStackParamList } from '../BottomTabNavigator';
+import { BottomTabNavigator, TabParamList, CartsStackParamList, DashboardStackParamList, ItemsStackParamList, MoreStackParamList } from '../BottomTabNavigator';
 
 describe('BottomTabNavigator', () => {
   describe('Tab Configuration', () => {
     it('exports TabParamList type with correct tabs', () => {
-      // TabParamList should include Dashboard, Carts, and Settings
-      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
-      expect(tabs).toHaveLength(3);
+      // TabParamList should include Dashboard, Items, Carts, Reports, and Settings
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'CartsTab', 'ReportsTab', 'MoreTab'];
+      expect(tabs).toHaveLength(5);
     });
 
     it('can be imported and is a valid component', () => {
@@ -98,20 +111,22 @@ describe('BottomTabNavigator', () => {
   });
 
   describe('Navigation Structure', () => {
+    const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'CartsTab', 'ReportsTab', 'MoreTab'];
+
     it('has Dashboard as a tab', () => {
-      // The Dashboard should be accessible from the bottom tabs
-      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
       expect(tabs).toContain('DashboardTab');
     });
 
+    it('has Items as a tab', () => {
+      expect(tabs).toContain('ItemsTab');
+    });
+
     it('has Carts as a tab', () => {
-      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
       expect(tabs).toContain('CartsTab');
     });
 
-    it('has Settings as a tab', () => {
-      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'CartsTab', 'SettingsTab'];
-      expect(tabs).toContain('SettingsTab');
+    it('has More as a tab', () => {
+      expect(tabs).toContain('MoreTab');
     });
   });
 
@@ -138,6 +153,23 @@ describe('BottomTabNavigator', () => {
     });
   });
 
+  describe('Items Stack Registration', () => {
+    it('ItemsStack includes Items and Cart screens', () => {
+      const itemsScreens: (keyof ItemsStackParamList)[] = ['Items', 'Cart'];
+      expect(itemsScreens).toContain('Items');
+      expect(itemsScreens).toContain('Cart');
+    });
+  });
+
+  describe('More Stack Registration', () => {
+    it('MoreStack includes More, Settings, and InventoryDashboard screens', () => {
+      const moreScreens: (keyof MoreStackParamList)[] = ['More', 'Settings', 'InventoryDashboard'];
+      expect(moreScreens).toContain('More');
+      expect(moreScreens).toContain('Settings');
+      expect(moreScreens).toContain('InventoryDashboard');
+    });
+  });
+
   describe('i18n Integration', () => {
     it('waits for i18n to be ready before rendering', () => {
       // The component should check ready state from useTranslation
@@ -148,17 +180,17 @@ describe('BottomTabNavigator', () => {
 
     it('renders tab labels with translated values when ready', () => {
       // When i18n is ready, tab labels should show translated values
-      // Dashboard, Carts, Settings - not the keys
       const translations: Record<string, string> = {
         'navigation.dashboard': 'Dashboard',
+        'navigation.items': 'Items',
         'navigation.carts': 'Carts',
-        'navigation.settings': 'Settings',
+        'navigation.more': 'More',
       };
 
-      // Verify translations are defined
       expect(translations['navigation.dashboard']).toBe('Dashboard');
+      expect(translations['navigation.items']).toBe('Items');
       expect(translations['navigation.carts']).toBe('Carts');
-      expect(translations['navigation.settings']).toBe('Settings');
+      expect(translations['navigation.more']).toBe('More');
     });
   });
 });

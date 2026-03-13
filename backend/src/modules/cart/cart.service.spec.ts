@@ -11,6 +11,7 @@ import { CartService } from './cart.service';
 import { Cart, CartStatus } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
 import { ProductsService } from '../products/products.service';
+import { InventoryService } from '../inventory/inventory.service';
 import {
   TENANT_A_ID,
   TENANT_B_ID,
@@ -59,6 +60,14 @@ describe('CartService', () => {
     findOne: jest.fn(),
   };
 
+  const mockInventoryService = {
+    validateStock: jest.fn(),
+    addStock: jest.fn(),
+    removeStock: jest.fn(),
+    deductStockForOrder: jest.fn(),
+    restoreStockForOrder: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,6 +84,10 @@ describe('CartService', () => {
           provide: ProductsService,
           useValue: mockProductsService,
         },
+        {
+          provide: InventoryService,
+          useValue: mockInventoryService,
+        },
       ],
     }).compile();
 
@@ -86,6 +99,9 @@ describe('CartService', () => {
 
     // Default: item validation passes (item belongs to tenant)
     mockProductsService.findOne.mockResolvedValue(buildMockItem());
+
+    // Default: stock validation passes
+    mockInventoryService.validateStock.mockResolvedValue(undefined);
   });
 
   describe('create', () => {
@@ -553,6 +569,78 @@ describe('CartService', () => {
       expect(mockCartRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId: TENANT_A_ID }),
       );
+    });
+  });
+
+  describe('addItem - stock validation', () => {
+    it('should reject adding item when stock is insufficient', async () => {
+      const addItemDto = { itemId: 'item-uuid', quantity: 100 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(null);
+      mockInventoryService.validateStock.mockRejectedValue(
+        new BadRequestException('Insufficient stock'),
+      );
+
+      await expect(service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID))
+        .rejects.toThrow(BadRequestException);
+      expect(mockCartItemRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should succeed adding item when stock is sufficient', async () => {
+      const addItemDto = { itemId: 'item-uuid', quantity: 5 };
+      const newCartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', ...addItemDto };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(null);
+      mockInventoryService.validateStock.mockResolvedValue(undefined);
+      mockCartItemRepository.create.mockReturnValue(newCartItem);
+      mockCartItemRepository.save.mockResolvedValue(newCartItem);
+
+      const result = await service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID);
+
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-uuid', 5, TENANT_A_ID);
+      expect(result).toEqual(newCartItem);
+    });
+
+    it('should validate total quantity when adding to existing cart item', async () => {
+      const addItemDto = { itemId: 'item-uuid', quantity: 10 };
+      const existingCartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', itemId: 'item-uuid', quantity: 5 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(existingCartItem);
+      mockCartItemRepository.save.mockResolvedValue({ ...existingCartItem, quantity: 15 });
+
+      await service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID);
+
+      // Should validate total quantity (5 existing + 10 new = 15), not just the added quantity
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-uuid', 15, TENANT_A_ID);
+    });
+  });
+
+  describe('updateItem - stock validation', () => {
+    it('should validate stock when increasing quantity', async () => {
+      const cartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', itemId: 'item-uuid', quantity: 5 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(cartItem);
+      mockCartItemRepository.save.mockResolvedValue({ ...cartItem, quantity: 20 });
+
+      await service.updateItem('cart-a-uuid', 'item-uuid', { quantity: 20 }, TENANT_A_ID);
+
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-uuid', 20, TENANT_A_ID);
+    });
+
+    it('should skip stock validation when decreasing quantity', async () => {
+      const cartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', itemId: 'item-uuid', quantity: 10 };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(cartItem);
+      mockCartItemRepository.save.mockResolvedValue({ ...cartItem, quantity: 3 });
+
+      await service.updateItem('cart-a-uuid', 'item-uuid', { quantity: 3 }, TENANT_A_ID);
+
+      expect(mockInventoryService.validateStock).not.toHaveBeenCalled();
     });
   });
 

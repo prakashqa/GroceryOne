@@ -211,6 +211,11 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
     onClose();
   }, [item, onRemove, onClose]);
 
+  // Check if stock tracking is enabled and compute available stock
+  const isStockTracked = item?.trackInventory ?? false;
+  const availableStock = isStockTracked ? (item?.stockQuantity ?? 0) : Infinity;
+  const isOutOfStock = isStockTracked && availableStock <= 0;
+
   const handleAddToCart = useCallback(() => {
     if (!item) return;
 
@@ -232,9 +237,17 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
     // Normalize to base unit if convertible (gm->kg, ml->L)
     const { quantity: normalizedQty } = normalizeToBaseUnit(quantity, selectedUnit);
 
+    // Frontend stock validation — total quantity including what's already in cart
+    if (isStockTracked) {
+      const totalQty = quantityInCart + normalizedQty;
+      if (totalQty > availableStock) {
+        return; // Don't add — exceeds available stock (backend will also reject)
+      }
+    }
+
     onAddToCart(item, normalizedQty, selectedUnit);
     onClose();
-  }, [item, selectedQuantity, isCustomSelected, customQuantity, selectedUnit, onAddToCart, onClose]);
+  }, [item, selectedQuantity, isCustomSelected, customQuantity, selectedUnit, onAddToCart, onClose, isStockTracked, quantityInCart, availableStock]);
 
   // Don't render if item is null
   if (!item) {
@@ -269,6 +282,67 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
                     <Text style={[styles.closeButtonText, dynamicStyles.closeButtonText, { color: theme.colors.textSecondary }]}>×</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Out of Stock Banner */}
+                {isOutOfStock && (
+                  <View
+                    style={[
+                      styles.inCartBanner,
+                      {
+                        backgroundColor: (theme.colors.error || '#ff6b6b') + '20',
+                        borderRadius: theme.borderRadius.sm,
+                        padding: theme.spacing.smd,
+                        marginBottom: theme.spacing.md,
+                      },
+                    ]}
+                    testID="out-of-stock-banner"
+                  >
+                    <Text
+                      style={[
+                        styles.inCartBannerText,
+                        {
+                          color: theme.colors.error || '#ff6b6b',
+                          fontSize: Math.round(14 * responsiveStyles.fontScale),
+                          fontWeight: theme.typography.fontWeight.semibold,
+                        },
+                      ]}
+                    >
+                      {t('picking.outOfStock', { defaultValue: 'Out of stock' })}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Stock Available Banner */}
+                {isStockTracked && !isOutOfStock && (
+                  <View
+                    style={[
+                      styles.inCartBanner,
+                      {
+                        backgroundColor: theme.colors.background,
+                        borderRadius: theme.borderRadius.sm,
+                        padding: theme.spacing.smd,
+                        marginBottom: theme.spacing.md,
+                      },
+                    ]}
+                    testID="stock-info-banner"
+                  >
+                    <Text
+                      style={[
+                        styles.inCartBannerText,
+                        {
+                          color: theme.colors.textSecondary,
+                          fontSize: Math.round(12 * responsiveStyles.fontScale),
+                        },
+                      ]}
+                    >
+                      {t('picking.stockAvailable', {
+                        quantity: availableStock,
+                        unit: getBaseUnit(item?.unit || 'pcs'),
+                        defaultValue: `${availableStock} ${getBaseUnit(item?.unit || 'pcs')} available`,
+                      })}
+                    </Text>
+                  </View>
+                )}
 
                 {/* In Cart Banner */}
                 {isInCart && (
@@ -436,13 +510,22 @@ const AddQuantityModal: React.FC<AddQuantityModalProps> = ({
 
                 {/* Add to Cart / Update Cart Button */}
                 <TouchableOpacity
-                  style={[styles.addToCartButton, dynamicStyles.addToCartButton, { backgroundColor: theme.colors.primary }]}
+                  style={[
+                    styles.addToCartButton,
+                    dynamicStyles.addToCartButton,
+                    { backgroundColor: isOutOfStock ? theme.colors.textLight : theme.colors.primary },
+                  ]}
                   onPress={handleAddToCart}
+                  disabled={isOutOfStock}
                   testID="add-to-cart-button"
                 >
                   <Text style={[styles.cartIcon, dynamicStyles.cartIcon]}>🛒</Text>
                   <Text style={[styles.addToCartText, dynamicStyles.addToCartText]}>
-                    {isInCart ? t('picking.updateCart') : t('picking.addToCart')}
+                    {isOutOfStock
+                      ? t('picking.outOfStock', { defaultValue: 'Out of stock' })
+                      : isInCart
+                        ? t('picking.updateCart')
+                        : t('picking.addToCart')}
                   </Text>
                 </TouchableOpacity>
 

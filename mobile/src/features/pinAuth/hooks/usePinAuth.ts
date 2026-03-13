@@ -68,63 +68,6 @@ export function usePinAuth(): UsePinAuthReturn {
   };
 
   /**
-   * Set up a new PIN for the user.
-   * Stores the PIN locally, then attempts a backend verification to establish
-   * the tenant identity. If backend fails, user still enters the app and
-   * tenant resolution happens on the next login.
-   */
-  const setupPin = useCallback(
-    async (pin: string, userId: string): Promise<boolean> => {
-      try {
-        dispatch(setLoading(true));
-        dispatch(setError(null));
-
-        // Generate salt and hash the PIN
-        const salt = PinHashService.generateSalt();
-        const hash = await PinHashService.hashPin(pin, salt);
-
-        // Store in secure storage
-        await PinSecureStorage.storePinHash(hash, salt, userId);
-
-        // Update Redux state
-        dispatch(setPinConfigured(true));
-
-        // Attempt backend verification to establish tenant identity
-        // This is best-effort — if it fails, user still enters the app
-        const credentials = await resolveBackendCredentials();
-        if (credentials) {
-          try {
-            const result = await PinAuthApi.verifyPin({
-              identifier: credentials.identifier,
-              pin,
-              tenantSlug: credentials.tenantSlug,
-            });
-            if (result.success && result.data) {
-              await handleBackendVerifySuccess(result.data);
-            }
-          } catch {
-            // Backend verification failed - not blocking, tenant will be resolved on next login
-            if (__DEV__) {
-              console.log('[usePinAuth] Background tenant verification failed during setup - will retry on next login');
-            }
-          }
-        }
-
-        // Mark PIN as verified since user just created it
-        dispatch(verifyPinSuccess());
-
-        return true;
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to setup PIN';
-        dispatch(setError(errorMessage));
-        dispatch(setLoading(false));
-        return false;
-      }
-    },
-    [dispatch, resolveBackendCredentials, handleBackendVerifySuccess]
-  );
-
-  /**
    * Restore auth context (user, tokens, tenant name) from SecureStore.
    * Called after successful local PIN verification when backend was unreachable.
    * This ensures Redux has the user/tokens needed for cart hydration and Settings display.
@@ -413,6 +356,63 @@ export function usePinAuth(): UsePinAuthReturn {
       }
     },
     [dispatch, tenant]
+  );
+
+  /**
+   * Set up a new PIN for the user.
+   * Stores the PIN locally, then attempts a backend verification to establish
+   * the tenant identity. If backend fails, user still enters the app and
+   * tenant resolution happens on the next login.
+   */
+  const setupPin = useCallback(
+    async (pin: string, userId: string): Promise<boolean> => {
+      try {
+        dispatch(setLoading(true));
+        dispatch(setError(null));
+
+        // Generate salt and hash the PIN
+        const salt = PinHashService.generateSalt();
+        const hash = await PinHashService.hashPin(pin, salt);
+
+        // Store in secure storage
+        await PinSecureStorage.storePinHash(hash, salt, userId);
+
+        // Update Redux state
+        dispatch(setPinConfigured(true));
+
+        // Attempt backend verification to establish tenant identity
+        // This is best-effort — if it fails, user still enters the app
+        const credentials = await resolveBackendCredentials();
+        if (credentials) {
+          try {
+            const result = await PinAuthApi.verifyPin({
+              identifier: credentials.identifier,
+              pin,
+              tenantSlug: credentials.tenantSlug,
+            });
+            if (result.success && result.data) {
+              await handleBackendVerifySuccess(result.data);
+            }
+          } catch {
+            // Backend verification failed - not blocking, tenant will be resolved on next login
+            if (__DEV__) {
+              console.log('[usePinAuth] Background tenant verification failed during setup - will retry on next login');
+            }
+          }
+        }
+
+        // Mark PIN as verified since user just created it
+        dispatch(verifyPinSuccess());
+
+        return true;
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to setup PIN';
+        dispatch(setError(errorMessage));
+        dispatch(setLoading(false));
+        return false;
+      }
+    },
+    [dispatch, resolveBackendCredentials, handleBackendVerifySuccess]
   );
 
   /**

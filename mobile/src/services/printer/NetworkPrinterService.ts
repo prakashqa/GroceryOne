@@ -6,7 +6,13 @@
  * Designed for merchant thermal receipt printers (EPSON, Star, etc.)
  */
 
-import TcpSocket from 'react-native-tcp-socket';
+import { Platform } from 'react-native';
+
+// Conditionally require native module — crashes on web
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const TcpSocket = Platform.OS !== 'web'
+  ? require('react-native-tcp-socket').default
+  : null;
 
 // Printer protocol type (only RAW TCP for thermal printers)
 export type PrinterProtocol = 'raw';

@@ -11,6 +11,7 @@ import { OrdersService } from './orders.service';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
+import { InventoryService } from '../inventory/inventory.service';
 import { Cart } from '../cart/entities/cart.entity';
 import {
   TENANT_A_ID,
@@ -99,6 +100,12 @@ describe('OrdersService', () => {
     update: jest.fn(),
   };
 
+  const mockInventoryService = {
+    deductStockForOrder: jest.fn(),
+    restoreStockForOrder: jest.fn(),
+    validateStock: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -115,6 +122,10 @@ describe('OrdersService', () => {
           provide: CartService,
           useValue: mockCartService,
         },
+        {
+          provide: InventoryService,
+          useValue: mockInventoryService,
+        },
       ],
     }).compile();
 
@@ -124,6 +135,10 @@ describe('OrdersService', () => {
     cartService = module.get<CartService>(CartService);
 
     jest.clearAllMocks();
+
+    // Default: inventory operations succeed
+    mockInventoryService.deductStockForOrder.mockResolvedValue(undefined);
+    mockInventoryService.restoreStockForOrder.mockResolvedValue(undefined);
   });
 
   describe('createFromCart', () => {
@@ -485,6 +500,83 @@ describe('OrdersService', () => {
     it('should require tenantId', async () => {
       await expect(service.count(undefined as any))
         .rejects.toThrow();
+    });
+  });
+
+  describe('createFromCart - stock deduction', () => {
+    it('should deduct stock for all items when creating order', async () => {
+      mockCartService.findOne.mockResolvedValue(mockCartWithItems);
+      mockOrderRepository.create.mockReturnValue(mockOrder);
+      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, id: 'new-order-uuid' });
+      mockOrderItemRepository.create.mockImplementation((dto) => dto);
+      mockOrderItemRepository.save.mockResolvedValue([]);
+      mockCartService.update.mockResolvedValue({});
+      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, items: [] });
+
+      await service.createFromCart('cart-uuid', TENANT_A_ID);
+
+      expect(mockInventoryService.deductStockForOrder).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ itemId: 'item-1-uuid', quantity: 2 }),
+          expect.objectContaining({ itemId: 'item-2-uuid', quantity: 3 }),
+        ]),
+        'new-order-uuid',
+        TENANT_A_ID,
+      );
+    });
+
+    it('should fail order creation if stock deduction fails', async () => {
+      mockCartService.findOne.mockResolvedValue(mockCartWithItems);
+      mockOrderRepository.create.mockReturnValue(mockOrder);
+      mockOrderRepository.save.mockResolvedValue({ ...mockOrder, id: 'new-order-uuid' });
+      mockOrderItemRepository.create.mockImplementation((dto) => dto);
+      mockOrderItemRepository.save.mockResolvedValue([]);
+      mockInventoryService.deductStockForOrder.mockRejectedValue(
+        new BadRequestException('Insufficient stock'),
+      );
+
+      await expect(service.createFromCart('cart-uuid', TENANT_A_ID))
+        .rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('cancel - stock restoration', () => {
+    it('should restore stock for all items when cancelling order', async () => {
+      const orderWithItems = {
+        ...mockOrder,
+        status: 'pending' as OrderStatus,
+        items: [
+          { itemId: 'item-1-uuid', quantity: 2 },
+          { itemId: 'item-2-uuid', quantity: 3 },
+        ],
+      };
+      mockOrderRepository.findOne.mockResolvedValue(orderWithItems);
+      mockOrderRepository.save.mockResolvedValue({ ...orderWithItems, status: 'cancelled' });
+
+      await service.cancel('order-uuid', 'Customer request', TENANT_A_ID);
+
+      expect(mockInventoryService.restoreStockForOrder).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ itemId: 'item-1-uuid', quantity: 2 }),
+          expect.objectContaining({ itemId: 'item-2-uuid', quantity: 3 }),
+        ]),
+        'order-uuid',
+        TENANT_A_ID,
+      );
+    });
+
+    it('should not restore stock when order has no items loaded', async () => {
+      const orderNoItems = {
+        ...mockOrder,
+        status: 'pending' as OrderStatus,
+        items: [],
+      };
+      mockOrderRepository.findOne.mockResolvedValue(orderNoItems);
+      mockOrderRepository.save.mockResolvedValue({ ...orderNoItems, status: 'cancelled' });
+
+      await service.cancel('order-uuid', 'Customer request', TENANT_A_ID);
+
+      expect(mockInventoryService.restoreStockForOrder).not.toHaveBeenCalled();
     });
   });
 

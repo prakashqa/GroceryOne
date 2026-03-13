@@ -3,8 +3,18 @@
  * Secure storage wrapper for PIN data using expo-secure-store
  */
 
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { PIN_STORAGE_KEYS } from '../constants';
+
+// expo-secure-store exports empty object on web — use localStorage as dev fallback
+const storage = Platform.OS === 'web'
+  ? {
+      setItemAsync: async (k: string, v: string) => { localStorage.setItem(k, v); },
+      getItemAsync: async (k: string): Promise<string | null> => localStorage.getItem(k),
+      deleteItemAsync: async (k: string) => { localStorage.removeItem(k); },
+    }
+  : SecureStore;
 
 /**
  * Service for securely storing and retrieving PIN data
@@ -20,10 +30,10 @@ export const PinSecureStorage = {
     const createdAt = new Date().toISOString();
 
     await Promise.all([
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.PIN_HASH, hash),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.PIN_SALT, salt),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.USER_ID, userId),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.CREATED_AT, createdAt),
+      storage.setItemAsync(PIN_STORAGE_KEYS.PIN_HASH, hash),
+      storage.setItemAsync(PIN_STORAGE_KEYS.PIN_SALT, salt),
+      storage.setItemAsync(PIN_STORAGE_KEYS.USER_ID, userId),
+      storage.setItemAsync(PIN_STORAGE_KEYS.CREATED_AT, createdAt),
     ]);
   },
 
@@ -33,8 +43,8 @@ export const PinSecureStorage = {
    */
   async getPinHash(): Promise<{ hash: string; salt: string } | null> {
     const [hash, salt] = await Promise.all([
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.PIN_SALT),
+      storage.getItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
+      storage.getItemAsync(PIN_STORAGE_KEYS.PIN_SALT),
     ]);
 
     if (!hash || !salt) {
@@ -50,16 +60,16 @@ export const PinSecureStorage = {
    */
   async clearPin(): Promise<void> {
     await Promise.all([
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.PIN_SALT),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.USER_ID),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.CREATED_AT),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
-      SecureStore.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_NAME),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.PIN_SALT),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.USER_ID),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.CREATED_AT),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
+      storage.deleteItemAsync(PIN_STORAGE_KEYS.TENANT_NAME),
     ]);
   },
 
@@ -70,8 +80,8 @@ export const PinSecureStorage = {
    */
   async isPinConfigured(userId: string): Promise<boolean> {
     const [hash, storedUserId] = await Promise.all([
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.USER_ID),
+      storage.getItemAsync(PIN_STORAGE_KEYS.PIN_HASH),
+      storage.getItemAsync(PIN_STORAGE_KEYS.USER_ID),
     ]);
 
     return !!(hash && storedUserId && storedUserId === userId);
@@ -82,7 +92,7 @@ export const PinSecureStorage = {
    * @returns The stored user ID or null
    */
   async getUserId(): Promise<string | null> {
-    return SecureStore.getItemAsync(PIN_STORAGE_KEYS.USER_ID);
+    return storage.getItemAsync(PIN_STORAGE_KEYS.USER_ID);
   },
 
   /**
@@ -93,8 +103,8 @@ export const PinSecureStorage = {
    */
   async storeTenantContext(tenantSlug: string, identifier: string): Promise<void> {
     await Promise.all([
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG, tenantSlug),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER, identifier),
+      storage.setItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG, tenantSlug),
+      storage.setItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER, identifier),
     ]);
   },
 
@@ -103,7 +113,7 @@ export const PinSecureStorage = {
    * @returns The tenant slug or null
    */
   async getTenantSlug(): Promise<string | null> {
-    return SecureStore.getItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG);
+    return storage.getItemAsync(PIN_STORAGE_KEYS.TENANT_SLUG);
   },
 
   /**
@@ -111,7 +121,7 @@ export const PinSecureStorage = {
    * @returns The user identifier or null
    */
   async getUserIdentifier(): Promise<string | null> {
-    return SecureStore.getItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER);
+    return storage.getItemAsync(PIN_STORAGE_KEYS.USER_IDENTIFIER);
   },
 
   /**
@@ -123,9 +133,9 @@ export const PinSecureStorage = {
    */
   async storeAuthContext(user: Record<string, unknown>, accessToken: string, refreshToken: string): Promise<void> {
     await Promise.all([
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_USER, JSON.stringify(user)),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN, accessToken),
-      SecureStore.setItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN, refreshToken),
+      storage.setItemAsync(PIN_STORAGE_KEYS.AUTH_USER, JSON.stringify(user)),
+      storage.setItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN, accessToken),
+      storage.setItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN, refreshToken),
     ]);
   },
 
@@ -135,9 +145,9 @@ export const PinSecureStorage = {
    */
   async getAuthContext(): Promise<{ user: Record<string, unknown>; accessToken: string; refreshToken: string } | null> {
     const [userJson, accessToken, refreshToken] = await Promise.all([
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
-      SecureStore.getItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
+      storage.getItemAsync(PIN_STORAGE_KEYS.AUTH_USER),
+      storage.getItemAsync(PIN_STORAGE_KEYS.AUTH_ACCESS_TOKEN),
+      storage.getItemAsync(PIN_STORAGE_KEYS.AUTH_REFRESH_TOKEN),
     ]);
 
     if (!userJson || !accessToken || !refreshToken) {
@@ -158,7 +168,7 @@ export const PinSecureStorage = {
    * @param name - Human-readable tenant name (e.g. "FreshMart Groceries")
    */
   async storeTenantName(name: string): Promise<void> {
-    await SecureStore.setItemAsync(PIN_STORAGE_KEYS.TENANT_NAME, name);
+    await storage.setItemAsync(PIN_STORAGE_KEYS.TENANT_NAME, name);
   },
 
   /**
@@ -166,6 +176,6 @@ export const PinSecureStorage = {
    * @returns The tenant name or null
    */
   async getTenantName(): Promise<string | null> {
-    return SecureStore.getItemAsync(PIN_STORAGE_KEYS.TENANT_NAME);
+    return storage.getItemAsync(PIN_STORAGE_KEYS.TENANT_NAME);
   },
 };

@@ -92,6 +92,29 @@ export class Item {
   })
   costPrice?: number;
 
+  @Column({
+    name: 'stock_quantity',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 0) },
+  })
+  stockQuantity: number;
+
+  @Column({
+    name: 'low_stock_threshold',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 10,
+    transformer: { to: (v: number) => v, from: (v: string) => (v != null ? parseFloat(v) : 10) },
+  })
+  lowStockThreshold: number;
+
+  @Column({ name: 'track_inventory', default: false })
+  trackInventory: boolean;
+
   @Column({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number;
 

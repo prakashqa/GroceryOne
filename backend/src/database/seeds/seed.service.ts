@@ -211,6 +211,8 @@ export class SeedService {
           sortOrder: seedItem.sortOrder,
           isActive: true,
           tenantId,
+          trackInventory: true,
+          stockQuantity: 100,
         });
 
         const saved = await this.itemRepository.save(item);

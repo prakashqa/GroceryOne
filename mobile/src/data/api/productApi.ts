@@ -22,6 +22,9 @@ export interface Item {
   compareAtPrice?: number; // Original/MRP price
   mrp?: number; // MRP mapped from compareAtPrice for UI compatibility
   costPrice?: number; // Cost price for merchant
+  stockQuantity?: number; // Current stock level
+  lowStockThreshold?: number; // Low stock alert threshold
+  trackInventory?: boolean; // Whether inventory tracking is enabled
   sortOrder: number;
   isActive: boolean;
   createdAt: string;

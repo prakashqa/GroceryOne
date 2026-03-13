@@ -177,8 +177,8 @@ describe('TenantUserSeedService', () => {
 
       const report = await service.seed();
 
-      // Only one new tenant should be created (quickbasket)
-      expect(report.tenantsCreated).toBe(1);
+      // One less tenant created (freshmart skipped)
+      expect(report.tenantsCreated).toBe(SEED_TENANTS.length - 1);
     });
 
     it('should skip existing users', async () => {
@@ -202,22 +202,25 @@ describe('TenantUserSeedService', () => {
       expect(mockDataSource.query).toHaveBeenCalledWith(
         'CREATE SCHEMA IF NOT EXISTS "tenant_quickbasket"',
       );
+      expect(mockDataSource.query).toHaveBeenCalledWith(
+        'CREATE SCHEMA IF NOT EXISTS "tenant_vijayparcelpos"',
+      );
     });
 
     it('should return proper report', async () => {
       mockTenantRepository.count
         .mockResolvedValueOnce(0) // before
-        .mockResolvedValueOnce(2); // after
+        .mockResolvedValueOnce(SEED_TENANTS.length); // after
       mockUserRepository.count
         .mockResolvedValueOnce(0) // before
-        .mockResolvedValueOnce(4); // after
+        .mockResolvedValueOnce(SEED_USERS.length); // after
 
       const report = await service.seed();
 
       expect(report.tenantsBefore).toBe(0);
-      expect(report.tenantsAfter).toBe(2);
+      expect(report.tenantsAfter).toBe(SEED_TENANTS.length);
       expect(report.usersBefore).toBe(0);
-      expect(report.usersAfter).toBe(4);
+      expect(report.usersAfter).toBe(SEED_USERS.length);
       expect(report.errors).toEqual([]);
       expect(report.timestamp).toBeInstanceOf(Date);
     });
@@ -232,6 +235,8 @@ describe('TenantUserSeedService', () => {
       expect(credentials.freshmart.admin.password).toBe('Admin@FM123');
       expect(credentials.quickbasket).toBeDefined();
       expect(credentials.quickbasket.admin.email).toBe('admin@quickbasket.com');
+      expect(credentials.vijayparcelpos).toBeDefined();
+      expect(credentials.vijayparcelpos.admin.email).toBe('admin@vijayparcelpos.com');
     });
   });
 

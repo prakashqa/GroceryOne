@@ -12,6 +12,7 @@ import { Cart, CartStatus } from '../modules/cart/entities/cart.entity';
 import { CartItem } from '../modules/cart/entities/cart-item.entity';
 import { Order, OrderStatus } from '../modules/orders/entities/order.entity';
 import { OrderItem } from '../modules/orders/entities/order-item.entity';
+import { InventoryTransaction } from '../modules/inventory/entities/inventory-transaction.entity';
 import { TENANT_A_ID, USER_A_ID, FIXED_DATE } from './constants';
 
 export function buildMockTenant(overrides?: Partial<Tenant>): Tenant {
@@ -79,6 +80,9 @@ export function buildMockItem(overrides?: Partial<Item>): Item {
     compareAtPrice: 280,
     sortOrder: 0,
     isActive: true,
+    stockQuantity: 100,
+    lowStockThreshold: 10,
+    trackInventory: true,
     tenantId: TENANT_A_ID,
     createdAt: FIXED_DATE,
     updatedAt: FIXED_DATE,
@@ -163,4 +167,23 @@ export function buildMockOrderItem(
     order: {} as any,
     ...overrides,
   } as OrderItem;
+}
+
+export function buildMockInventoryTransaction(
+  overrides?: Partial<InventoryTransaction>,
+): InventoryTransaction {
+  return {
+    id: 'inv-txn-uuid',
+    tenantId: TENANT_A_ID,
+    itemId: 'item-a-uuid',
+    type: 'restock',
+    quantity: 50,
+    stockAfter: 150,
+    reason: 'Restocking',
+    referenceType: null,
+    referenceId: null,
+    performedBy: USER_A_ID,
+    createdAt: FIXED_DATE,
+    ...overrides,
+  } as InventoryTransaction;
 }

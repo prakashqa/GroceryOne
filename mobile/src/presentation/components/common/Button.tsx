@@ -15,6 +15,7 @@ import {
   TextStyle,
   Animated,
 } from 'react-native';
+
 import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../../theme';
 import { useResponsiveStyles } from '../../../hooks';

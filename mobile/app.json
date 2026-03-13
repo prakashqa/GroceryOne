@@ -59,10 +59,13 @@
     ],
     "extra": {
       "googleVisionApiKey": "AIzaSyAdeKEFCkSEIohC-X8JRVJ1JPabP3zbB2s",
-      "localApiIp": "192.168.0.104",
+      "localApiIp": "192.168.0.102",
       "eas": {
         "projectId": "c789090c-d24b-470a-8e91-7e06d38ff195"
       }
+    },
+    "web": {
+      "bundler": "metro"
     },
     "owner": "nanirestro"
   }

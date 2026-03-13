@@ -60,4 +60,21 @@ export class CreateItemDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Initial stock quantity', example: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  stockQuantity?: number;
+
+  @ApiPropertyOptional({ description: 'Low stock alert threshold', example: 10 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lowStockThreshold?: number;
+
+  @ApiPropertyOptional({ description: 'Whether to track inventory for this item', example: false })
+  @IsOptional()
+  @IsBoolean()
+  trackInventory?: boolean;
 }

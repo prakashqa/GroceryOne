@@ -11,9 +11,10 @@ import { CartService } from './cart.service';
 import { CartController } from './cart.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ProductsModule } from '../products/products.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Cart, CartItem]), AuthModule, ProductsModule],
+  imports: [TypeOrmModule.forFeature([Cart, CartItem]), AuthModule, ProductsModule, InventoryModule],
   controllers: [CartController],
   providers: [CartService],
   exports: [CartService],

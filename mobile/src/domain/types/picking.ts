@@ -36,6 +36,9 @@ export interface Item {
   price?: number; // Sale price (selling price per unit)
   mrp?: number; // MRP / compareAtPrice (Maximum Retail Price)
   sortOrder?: number; // Display order within category
+  stockQuantity?: number; // Current stock level (0 if not set)
+  lowStockThreshold?: number; // Threshold for low stock alerts
+  trackInventory?: boolean; // Whether inventory tracking is enabled
 }
 
 export interface CartItem {

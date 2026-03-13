@@ -33,13 +33,17 @@ import {
   ScanReviewScreen,
 } from '../../features/orderScanning';
 import { ReportsScreen } from '../../features/reports';
+import { ItemsScreen } from '../screens/items';
+import { MoreScreen } from '../screens/more';
+import { InventoryDashboardScreen, InventoryItemDetailScreen } from '../screens/inventory';
 
 // Tab param list - tabs available in bottom navigation
 export type TabParamList = {
   DashboardTab: undefined;
+  ItemsTab: undefined;
   CartsTab: undefined;
   ReportsTab: undefined;
-  SettingsTab: undefined;
+  MoreTab: undefined;
 };
 
 // Stack param lists for each tab
@@ -75,8 +79,11 @@ export type CartsStackParamList = {
   About: undefined;
 };
 
-export type SettingsStackParamList = {
+export type MoreStackParamList = {
+  More: undefined;
   Settings: undefined;
+  InventoryDashboard: undefined;
+  InventoryItemDetail: { itemId: string };
   AppearanceSettings: undefined;
   LanguageSettings: undefined;
   NotificationSettings: undefined;
@@ -87,14 +94,20 @@ export type SettingsStackParamList = {
   ItemManagement: { categoryId?: string } | undefined;
 };
 
+export type ItemsStackParamList = {
+  Items: undefined;
+  Cart: undefined;
+};
+
 export type ReportsStackParamList = {
   Reports: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
+const ItemsStack = createNativeStackNavigator<ItemsStackParamList>();
 const CartsStack = createNativeStackNavigator<CartsStackParamList>();
-const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
+const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 const ReportsStack = createNativeStackNavigator<ReportsStackParamList>();
 
 /**
@@ -229,6 +242,48 @@ function DashboardStackNavigator() {
 }
 
 /**
+ * Items Stack Navigator
+ */
+function ItemsStackNavigator() {
+  const theme = useTheme();
+  const { t } = useTranslation('common');
+
+  return (
+    <ItemsStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: theme.colors.surface,
+        },
+        headerTintColor: theme.colors.primary,
+        headerTitleStyle: {
+          fontWeight: '700',
+          fontSize: 18,
+          color: theme.colors.text,
+        },
+        headerShadowVisible: false,
+        contentStyle: {
+          backgroundColor: theme.colors.background,
+        },
+      }}
+    >
+      <ItemsStack.Screen
+        name="Items"
+        component={ItemsScreen}
+        options={{ headerShown: false }}
+      />
+      <ItemsStack.Screen
+        name="Cart"
+        component={CartScreen}
+        options={{
+          title: t('picking.cartReview'),
+        }}
+      />
+    </ItemsStack.Navigator>
+  );
+}
+
+/**
  * Carts Stack Navigator
  */
 function CartsStackNavigator() {
@@ -330,13 +385,13 @@ function CartsStackNavigator() {
 }
 
 /**
- * Settings Stack Navigator
+ * More Stack Navigator
  */
-function SettingsStackNavigator() {
+function MoreStackNavigator() {
   const theme = useTheme();
 
   return (
-    <SettingsStack.Navigator
+    <MoreStack.Navigator
       screenOptions={{
         headerShown: true,
         headerStyle: {
@@ -354,70 +409,91 @@ function SettingsStackNavigator() {
         },
       }}
     >
-      <SettingsStack.Screen
+      <MoreStack.Screen
+        name="More"
+        component={MoreScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <MoreStack.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
           title: 'Settings',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
+        name="InventoryDashboard"
+        component={InventoryDashboardScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <MoreStack.Screen
+        name="InventoryItemDetail"
+        component={InventoryItemDetailScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <MoreStack.Screen
         name="AppearanceSettings"
         component={AppearanceSettingsScreen}
         options={{
           title: 'Appearance',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="LanguageSettings"
         component={LanguageSettingsScreen}
         options={{
           title: 'Language',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{
           title: 'Notifications',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="PrinterSettings"
         component={PrinterSettingsScreen}
         options={{
           title: 'Printer Settings',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="PaymentSettings"
         component={PaymentSettingsScreen}
         options={{
           title: 'Payment Settings',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="About"
         component={AboutScreen}
         options={{
           title: 'About',
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="CategoryManagement"
         component={CategoryManagementScreen}
         options={{
           headerShown: false,
         }}
       />
-      <SettingsStack.Screen
+      <MoreStack.Screen
         name="ItemManagement"
         component={ItemManagementScreen}
         options={{
           headerShown: false,
         }}
       />
-    </SettingsStack.Navigator>
+    </MoreStack.Navigator>
   );
 }
 
@@ -512,6 +588,22 @@ export function BottomTabNavigator() {
         })}
       />
       <Tab.Screen
+        name="ItemsTab"
+        component={ItemsStackNavigator}
+        options={{
+          tabBarLabel: t('navigation.items', 'Items'),
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="list-alt" color={color} size={responsiveStyles.tabBarIconSize} />
+          ),
+        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('ItemsTab', { screen: 'Items' });
+          },
+        })}
+      />
+      <Tab.Screen
         name="CartsTab"
         component={CartsStackNavigator}
         options={{
@@ -544,18 +636,18 @@ export function BottomTabNavigator() {
         })}
       />
       <Tab.Screen
-        name="SettingsTab"
-        component={SettingsStackNavigator}
+        name="MoreTab"
+        component={MoreStackNavigator}
         options={{
-          tabBarLabel: t('navigation.settings', 'Settings'),
+          tabBarLabel: t('navigation.more', 'More'),
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="settings" color={color} size={responsiveStyles.tabBarIconSize} />
+            <TabBarIcon name="more-horiz" color={color} size={responsiveStyles.tabBarIconSize} />
           ),
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('SettingsTab', { screen: 'Settings' });
+            navigation.navigate('MoreTab', { screen: 'More' });
           },
         })}
       />
