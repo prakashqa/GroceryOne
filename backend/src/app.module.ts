@@ -18,8 +18,10 @@ import { ProductsModule } from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
 
 import { TenantMiddleware } from './core/middleware/tenant.middleware';
+import { SubscriptionMiddleware } from './core/middleware/subscription.middleware';
 import { LoggerMiddleware } from './core/middleware/logger.middleware';
 import configuration from './core/config/configuration';
 
@@ -75,6 +77,7 @@ import configuration from './core/config/configuration';
     InventoryModule,
     CartModule,
     OrdersModule,
+    SubscriptionModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -90,6 +93,23 @@ export class AppModule implements NestModule {
         'seed',
         'seed/(.*)',
         'auth/resolve-tenant',
+        'auth/signup',
+      )
+      .forRoutes('*');
+
+    consumer
+      .apply(SubscriptionMiddleware)
+      .exclude(
+        'docs',
+        'docs/(.*)',
+        'health',
+        'admin',
+        'admin/(.*)',
+        'seed',
+        'seed/(.*)',
+        'auth/(.*)',
+        'subscriptions/(.*)',
+        'subscriptions',
       )
       .forRoutes('*');
   }

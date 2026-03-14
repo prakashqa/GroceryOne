@@ -38,7 +38,7 @@ describe('QuickActionsGrid', () => {
     },
     {
       id: 'new-cart',
-      title: 'New Cart',
+      title: 'New Order',
       subtitle: 'Start picking',
       icon: 'cart',
       isPrimary: true,
@@ -56,7 +56,7 @@ describe('QuickActionsGrid', () => {
         <QuickActionsGrid actions={mockActions} />
       );
 
-      expect(getByText('New Cart')).toBeTruthy();
+      expect(getByText('New Order')).toBeTruthy();
       expect(getByText('Scan List')).toBeTruthy();
       expect(getByText("Today's Report")).toBeTruthy();
       expect(getByText('Manage Items')).toBeTruthy();
@@ -193,7 +193,7 @@ describe('QuickActionsGrid', () => {
       );
 
       const primaryButton = getByTestId('quick-action-new-cart');
-      expect(primaryButton.props.accessibilityLabel).toBe('New Cart: Start picking');
+      expect(primaryButton.props.accessibilityLabel).toBe('New Order: Start picking');
     });
   });
 });

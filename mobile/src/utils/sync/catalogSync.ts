@@ -78,6 +78,7 @@ export async function saveSyncStatus(status: SyncStatus): Promise<void> {
 export async function fetchCategoriesFromBackend(options?: {
   tenantId?: string;
   accessToken?: string;
+  trackInventory?: boolean;
 }): Promise<Category[]> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -90,7 +91,15 @@ export async function fetchCategoriesFromBackend(options?: {
     headers['Authorization'] = `Bearer ${options.accessToken}`;
   }
 
-  const url = `${API_CONFIG.BASE_URL}/categories`;
+  // Build URL with optional trackInventory filter
+  let url = `${API_CONFIG.BASE_URL}/categories`;
+  const params: string[] = [];
+  if (options?.trackInventory !== undefined) {
+    params.push(`trackInventory=${options.trackInventory}`);
+  }
+  if (params.length > 0) {
+    url += `?${params.join('&')}`;
+  }
   console.log('[CatalogSync] Fetching categories from:', url);
 
   const controller = new AbortController();
@@ -121,12 +130,13 @@ export async function fetchCategoriesFromBackend(options?: {
   const data = response_data.data || response_data; // Handle both { data: [...] } and direct array
 
   // Map backend format to local format
-  return data.map((cat: { id: string; slug: string; name: string; nameTe?: string; icon: string }) => ({
+  return data.map((cat: { id: string; slug: string; name: string; nameTe?: string; icon: string; trackInventory?: boolean }) => ({
     id: cat.slug, // Use slug as ID for compatibility
     backendId: cat.id, // Store UUID for reverse lookup (slug-UUID mismatch fix)
     name: cat.name,
     nameTe: cat.nameTe,
     icon: cat.icon,
+    trackInventory: cat.trackInventory ?? false,
   }));
 }
 
@@ -187,6 +197,9 @@ export async function fetchItemsFromBackend(options?: {
     price?: number | string;
     compareAtPrice?: number | string;
     sortOrder?: number;
+    trackInventory?: boolean;
+    stockQuantity?: number | string;
+    lowStockThreshold?: number;
   }) => ({
     id: item.slug, // Use slug as ID for compatibility
     backendId: item.id, // Store backend UUID for cart sync API calls
@@ -211,6 +224,13 @@ export async function fetchItemsFromBackend(options?: {
     })(),
     // Carry sortOrder for consistent display ordering across screens
     sortOrder: item.sortOrder ?? 0,
+    // Inventory tracking fields — required for filtering inventory items from order/POS screens
+    trackInventory: item.trackInventory ?? false,
+    stockQuantity: (() => {
+      if (item.stockQuantity === undefined || item.stockQuantity === null) return undefined;
+      return typeof item.stockQuantity === 'string' ? parseFloat(item.stockQuantity) : item.stockQuantity;
+    })(),
+    lowStockThreshold: item.lowStockThreshold,
   }));
 }
 
@@ -404,7 +424,7 @@ export async function syncBackendToLocal(options?: {
     console.log('[CatalogSync] API URL:', API_CONFIG.BASE_URL);
     console.log('[CatalogSync] Options:', JSON.stringify(options));
 
-    const categories = await fetchCategoriesFromBackend(options);
+    const categories = await fetchCategoriesFromBackend({ ...options, trackInventory: false });
     console.log(`[CatalogSync] Fetched ${categories.length} categories`);
 
     const items = await fetchItemsFromBackend(options);

@@ -1,6 +1,7 @@
 /**
  * ItemsScreen
  * Quick-add items tab — lists all items, one-tap to create cart and add item
+ * Supports grid and list view modes with a toggle in the header
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -12,15 +13,17 @@ import {
   TextInput,
   StatusBar,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '../../theme';
+import { useTheme, useIsDarkMode } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 import { Item, Category, ManagedCart } from '../../../domain/types/picking';
-import { normalizeToBaseUnit } from '../../../domain/utils/unitConversion';
+import { normalizeToBaseUnit, type ItemUnit } from '../../../domain/utils/unitConversion';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
 import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
 import {
@@ -31,12 +34,21 @@ import {
   createCart,
   addItemToActiveCart,
   decrementItemInActiveCart,
+  removeItemFromActiveCart,
   selectActiveCart,
   selectTodaysCarts,
   selectActiveCartItems,
+  selectActiveCartItemCount,
 } from '../../../store/slices/multiCartSlice';
 import { ProductCard } from '../../components/picking/ProductCard';
 import { CategoryBar } from '../../components/picking/CategoryBar';
+import { OrderFooter } from '../../components/picking/OrderFooter';
+import AddQuantityModal from '../picking/AddQuantityModal';
+
+/**
+ * Format item price as compact INR string (₹120, not ₹120.00)
+ */
+const formatItemPrice = (price: number): string => `₹${price}`;
 
 /**
  * Generate a cart name in HHMM-DDMMYY-XX format
@@ -54,11 +66,153 @@ function generateCartName(todaysCarts: ManagedCart[]): string {
 
 type ItemsStackParamList = {
   Items: undefined;
-  Cart: undefined;
+  Order: undefined;
+};
+
+/**
+ * Compact list row component for list view mode
+ */
+const ProductListItem: React.FC<{
+  item: Item;
+  categoryIcon: string;
+  quantityInCart: number;
+  onAdd: () => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
+  onPress: () => void;
+  testID?: string;
+  theme: ReturnType<typeof useTheme>;
+  isTablet: boolean;
+}> = ({ item, categoryIcon, quantityInCart, onAdd, onIncrement, onDecrement, onPress, testID, theme, isTablet }) => {
+  const productName = getTranslatedItemName(item);
+  const isInCart = quantityInCart > 0;
+  const isStockTracked = item.trackInventory ?? false;
+  const isOutOfStock = isStockTracked && (item.stockQuantity ?? 0) <= 0;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.listItemContainer,
+        {
+          backgroundColor: isInCart ? theme.colors.inCartBackground : theme.colors.surface,
+          borderRadius: theme.borderRadius.md,
+          marginHorizontal: theme.spacing.xs,
+          marginVertical: theme.spacing.xs / 2,
+          paddingHorizontal: theme.spacing.smd,
+          paddingVertical: theme.spacing.sm,
+          borderWidth: isInCart ? 1.5 : 0,
+          borderColor: isInCart ? theme.colors.inCartBorder : 'transparent',
+        },
+        theme.shadows.sm,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+      testID={testID}
+    >
+      {/* Left: Icon + Name + Unit */}
+      <Text style={styles.listItemIcon}>{categoryIcon}</Text>
+      <View style={styles.listItemInfo}>
+        <Text
+          style={[
+            styles.listItemName,
+            {
+              color: theme.colors.text,
+              fontSize: isTablet
+                ? Math.round(theme.typography.fontSize.xl * 0.9)
+                : Math.round(theme.typography.fontSize.lg * 0.9),
+              fontWeight: theme.typography.fontWeight.semibold,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {productName}
+        </Text>
+        <Text
+          style={{
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSize.sm,
+          }}
+        >
+          {item.defaultQuantity} {item.unit}
+        </Text>
+      </View>
+
+      {/* Right: Price + Action */}
+      <View style={styles.listItemRight}>
+        {item.price !== undefined && (
+          <Text
+            style={{
+              color: theme.colors.primary,
+              fontSize: isTablet
+                ? theme.typography.fontSize.lg
+                : theme.typography.fontSize.md,
+              fontWeight: theme.typography.fontWeight.bold,
+              marginRight: theme.spacing.sm,
+            }}
+          >
+            {formatItemPrice(item.price)}
+          </Text>
+        )}
+        {isInCart ? (
+          <View style={[styles.listItemQuantityControls, { borderRadius: theme.borderRadius.xl, backgroundColor: theme.colors.background, padding: 2 }]}>
+            <TouchableOpacity
+              style={[styles.listItemQtyBtn, { backgroundColor: theme.colors.surface, borderRadius: 14 }]}
+              onPress={onDecrement}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              testID={testID ? `${testID}-decrement` : undefined}
+            >
+              <Text style={{ color: theme.colors.text, fontSize: theme.typography.fontSize.md, fontWeight: theme.typography.fontWeight.bold }}>-</Text>
+            </TouchableOpacity>
+            <Text
+              style={{
+                color: theme.colors.text,
+                fontSize: theme.typography.fontSize.md,
+                fontWeight: theme.typography.fontWeight.bold,
+                minWidth: 24,
+                textAlign: 'center',
+              }}
+              testID={testID ? `${testID}-quantity` : undefined}
+            >
+              {quantityInCart}
+            </Text>
+            <TouchableOpacity
+              style={[styles.listItemQtyBtn, { backgroundColor: theme.colors.buttonPrimary, borderRadius: 14 }]}
+              onPress={onIncrement}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              testID={testID ? `${testID}-increment` : undefined}
+            >
+              <Text style={{ color: theme.colors.textInverse, fontSize: theme.typography.fontSize.md, fontWeight: theme.typography.fontWeight.bold }}>+</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.listItemAddBtn,
+              {
+                backgroundColor: isOutOfStock ? theme.colors.textLight : theme.colors.buttonPrimary,
+                borderRadius: theme.borderRadius.xl,
+                paddingVertical: theme.spacing.xs,
+                paddingHorizontal: theme.spacing.smd,
+                opacity: isOutOfStock ? 0.5 : 1,
+              },
+            ]}
+            onPress={onAdd}
+            disabled={isOutOfStock}
+            testID={testID ? `${testID}-add-button` : undefined}
+          >
+            <Text style={{ color: theme.colors.buttonPrimaryText, fontSize: theme.typography.fontSize.sm, fontWeight: theme.typography.fontWeight.semibold }}>
+              Add
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 };
 
 const ItemsScreen: React.FC = () => {
   const theme = useTheme();
+  const isDark = useIsDarkMode();
   const { t } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
@@ -70,13 +224,28 @@ const ItemsScreen: React.FC = () => {
   const activeCart = useSelector(selectActiveCart);
   const todaysCarts = useSelector(selectTodaysCarts);
   const activeCartItems = useSelector(selectActiveCartItems) || [];
+  const orderItemCount = useSelector(selectActiveCartItemCount);
+
+  // Calculate total price from active cart items for the order footer
+  const orderTotalPrice = useMemo(() => {
+    return activeCartItems.reduce((sum, ci) => {
+      if (ci.priceSnapshot !== undefined && ci.priceSnapshot > 0) {
+        return sum + ci.priceSnapshot * ci.quantity;
+      }
+      return sum;
+    }, 0);
+  }, [activeCartItems]);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
   // Filter items by category and search
   const filteredItems = useMemo(() => {
-    let filtered = items.filter((item: Item) => item.isActive !== false);
+    // Exclude inventory items (trackInventory === true) — only show order/POS items
+    let filtered = items.filter((item: Item) => item.isActive !== false && item.trackInventory !== true);
 
     if (selectedCategoryId !== 'all') {
       filtered = filtered.filter((item: Item) => item.categoryId === selectedCategoryId);
@@ -127,21 +296,55 @@ const ItemsScreen: React.FC = () => {
   );
 
   /**
-   * Card press — add item and navigate to Cart review
+   * Card press — open quantity modal for the item
    */
   const handleItemPress = useCallback(
     (item: Item) => {
-      // Don't navigate for out-of-stock tracked items
+      // Don't open modal for out-of-stock tracked items
       const isStockTracked = item.trackInventory ?? false;
       const availableStock = item.stockQuantity ?? 0;
       if (isStockTracked && availableStock <= 0) {
         return;
       }
 
-      handleAddItem(item);
-      navigation.navigate('Cart');
+      setSelectedItem(item);
+      setModalVisible(true);
     },
-    [handleAddItem, navigation]
+    []
+  );
+
+  // Track selected item's current cart state for the modal
+  const selectedItemCartState = useMemo(() => {
+    if (!selectedItem) return { quantity: 0, displayUnit: undefined };
+    const cartItem = activeCartItems.find((ci) => ci.item.id === selectedItem.id);
+    return {
+      quantity: cartItem?.quantity || 0,
+      displayUnit: cartItem?.displayUnit || undefined,
+    };
+  }, [selectedItem, activeCartItems]);
+
+  const handleModalClose = useCallback(() => {
+    setModalVisible(false);
+    setSelectedItem(null);
+  }, []);
+
+  const handleModalAddToCart = useCallback(
+    (item: Item, quantity: number, displayUnit?: ItemUnit) => {
+      // Ensure cart exists before adding
+      if (!activeCart || activeCart.status === 'paid') {
+        const cartName = generateCartName(todaysCarts);
+        dispatch(createCart({ name: cartName }));
+      }
+      dispatch(addItemToActiveCart({ item, quantity, displayUnit }));
+    },
+    [activeCart, todaysCarts, dispatch]
+  );
+
+  const handleModalRemove = useCallback(
+    (itemId: string) => {
+      dispatch(removeItemFromActiveCart(itemId));
+    },
+    [dispatch]
   );
 
   /**
@@ -153,6 +356,10 @@ const ItemsScreen: React.FC = () => {
     },
     [dispatch]
   );
+
+  const handleGoToOrder = useCallback(() => {
+    navigation.navigate('Order');
+  }, [navigation]);
 
   const getItemQuantityInCart = useCallback(
     (itemId: string): number => {
@@ -170,7 +377,7 @@ const ItemsScreen: React.FC = () => {
     [categories]
   );
 
-  const renderItem = useCallback(
+  const renderGridItem = useCallback(
     ({ item }: { item: Item }) => {
       const quantityInCart = getItemQuantityInCart(item.id);
       return (
@@ -191,11 +398,34 @@ const ItemsScreen: React.FC = () => {
     [numColumns, getItemQuantityInCart, getCategoryIcon, handleAddItem, handleDecrement, handleItemPress]
   );
 
+  const renderListItem = useCallback(
+    ({ item }: { item: Item }) => {
+      const quantityInCart = getItemQuantityInCart(item.id);
+      return (
+        <ProductListItem
+          item={item}
+          categoryIcon={getCategoryIcon(item.categoryId)}
+          quantityInCart={quantityInCart}
+          onAdd={() => handleAddItem(item)}
+          onIncrement={() => handleAddItem(item)}
+          onDecrement={() => handleDecrement(item.id)}
+          onPress={() => handleItemPress(item)}
+          testID={`item-${item.id}`}
+          theme={theme}
+          isTablet={isTablet}
+        />
+      );
+    },
+    [getItemQuantityInCart, getCategoryIcon, handleAddItem, handleDecrement, handleItemPress, theme, isTablet]
+  );
+
+  const hasOrderItems = orderItemCount > 0;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar
-        barStyle="light-content"
-        backgroundColor={theme.colors.primary}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.headerBackground}
       />
 
       {/* Header */}
@@ -203,49 +433,81 @@ const ItemsScreen: React.FC = () => {
         style={[
           styles.header,
           {
-            backgroundColor: theme.colors.primary,
+            backgroundColor: theme.colors.headerBackground,
             paddingTop: Platform.OS === 'ios' ? 50 : StatusBar.currentHeight || 24,
             paddingHorizontal: theme.spacing.md,
-            paddingBottom: theme.spacing.md,
+            paddingBottom: theme.spacing.smd,
           },
         ]}
       >
-        <Text
-          style={[
-            styles.headerTitle,
-            {
-              color: theme.colors.headerText || '#FFFFFF',
-              fontSize: isTablet
-                ? theme.typography.fontSize.xxl
-                : theme.typography.fontSize.xl,
-              fontWeight: theme.typography.fontWeight.bold,
-            },
-          ]}
-        >
-          {t('items.title', 'Items')}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text
+            style={[
+              styles.headerTitle,
+              {
+                color: theme.colors.headerText,
+                fontSize: isTablet
+                  ? theme.typography.fontSize.xxl
+                  : theme.typography.fontSize.xl,
+                fontWeight: theme.typography.fontWeight.bold,
+              },
+            ]}
+          >
+            {t('items.title', 'Items')}
+          </Text>
+
+          {/* View mode toggle */}
+          <TouchableOpacity
+            onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            style={[
+              styles.viewToggle,
+              {
+                backgroundColor: theme.colors.background,
+                borderRadius: theme.borderRadius.sm,
+                padding: theme.spacing.xs,
+              },
+            ]}
+            accessibilityLabel={viewMode === 'grid' ? 'Switch to list view' : 'Switch to grid view'}
+            accessibilityRole="button"
+            testID="items-view-toggle"
+          >
+            <Icon
+              name={viewMode === 'grid' ? 'view-list' : 'view-module'}
+              size={isTablet ? 28 : 24}
+              color={theme.colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Search bar */}
         <View
           style={[
             styles.searchContainer,
             {
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              borderRadius: theme.borderRadius.md,
+              backgroundColor: theme.colors.inputBackground,
+              borderRadius: theme.borderRadius.xl,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
               marginTop: theme.spacing.sm,
             },
           ]}
         >
+          <Icon
+            name="search"
+            size={20}
+            color={theme.colors.placeholder}
+            style={{ marginLeft: 12 }}
+          />
           <TextInput
             style={[
               styles.searchInput,
               {
-                color: '#FFFFFF',
+                color: theme.colors.text,
                 fontSize: theme.typography.fontSize.md,
               },
             ]}
             placeholder={t('items.searchPlaceholder', 'Search items...')}
-            placeholderTextColor="rgba(255,255,255,0.6)"
+            placeholderTextColor={theme.colors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             testID="items-search-input"
@@ -261,7 +523,7 @@ const ItemsScreen: React.FC = () => {
         testID="items-category-bar"
       />
 
-      {/* Items grid */}
+      {/* Items grid/list */}
       {filteredItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text
@@ -276,20 +538,55 @@ const ItemsScreen: React.FC = () => {
             {t('items.noItems', 'No items found')}
           </Text>
         </View>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <FlatList
+          key="grid"
           data={filteredItems}
-          renderItem={renderItem}
+          renderItem={renderGridItem}
           keyExtractor={(item) => item.id}
           numColumns={numColumns}
           contentContainerStyle={{
-            padding: theme.spacing.xs,
-            paddingBottom: 100,
+            padding: theme.spacing.sm,
+            paddingBottom: hasOrderItems ? 120 : 100,
           }}
           showsVerticalScrollIndicator={false}
           testID="items-grid"
         />
+      ) : (
+        <FlatList
+          key="list"
+          data={filteredItems}
+          renderItem={renderListItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{
+            padding: theme.spacing.sm,
+            paddingBottom: hasOrderItems ? 120 : 100,
+          }}
+          showsVerticalScrollIndicator={false}
+          testID="items-list"
+        />
       )}
+
+      {/* View Order footer — shows when items are in the active order */}
+      {hasOrderItems && (
+        <OrderFooter
+          itemCount={orderItemCount}
+          totalPrice={orderTotalPrice}
+          onViewCart={handleGoToOrder}
+          testID="items-order-footer"
+        />
+      )}
+
+      {/* Quantity selection modal */}
+      <AddQuantityModal
+        visible={modalVisible}
+        item={selectedItem}
+        quantityInCart={selectedItemCartState.quantity}
+        displayUnitInCart={selectedItemCartState.displayUnit}
+        onClose={handleModalClose}
+        onAddToCart={handleModalAddToCart}
+        onRemove={handleModalRemove}
+      />
     </View>
   );
 };
@@ -299,15 +596,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {},
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   headerTitle: {},
+  viewToggle: {},
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   searchInput: {
     flex: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 10,
+    height: 44,
   },
   emptyContainer: {
     flex: 1,
@@ -316,6 +620,38 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+  },
+  // List view styles
+  listItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listItemIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  listItemInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  listItemName: {},
+  listItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  listItemQuantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  listItemQtyBtn: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listItemAddBtn: {
+    alignItems: 'center',
   },
 });
 

@@ -33,13 +33,16 @@ interface ItemFormModalProps {
     categoryId: string;
     unit: Item['unit'];
     defaultQuantity: number;
-    mrp: number;
+    mrp?: number;
     salePrice?: number;
+    stockQuantity?: number;
+    lowStockThreshold?: number;
   }) => void;
   categories: Category[];
   editItem?: Item | null;
   initialCategoryId?: string;
   testID?: string;
+  mode?: 'order' | 'inventory';
 }
 
 const ItemFormModal: React.FC<ItemFormModalProps> = ({
@@ -50,15 +53,19 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
   editItem,
   initialCategoryId,
   testID,
+  mode = 'order',
 }) => {
   const { t } = useTranslation();
   const theme = useTheme();
+  const isInventoryMode = mode === 'inventory';
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [unit, setUnit] = useState<Item['unit']>('pcs');
   const [defaultQuantity, setDefaultQuantity] = useState('1');
   const [mrp, setMrp] = useState('');
   const [salePrice, setSalePrice] = useState('');
+  const [stockQuantity, setStockQuantity] = useState('0');
+  const [lowStockThreshold, setLowStockThreshold] = useState('10');
   const [error, setError] = useState<string | null>(null);
 
   const isEditMode = !!editItem;
@@ -90,6 +97,8 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
         setDefaultQuantity('1');
         setMrp('');
         setSalePrice('');
+        setStockQuantity('0');
+        setLowStockThreshold('10');
       }
       setError(null);
     }
@@ -106,14 +115,14 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
       setError(t('validation.selectCategory'));
     } else if (defaultQuantity && (isNaN(qty) || qty <= 0)) {
       setError(t('validation.positiveQuantity'));
-    } else if (trimmedName && categoryId && (!mrp || isNaN(mrpNum) || mrpNum <= 0)) {
+    } else if (!isInventoryMode && trimmedName && categoryId && (!mrp || isNaN(mrpNum) || mrpNum <= 0)) {
       setError(t('validation.mrpRequired'));
-    } else if (mrp && salePrice && !isNaN(mrpNum) && !isNaN(salePriceNum) && salePriceNum > mrpNum) {
+    } else if (!isInventoryMode && mrp && salePrice && !isNaN(mrpNum) && !isNaN(salePriceNum) && salePriceNum > mrpNum) {
       setError(t('validation.salePriceExceedsMrp'));
     } else {
       setError(null);
     }
-  }, [name, categoryId, defaultQuantity, mrp, salePrice, t]);
+  }, [name, categoryId, defaultQuantity, mrp, salePrice, t, isInventoryMode]);
 
   const handleSubmit = () => {
     const trimmedName = name.trim();
@@ -121,18 +130,36 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
     const mrpNum = parseFloat(mrp);
     const salePriceNum = parseFloat(salePrice);
 
-    if (!trimmedName || !categoryId || !mrp || isNaN(mrpNum) || mrpNum <= 0 || error) {
+    if (!trimmedName || !categoryId || error) {
       return;
     }
 
-    onSubmit({
-      name: trimmedName,
-      categoryId,
-      unit,
-      defaultQuantity: qty,
-      mrp: mrpNum,
-      ...(salePrice && !isNaN(salePriceNum) && { salePrice: salePriceNum }),
-    });
+    if (isInventoryMode) {
+      // Inventory mode: submit stock fields, no price fields
+      const stockQty = parseFloat(stockQuantity) || 0;
+      const threshold = parseFloat(lowStockThreshold) || 0;
+      onSubmit({
+        name: trimmedName,
+        categoryId,
+        unit,
+        defaultQuantity: qty,
+        stockQuantity: stockQty,
+        lowStockThreshold: threshold,
+      });
+    } else {
+      // Order mode: submit price fields (MRP required)
+      if (!mrp || isNaN(mrpNum) || mrpNum <= 0) {
+        return;
+      }
+      onSubmit({
+        name: trimmedName,
+        categoryId,
+        unit,
+        defaultQuantity: qty,
+        mrp: mrpNum,
+        ...(salePrice && !isNaN(salePriceNum) && { salePrice: salePriceNum }),
+      });
+    }
     onClose();
   };
 
@@ -143,18 +170,26 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
     setDefaultQuantity('1');
     setMrp('');
     setSalePrice('');
+    setStockQuantity('0');
+    setLowStockThreshold('10');
     setError(null);
     onClose();
   };
 
   const mrpNum = parseFloat(mrp);
-  const isSubmitDisabled = !name.trim() || !categoryId || !mrp || isNaN(mrpNum) || mrpNum <= 0 || !!error;
+  const isSubmitDisabled = isInventoryMode
+    ? !name.trim() || !categoryId || !!error
+    : !name.trim() || !categoryId || !mrp || isNaN(mrpNum) || mrpNum <= 0 || !!error;
 
   return (
     <ModalContainer
       visible={visible}
       onClose={handleCancel}
-      title={isEditMode ? t('manageItems.editItem') : t('manageItems.addItem')}
+      title={
+        isEditMode
+          ? (isInventoryMode ? t('manageItems.editInventoryItem', 'Edit Inventory Item') : t('manageItems.editItem'))
+          : (isInventoryMode ? t('manageItems.addInventoryItem', 'Add Inventory Item') : t('manageItems.addItem'))
+      }
       icon="📦"
       testID={testID}
     >
@@ -351,112 +386,196 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
           />
         </View>
 
-        {/* Price Fields - MRP and Sale Price */}
-        <View style={[styles.priceContainer, { marginBottom: theme.spacing.md, gap: theme.spacing.md }]}>
-          {/* MRP */}
-          <View style={styles.priceInputWrapper}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.textSecondary,
-                  fontSize: theme.typography.fontSize.md,
-                  marginBottom: theme.spacing.sm,
-                },
-              ]}
-            >
-              {t('manageItems.mrp')} *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.priceInput,
-                {
-                  backgroundColor: theme.colors.inputBackground,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.borderRadius.md,
-                  fontSize: theme.typography.fontSize.lg,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.md - 2,
-                },
-              ]}
-              placeholder={t('manageItems.enterMrp')}
-              placeholderTextColor={theme.colors.placeholder}
-              value={mrp}
-              onChangeText={setMrp}
-              keyboardType="decimal-pad"
-              maxLength={10}
-              testID={testID ? `${testID}-mrp-input` : undefined}
-            />
-          </View>
+        {/* Conditional Fields: Price (order mode) or Stock (inventory mode) */}
+        {isInventoryMode ? (
+          <>
+            {/* Inventory Mode: Stock Quantity and Low Stock Threshold */}
+            <View style={[styles.priceContainer, { marginBottom: theme.spacing.md, gap: theme.spacing.md }]}>
+              <View style={styles.priceInputWrapper}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: theme.spacing.sm,
+                    },
+                  ]}
+                >
+                  {t('inventory.stock', 'Stock Quantity')}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.priceInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.borderRadius.md,
+                      fontSize: theme.typography.fontSize.lg,
+                      paddingHorizontal: theme.spacing.md,
+                      paddingVertical: theme.spacing.md - 2,
+                    },
+                  ]}
+                  placeholder="0"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={stockQuantity}
+                  onChangeText={setStockQuantity}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                  testID={testID ? `${testID}-stock-quantity-input` : undefined}
+                />
+              </View>
 
-          {/* Sale Price */}
-          <View style={styles.priceInputWrapper}>
-            <Text
-              style={[
-                styles.label,
-                {
-                  color: theme.colors.textSecondary,
-                  fontSize: theme.typography.fontSize.md,
-                  marginBottom: theme.spacing.sm,
-                },
-              ]}
-            >
-              {t('manageItems.salePrice')}
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                styles.priceInput,
-                {
-                  backgroundColor: theme.colors.inputBackground,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.borderRadius.md,
-                  fontSize: theme.typography.fontSize.lg,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.md - 2,
-                },
-              ]}
-              placeholder={t('manageItems.enterSalePrice')}
-              placeholderTextColor={theme.colors.placeholder}
-              value={salePrice}
-              onChangeText={setSalePrice}
-              keyboardType="decimal-pad"
-              maxLength={10}
-              testID={testID ? `${testID}-sale-price-input` : undefined}
-            />
-          </View>
-        </View>
-
-        {/* Discount Badge */}
-        {discountPercent !== null && discountPercent > 0 && (
-          <View style={[styles.discountContainer, { marginBottom: theme.spacing.md }]}>
-            <View
-              style={[
-                styles.discountBadge,
-                {
-                  backgroundColor: theme.colors.primary,
-                  borderRadius: theme.borderRadius.full,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.xs,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.discountText,
-                  {
-                    color: theme.colors.buttonPrimaryText,
-                    fontSize: theme.typography.fontSize.sm,
-                  },
-                ]}
-              >
-                {t('manageItems.percentOff', { percent: discountPercent })}
-              </Text>
+              <View style={styles.priceInputWrapper}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: theme.spacing.sm,
+                    },
+                  ]}
+                >
+                  {t('inventory.threshold', 'Low Stock Threshold')}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.priceInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.borderRadius.md,
+                      fontSize: theme.typography.fontSize.lg,
+                      paddingHorizontal: theme.spacing.md,
+                      paddingVertical: theme.spacing.md - 2,
+                    },
+                  ]}
+                  placeholder="10"
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={lowStockThreshold}
+                  onChangeText={setLowStockThreshold}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                  testID={testID ? `${testID}-low-stock-threshold-input` : undefined}
+                />
+              </View>
             </View>
-          </View>
+          </>
+        ) : (
+          <>
+            {/* Order Mode: Price Fields - MRP and Sale Price */}
+            <View style={[styles.priceContainer, { marginBottom: theme.spacing.md, gap: theme.spacing.md }]}>
+              {/* MRP */}
+              <View style={styles.priceInputWrapper}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: theme.spacing.sm,
+                    },
+                  ]}
+                >
+                  {t('manageItems.mrp')} *
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.priceInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.borderRadius.md,
+                      fontSize: theme.typography.fontSize.lg,
+                      paddingHorizontal: theme.spacing.md,
+                      paddingVertical: theme.spacing.md - 2,
+                    },
+                  ]}
+                  placeholder={t('manageItems.enterMrp')}
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={mrp}
+                  onChangeText={setMrp}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                  testID={testID ? `${testID}-mrp-input` : undefined}
+                />
+              </View>
+
+              {/* Sale Price */}
+              <View style={styles.priceInputWrapper}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: theme.colors.textSecondary,
+                      fontSize: theme.typography.fontSize.md,
+                      marginBottom: theme.spacing.sm,
+                    },
+                  ]}
+                >
+                  {t('manageItems.salePrice')}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.priceInput,
+                    {
+                      backgroundColor: theme.colors.inputBackground,
+                      color: theme.colors.text,
+                      borderColor: theme.colors.border,
+                      borderRadius: theme.borderRadius.md,
+                      fontSize: theme.typography.fontSize.lg,
+                      paddingHorizontal: theme.spacing.md,
+                      paddingVertical: theme.spacing.md - 2,
+                    },
+                  ]}
+                  placeholder={t('manageItems.enterSalePrice')}
+                  placeholderTextColor={theme.colors.placeholder}
+                  value={salePrice}
+                  onChangeText={setSalePrice}
+                  keyboardType="decimal-pad"
+                  maxLength={10}
+                  testID={testID ? `${testID}-sale-price-input` : undefined}
+                />
+              </View>
+            </View>
+
+            {/* Discount Badge */}
+            {discountPercent !== null && discountPercent > 0 && (
+              <View style={[styles.discountContainer, { marginBottom: theme.spacing.md }]}>
+                <View
+                  style={[
+                    styles.discountBadge,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      borderRadius: theme.borderRadius.full,
+                      paddingHorizontal: theme.spacing.md,
+                      paddingVertical: theme.spacing.xs,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.discountText,
+                      {
+                        color: theme.colors.buttonPrimaryText,
+                        fontSize: theme.typography.fontSize.sm,
+                      },
+                    ]}
+                  >
+                    {t('manageItems.percentOff', { percent: discountPercent })}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
         )}
 
         {/* Error */}

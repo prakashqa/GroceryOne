@@ -22,13 +22,13 @@ import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 import {
   SummaryCard,
   QuickActionsGrid,
-  ActiveCartPreview,
-  RecentCartsList,
+  ActiveOrderPreview,
+  RecentOrdersList,
   QuickAction,
   RecentCart,
 } from '../../components/dashboard';
 import { FadeInView } from '../../components/common';
-import CreateCartModal from '../../components/picking/CreateCartModal';
+import CreateOrderModal from '../../components/picking/CreateOrderModal';
 import {
   selectTodaysMetrics,
   selectCartsByStatus,
@@ -52,7 +52,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 type DashboardStackParamList = {
   Dashboard: undefined;
   Picking: undefined;
-  Cart: undefined;
+  Order: undefined;
   CategoryManagement: undefined;
   ItemManagement: { categoryId: string };
   CameraCapture: undefined;
@@ -62,7 +62,7 @@ type DashboardStackParamList = {
 
 type TabParamList = {
   DashboardTab: undefined;
-  CartsTab: undefined;
+  OrdersTab: undefined;
   SettingsTab: undefined;
 };
 
@@ -282,7 +282,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   const handleCartPress = useCallback((cartId: string) => {
     // Set the selected cart as active and navigate to Cart screen
     dispatch(setActiveCart(cartId));
-    navigation.navigate('Cart');
+    navigation.navigate('Order');
   }, [dispatch, navigation]);
 
   // Background color
@@ -442,7 +442,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
         {/* Active Cart Preview */}
         {activeCart && (
           <View style={{ marginTop: theme.spacing.md }}>
-            <ActiveCartPreview
+            <ActiveOrderPreview
               cartName={activeCart.name}
               categoryCount={activeCartCategoryCount}
               itemCount={activeCartItemCount}
@@ -468,7 +468,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
         {/* Recent Carts */}
         <FadeInView delay={300} direction="up">
           <View style={{ marginTop: theme.spacing.md }}>
-            <RecentCartsList
+            <RecentOrdersList
               carts={recentCartsData}
               onCartPress={handleCartPress}
               testID="recent-carts"
@@ -481,7 +481,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
       </ScrollView>
 
       {/* Create Cart Modal */}
-      <CreateCartModal
+      <CreateOrderModal
         visible={isCreateCartModalVisible}
         onClose={handleCloseCreateCartModal}
         onCreateCart={handleCreateCart}

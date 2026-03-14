@@ -12,6 +12,9 @@ const USBPrinter = Platform.OS !== 'web'
   ? require('react-native-thermal-receipt-printer-image-qr').USBPrinter
   : null;
 
+// Reuse ESC/POS Base64 constants from BluetoothPrinterService
+import { ESC_POS } from './BluetoothPrinterService';
+
 // USB device interface
 export interface UsbDevice {
   id: string;
@@ -284,6 +287,20 @@ class UsbPrinterService {
         imageWidth: imageWidth,
       });
       job.status = 'completed';
+
+      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
+      try {
+        await USBPrinter.printRawData(ESC_POS.FEED_4_LINES);
+      } catch {
+        // Swallow paper feed errors — don't fail the print job
+      }
+
+      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
+      try {
+        await USBPrinter.printRawData(ESC_POS.CUT_PARTIAL);
+      } catch {
+        // Swallow cut errors — printer may not have a cutter
+      }
     } catch (error: any) {
       job.status = 'failed';
       job.error = error.message || 'Image print failed';

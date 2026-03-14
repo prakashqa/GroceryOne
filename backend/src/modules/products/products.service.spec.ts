@@ -425,6 +425,60 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('SELECT clause includes inventory fields', () => {
+    it('should include trackInventory field in findAll select', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findAll(false, TENANT_A_ID);
+
+      expect(queryBuilderMock.select).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'item.trackInventory',
+          'item.stockQuantity',
+          'item.lowStockThreshold',
+        ]),
+      );
+    });
+
+    it('should include category.trackInventory field in findAll select', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findAll(false, TENANT_A_ID);
+
+      expect(queryBuilderMock.select).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'category.trackInventory',
+        ]),
+      );
+    });
+
+    it('should include trackInventory field in findByCategory select', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findByCategory('cat-a-uuid', false, TENANT_A_ID);
+
+      expect(queryBuilderMock.select).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'item.trackInventory',
+          'item.stockQuantity',
+          'item.lowStockThreshold',
+        ]),
+      );
+    });
+
+    it('should include category.trackInventory field in findByCategory select', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([mockItemTenantA]);
+
+      await service.findByCategory('cat-a-uuid', false, TENANT_A_ID);
+
+      expect(queryBuilderMock.select).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          'category.trackInventory',
+        ]),
+      );
+    });
+  });
+
   describe('Cross-tenant isolation', () => {
     it('should prevent Tenant A from accessing Tenant B item by ID', async () => {
       mockItemRepository.findOne.mockResolvedValue(null);

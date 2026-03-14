@@ -52,7 +52,7 @@ export class CategoriesService {
   /**
    * Find all categories
    */
-  async findAll(includeInactive = false, tenantId?: string): Promise<Category[]> {
+  async findAll(includeInactive = false, tenantId?: string, trackInventory?: boolean): Promise<Category[]> {
     validateTenantId(tenantId);
 
     const query = this.categoryRepository.createQueryBuilder('category')
@@ -66,13 +66,17 @@ export class CategoriesService {
       query.andWhere('category.isActive = :isActive', { isActive: true });
     }
 
+    if (trackInventory !== undefined) {
+      query.andWhere('category.trackInventory = :trackInventory', { trackInventory });
+    }
+
     return query.getMany();
   }
 
   /**
    * Find all categories with their items
    */
-  async findAllWithItems(includeInactive = false, tenantId?: string): Promise<Category[]> {
+  async findAllWithItems(includeInactive = false, tenantId?: string, trackInventory?: boolean): Promise<Category[]> {
     validateTenantId(tenantId);
 
     const query = this.categoryRepository.createQueryBuilder('category')
@@ -88,6 +92,10 @@ export class CategoriesService {
     if (!includeInactive) {
       query.andWhere('category.isActive = :isActive', { isActive: true });
       query.andWhere('(item.isActive = :itemActive OR item.id IS NULL)', { itemActive: true });
+    }
+
+    if (trackInventory !== undefined) {
+      query.andWhere('category.trackInventory = :trackInventory', { trackInventory });
     }
 
     return query.getMany();

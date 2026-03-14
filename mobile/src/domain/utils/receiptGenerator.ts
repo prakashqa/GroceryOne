@@ -13,7 +13,7 @@
 
 export interface MerchantInfo {
   name: string;
-  address: string;
+  address?: string;
   phone?: string;
 }
 
@@ -436,7 +436,9 @@ export const generatePickingListReceipt = (
     lines.push(CENTER_MARKER + title);
     lines.push('');
     lines.push(CENTER_MARKER + merchantInfo.name.toUpperCase());
-    lines.push(CENTER_MARKER + merchantInfo.address);
+    if (merchantInfo.address) {
+      lines.push(CENTER_MARKER + merchantInfo.address);
+    }
     if (merchantInfo.phone) {
       lines.push(CENTER_MARKER + `Tel: ${merchantInfo.phone}`);
     }
@@ -445,7 +447,9 @@ export const generatePickingListReceipt = (
     lines.push(center(title, width));
     lines.push('');
     lines.push(center(merchantInfo.name.toUpperCase(), width));
-    lines.push(center(merchantInfo.address, width));
+    if (merchantInfo.address) {
+      lines.push(center(merchantInfo.address, width));
+    }
     if (merchantInfo.phone) {
       lines.push(center(`Tel: ${merchantInfo.phone}`, width));
     }
@@ -676,6 +680,5 @@ export const sanitizeForPrinter = (text: string): string => {
 };
 
 export const DEFAULT_MERCHANT: MerchantInfo = {
-  name: 'Suresh Groceries',
-  address: 'Main Street, Vizag',
+  name: 'Store',
 };

@@ -78,3 +78,38 @@ export const saveThemeMode = async (mode: ThemeMode, tenantId: string): Promise<
 export const saveLanguage = async (language: string, tenantId: string): Promise<void> => {
   await saveSettings({ language }, tenantId);
 };
+
+// =============================================================================
+// Global (pre-auth) settings — used on auth screens before tenant is resolved
+// =============================================================================
+
+const GLOBAL_THEME_KEY = '@app_theme_mode';
+
+/**
+ * Save theme mode globally (not tenant-scoped)
+ * Used on auth screens before tenant context is available
+ */
+export const saveGlobalThemeMode = async (mode: ThemeMode): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(GLOBAL_THEME_KEY, mode);
+  } catch (error) {
+    console.error('Failed to save global theme mode:', error);
+  }
+};
+
+/**
+ * Load global theme mode (not tenant-scoped)
+ * Used during app startup before tenant is resolved
+ */
+export const loadGlobalThemeMode = async (): Promise<ThemeMode | null> => {
+  try {
+    const mode = await AsyncStorage.getItem(GLOBAL_THEME_KEY);
+    if (mode === 'light' || mode === 'dark' || mode === 'system') {
+      return mode;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to load global theme mode:', error);
+    return null;
+  }
+};

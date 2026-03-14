@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createTestApp, closeTestApp } from './helpers/test-app.helper';
-import { loginAsAdmin, loginAsCustomer, CREDENTIALS } from './helpers/auth.helper';
+import { loginAsAdmin, loginAsCashier, CREDENTIALS } from './helpers/auth.helper';
 import { tenantPost, tenantGet, authGet, authPost } from './helpers/request.helper';
 
 describe('Auth (e2e)', () => {
@@ -87,12 +87,12 @@ describe('Auth (e2e)', () => {
       expect(res.body.data).toHaveProperty('accessToken');
     });
 
-    it('should login customer with valid credentials', async () => {
+    it('should login cashier with valid credentials', async () => {
       const res = await tenantPost(server, '/auth/login')
         .send({ identifier: 'customer@freshmart.com', password: 'Customer@FM123' })
         .expect(200);
 
-      expect(res.body.data.user).toHaveProperty('role', 'customer');
+      expect(res.body.data.user).toHaveProperty('role', 'cashier');
     });
 
     it('should return error for empty identifier', async () => {

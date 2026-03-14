@@ -64,6 +64,11 @@ const ItemManagementScreen: React.FC = () => {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
+  // Filter out inventory categories — only show order/POS categories
+  const orderCategories = useMemo(() => {
+    return categories.filter((cat) => cat.trackInventory !== true);
+  }, [categories]);
+
   // Create a category lookup map
   const categoryMap = useMemo(() => {
     const map: Record<string, Category> = {};
@@ -74,8 +79,9 @@ const ItemManagementScreen: React.FC = () => {
   }, [categories]);
 
   // Filter items based on search query and selected category (search both English and Telugu names)
+  // Excludes inventory items (trackInventory === true) — only show order/POS items
   const filteredItems = useMemo(() => {
-    let filtered = items;
+    let filtered = items.filter((item) => item.trackInventory !== true);
 
     // Filter by category if selected
     if (selectedCategoryId) {
@@ -295,8 +301,8 @@ const ItemManagementScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        {/* Category tabs */}
-        {categories.map((cat) => (
+        {/* Category tabs — only order categories */}
+        {orderCategories.map((cat) => (
           <TouchableOpacity
             key={cat.id}
             testID={`category-chip-${cat.id}`}
@@ -336,7 +342,7 @@ const ItemManagementScreen: React.FC = () => {
         ))}
       </ScrollView>
     ),
-    [categories, selectedCategoryId, theme, t]
+    [orderCategories, selectedCategoryId, theme, t]
   );
 
   const renderFooter = useCallback(
@@ -429,7 +435,7 @@ const ItemManagementScreen: React.FC = () => {
         visible={isFormModalVisible}
         onClose={handleCloseFormModal}
         onSubmit={handleSubmitItem}
-        categories={categories}
+        categories={orderCategories}
         editItem={selectedItem}
         initialCategoryId={selectedCategoryId || undefined}
         testID="item-form-modal"

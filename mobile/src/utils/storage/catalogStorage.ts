@@ -27,8 +27,9 @@ export const getTenantCatalogSyncQueueKey = (tenantId: string): string =>
 /**
  * Cache version - bump when schema changes to invalidate stale data.
  * v2: Added mrp field mapping from compareAtPrice
+ * v3: Added trackInventory, stockQuantity, lowStockThreshold fields to item mapping
  */
-export const CATALOG_CACHE_VERSION = 2;
+export const CATALOG_CACHE_VERSION = 3;
 
 /**
  * Persisted state shape
@@ -141,19 +142,23 @@ export const loadOrSeedCatalog = async (tenantId: string): Promise<LoadCatalogRe
     console.log('[CatalogStorage] Attempting to fetch catalog from backend...');
     const backendData = await syncBackendToLocal({ tenantId });
     console.log('[CatalogStorage] syncBackendToLocal returned:', backendData ? `${backendData.categories.length} categories, ${backendData.items.length} items` : 'null');
-    if (backendData && backendData.categories.length > 0) {
-      console.log(`[CatalogStorage] ✅ Loaded ${backendData.categories.length} categories and ${backendData.items.length} items from backend`);
-      // Save to local storage for offline access
-      await saveCatalogState({
-        categories: backendData.categories,
-        items: backendData.items,
-        isInitialized: true,
-      }, tenantId);
+    if (backendData) {
+      // Backend responded successfully (even 0 categories is valid for a new tenant)
+      if (backendData.categories.length > 0) {
+        console.log(`[CatalogStorage] ✅ Loaded ${backendData.categories.length} categories and ${backendData.items.length} items from backend`);
+        // Save to local storage for offline access
+        await saveCatalogState({
+          categories: backendData.categories,
+          items: backendData.items,
+          isInitialized: true,
+        }, tenantId);
+      } else {
+        console.log('[CatalogStorage] ✅ Backend responded with 0 categories (new/empty tenant — valid state)');
+      }
       return { ...backendData, fromCache: false };
     }
-    if (backendData && backendData.categories.length === 0) {
-      console.warn('[CatalogStorage] ⚠️ Backend returned 0 categories (empty response)');
-    }
+    // backendData is null — syncBackendToLocal caught an error internally
+    console.warn('[CatalogStorage] ⚠️ Backend returned null (possible network issue)');
   } catch (error) {
     console.error('[CatalogStorage] ❌ Failed to fetch from backend, falling back to local storage:', error instanceof Error ? error.message : error);
   }
@@ -167,14 +172,14 @@ export const loadOrSeedCatalog = async (tenantId: string): Promise<LoadCatalogRe
   }
   console.log('[CatalogStorage] Local storage returned:', stored ? `${stored.categories.length} categories` : 'null');
 
-  // No data available - return empty with error
+  // No data available from backend or cache — genuine failure
   const { API_CONFIG: config } = require('../../core/config/api.config');
   const errorMsg = `Could not load catalog. Backend: ${config.BASE_URL}. TenantId: ${tenantId}`;
   console.error(`[CatalogStorage] ❌ No catalog data available. Backend URL: ${config.BASE_URL}`);
   return {
     categories: [],
     items: [],
-    fromCache: true,
+    fromCache: false,
     error: errorMsg,
   };
 };

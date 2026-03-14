@@ -53,11 +53,11 @@ async function bootstrap() {
     console.log('║                                                                    ║');
     console.log('║  🏪 FreshMart (X-Tenant-ID: freshmart)                             ║');
     console.log('║  ├─ Admin:    admin@freshmart.com / Admin@FM123 / PIN: 1234        ║');
-    console.log('║  └─ Customer: customer@freshmart.com / Customer@FM123 / PIN: 5678  ║');
+    console.log('║  └─ Cashier:  customer@freshmart.com / Customer@FM123 / PIN: 5678  ║');
     console.log('║                                                                    ║');
     console.log('║  🛒 QuickBasket (X-Tenant-ID: quickbasket)                         ║');
     console.log('║  ├─ Admin:    admin@quickbasket.com / Admin@QB123 / PIN: 4321      ║');
-    console.log('║  └─ Customer: customer@quickbasket.com / Customer@QB123 / PIN: 8765║');
+    console.log('║  └─ Cashier:  customer@quickbasket.com / Customer@QB123 / PIN: 8765║');
     console.log('║                                                                    ║');
     console.log('╚════════════════════════════════════════════════════════════════════╝');
     console.log('');

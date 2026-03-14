@@ -14,6 +14,7 @@ jest.mock('@expo/vector-icons', () => ({
 const mockT = jest.fn((key: string, params?: Record<string, unknown>) => {
   const translations: Record<string, string> = {
     'manageItems.addItem': 'Add Item', 'manageItems.editItem': 'Edit Item',
+    'manageItems.addInventoryItem': 'Add Inventory Item', 'manageItems.editInventoryItem': 'Edit Inventory Item',
     'manageItems.itemName': 'Item Name', 'manageItems.enterItemName': 'Enter item name',
     'manageItems.selectCategory': 'Category', 'manageItems.selectUnit': 'Unit',
     'manageItems.defaultQuantity': 'Default Quantity', 'manageItems.mrp': 'MRP',
@@ -186,6 +187,83 @@ describe('ItemFormModal', () => {
       fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Test Item');
       fireEvent.press(getByText('Add'));
       await waitFor(() => { expect(mockOnSubmit).not.toHaveBeenCalled(); });
+    });
+  });
+
+  describe('Inventory Mode', () => {
+    it('should NOT show MRP and Sale Price fields in inventory mode', () => {
+      const { queryByPlaceholderText, queryByText } = renderForm({ mode: 'inventory' });
+      expect(queryByPlaceholderText('Enter MRP')).toBeNull();
+      expect(queryByPlaceholderText('Enter sale price')).toBeNull();
+      expect(queryByText('MRP *')).toBeNull();
+      expect(queryByText('Sale Price')).toBeNull();
+    });
+
+    it('should show Stock Quantity and Low Stock Threshold fields in inventory mode', () => {
+      const { getByTestId } = renderForm({ mode: 'inventory', testID: 'item-form' });
+      expect(getByTestId('item-form-stock-quantity-input')).toBeTruthy();
+      expect(getByTestId('item-form-low-stock-threshold-input')).toBeTruthy();
+    });
+
+    it('should NOT require MRP in inventory mode', async () => {
+      const { getByPlaceholderText, getByText } = renderForm({ mode: 'inventory', initialCategoryId: 'cat1' });
+      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Test Inventory Item');
+      fireEvent.press(getByText('Add'));
+      await waitFor(() => { expect(mockOnSubmit).toHaveBeenCalled(); });
+    });
+
+    it('should submit stockQuantity and lowStockThreshold in inventory mode', async () => {
+      const { getByPlaceholderText, getByTestId, getByText } = renderForm({ mode: 'inventory', initialCategoryId: 'cat1', testID: 'item-form' });
+      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Inventory Item');
+      fireEvent.changeText(getByTestId('item-form-stock-quantity-input'), '50');
+      fireEvent.changeText(getByTestId('item-form-low-stock-threshold-input'), '10');
+      fireEvent.press(getByText('Add'));
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'Inventory Item',
+          stockQuantity: 50,
+          lowStockThreshold: 10,
+        }));
+        // Should NOT have mrp or salePrice
+        expect(mockOnSubmit.mock.calls[0][0].mrp).toBeUndefined();
+        expect(mockOnSubmit.mock.calls[0][0].salePrice).toBeUndefined();
+      });
+    });
+
+    it('should show MRP and Sale Price in order mode (default)', () => {
+      const { getByPlaceholderText, getByText } = renderForm();
+      expect(getByPlaceholderText('Enter MRP')).toBeTruthy();
+      expect(getByPlaceholderText('Enter sale price')).toBeTruthy();
+      expect(getByText('MRP *')).toBeTruthy();
+      expect(getByText('Sale Price')).toBeTruthy();
+    });
+
+    it('should NOT show Stock Quantity and Low Stock Threshold in order mode', () => {
+      const { queryByTestId } = renderForm({ testID: 'item-form' });
+      expect(queryByTestId('item-form-stock-quantity-input')).toBeNull();
+      expect(queryByTestId('item-form-low-stock-threshold-input')).toBeNull();
+    });
+  });
+
+  describe('Mode-Aware Title', () => {
+    it('should show "Add Item" title in order mode (default)', () => {
+      renderForm();
+      expect(mockT).toHaveBeenCalledWith('manageItems.addItem');
+    });
+
+    it('should show "Add Inventory Item" title in inventory mode', () => {
+      const { getByText } = renderForm({ mode: 'inventory' });
+      expect(getByText('Add Inventory Item')).toBeTruthy();
+    });
+
+    it('should show "Edit Item" title in order edit mode', () => {
+      const { getByText } = renderForm({ editItem });
+      expect(getByText('Edit Item')).toBeTruthy();
+    });
+
+    it('should show "Edit Inventory Item" title in inventory edit mode', () => {
+      const { getByText } = renderForm({ editItem, mode: 'inventory' });
+      expect(getByText('Edit Inventory Item')).toBeTruthy();
     });
   });
 

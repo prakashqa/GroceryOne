@@ -4,7 +4,7 @@
  *
  * FreshMart (premium): Raw ingredients, bulk grocery — grains, rice, dals, oils, spices, vegetables, beverages, essentials, personal care
  * QuickBasket (standard): Convenience store — dairy, fruits, snacks, bakery, frozen foods, cleaning, baby care, ready-to-cook
- * VijayParcelPOS (standard): Food parcel POS — chicken, curry, fry, rice, biryani, other, seafood + kitchen inventory (rice/grains, spices, oils, cooking ingredients, ready mix)
+ * VijayParcelPOS (standard): Food parcel POS — chicken, veg, seafood, rice + kitchen inventory (rice, dal, oil, basic, spices)
  */
 
 export interface CategorySeed {
@@ -13,6 +13,7 @@ export interface CategorySeed {
   nameTe?: string;
   icon: string;
   sortOrder: number;
+  trackInventory?: boolean; // Whether items in this category should track inventory (default: true)
 }
 
 export interface ItemSeed {
@@ -25,6 +26,8 @@ export interface ItemSeed {
   price?: number; // Sale price per unit in INR
   compareAtPrice: number; // MRP (Maximum Retail Price) per unit in INR
   sortOrder: number;
+  stockQuantity?: number; // Initial stock quantity (overrides default 100 for trackInventory items)
+  lowStockThreshold?: number; // Min stock alert level (overrides default 10)
 }
 
 // =============================================================================
@@ -329,103 +332,74 @@ export const QUICKBASKET_ITEMS: ItemSeed[] = [
 
 // =============================================================================
 // Vijay Parcel POS — Standard, food parcel point-of-sale
-// 12 categories, 59 items: ready-to-eat Andhra food + raw kitchen inventory ingredients
+// 4 categories, 18 items: ready-to-eat Andhra food menu (no inventory)
 // =============================================================================
 
 export const VIJAYPARCELPOS_CATEGORIES: CategorySeed[] = [
-  { slug: 'chicken-items', name: 'Chicken Items', nameTe: 'చికెన్ ఐటమ్స్', icon: '🍗', sortOrder: 1 },
-  { slug: 'curry-items', name: 'Curry Items', nameTe: 'కర్రీ ఐటమ్స్', icon: '🍛', sortOrder: 2 },
-  { slug: 'fry-items', name: 'Fry Items', nameTe: 'ఫ్రై ఐటమ్స్', icon: '🍳', sortOrder: 3 },
-  { slug: 'rice-items', name: 'Rice Items', nameTe: 'రైస్ ఐటమ్స్', icon: '🍚', sortOrder: 4 },
-  { slug: 'biryani-items', name: 'Biryani Items', nameTe: 'బిర్యానీ ఐటమ్స్', icon: '🥘', sortOrder: 5 },
-  { slug: 'other-items', name: 'Other Items', nameTe: 'ఇతర ఐటమ్స్', icon: '🥣', sortOrder: 6 },
-  { slug: 'seafood-items', name: 'Seafood Items', nameTe: 'సీఫుడ్ ఐటమ్స్', icon: '🐟', sortOrder: 7 },
-  // ========== Inventory / Kitchen Ingredient Categories ==========
-  { slug: 'rice-grains', name: 'Rice & Grains', nameTe: 'బియ్యం & ధాన్యాలు', icon: '🌾', sortOrder: 8 },
-  { slug: 'spices-powders', name: 'Spices & Powders', nameTe: 'సుగంధ ద్రవ్యాలు & పొడులు', icon: '🌶️', sortOrder: 9 },
-  { slug: 'oils-dairy', name: 'Oils & Dairy', nameTe: 'నూనెలు & పాల ఉత్పత్తులు', icon: '🫒', sortOrder: 10 },
-  { slug: 'other-cooking', name: 'Other Cooking Ingredients', nameTe: 'ఇతర వంట సామగ్రి', icon: '🧅', sortOrder: 11 },
-  { slug: 'ready-mix-kitchen', name: 'Ready Mix / Kitchen Items', nameTe: 'రెడీ మిక్స్ / కిచెన్ ఐటమ్స్', icon: '🥫', sortOrder: 12 },
+  { slug: 'chicken-items', name: 'Chicken Items', nameTe: 'చికెన్ ఐటమ్స్', icon: '🍗', sortOrder: 1, trackInventory: false },
+  { slug: 'veg-items', name: 'Veg Items', nameTe: 'వెజ్ ఐటమ్స్', icon: '🥬', sortOrder: 2, trackInventory: false },
+  { slug: 'seafood-items', name: 'Sea Food Items', nameTe: 'సీఫుడ్ ఐటమ్స్', icon: '🐟', sortOrder: 3, trackInventory: false },
+  { slug: 'rice-items', name: 'Rice Items', nameTe: 'రైస్ ఐటమ్స్', icon: '🍚', sortOrder: 4, trackInventory: false },
+  // ========== Inventory Categories (trackInventory: true) ==========
+  { slug: 'inv-rice', name: 'Rice', nameTe: 'బియ్యం', icon: '🍚', sortOrder: 5, trackInventory: true },
+  { slug: 'inv-dal', name: 'Dal', nameTe: 'పప్పులు', icon: '🫘', sortOrder: 6, trackInventory: true },
+  { slug: 'inv-oil', name: 'Oil', nameTe: 'నూనెలు', icon: '🫗', sortOrder: 7, trackInventory: true },
+  { slug: 'inv-basic', name: 'Basic', nameTe: 'ప్రాథమిక', icon: '🧂', sortOrder: 8, trackInventory: true },
+  { slug: 'inv-spices', name: 'Spices', nameTe: 'మసాలాలు', icon: '🌶️', sortOrder: 9, trackInventory: true },
 ];
 
 export const VIJAYPARCELPOS_ITEMS: ItemSeed[] = [
   // ========== Chicken Items ==========
-  { slug: 'vp-ch-001', categorySlug: 'chicken-items', name: 'Chicken Curry', nameTe: 'చికెన్ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 1 },
-  { slug: 'vp-ch-002', categorySlug: 'chicken-items', name: 'Chicken Masala', nameTe: 'చికెన్ మసాలా', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 2 },
-  { slug: 'vp-ch-003', categorySlug: 'chicken-items', name: 'Chicken Fry', nameTe: 'చికెన్ ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 3 },
-  { slug: 'vp-ch-004', categorySlug: 'chicken-items', name: 'Chicken 65', nameTe: 'చికెన్ 65', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 4 },
+  { slug: 'vp-ch-001', categorySlug: 'chicken-items', name: 'Chicken Fry', nameTe: 'చికెన్ ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 1 },
+  { slug: 'vp-ch-002', categorySlug: 'chicken-items', name: 'Chicken Curry', nameTe: 'చికెన్ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 2 },
+  { slug: 'vp-ch-003', categorySlug: 'chicken-items', name: 'Chicken Biryani', nameTe: 'చికెన్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 220, compareAtPrice: 220, sortOrder: 3 },
+  { slug: 'vp-ch-004', categorySlug: 'chicken-items', name: 'Chicken Dum Biryani', nameTe: 'చికెన్ దమ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 250, compareAtPrice: 250, sortOrder: 4 },
 
-  // ========== Curry Items ==========
-  { slug: 'vp-cu-001', categorySlug: 'curry-items', name: 'Mutton Curry', nameTe: 'మటన్ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 250, compareAtPrice: 250, sortOrder: 1 },
-  { slug: 'vp-cu-002', categorySlug: 'curry-items', name: 'Egg Curry', nameTe: 'ఎగ్ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 120, compareAtPrice: 120, sortOrder: 2 },
-  { slug: 'vp-cu-003', categorySlug: 'curry-items', name: 'Mixed Vegetable Curry', nameTe: 'మిక్స్డ్ వెజిటబుల్ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 130, compareAtPrice: 130, sortOrder: 3 },
-  { slug: 'vp-cu-004', categorySlug: 'curry-items', name: 'Mushroom Masala', nameTe: 'మష్రూమ్ మసాలా', unit: 'pcs', defaultQuantity: 1, price: 140, compareAtPrice: 140, sortOrder: 4 },
+  // ========== Veg Items ==========
+  { slug: 'vp-vg-001', categorySlug: 'veg-items', name: 'Brinjal Curry', nameTe: 'వంకాయ కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 60, compareAtPrice: 60, sortOrder: 1 },
+  { slug: 'vp-vg-002', categorySlug: 'veg-items', name: 'Sambar Rice', nameTe: 'సాంబార్ రైస్', unit: 'pcs', defaultQuantity: 1, price: 80, compareAtPrice: 80, sortOrder: 2 },
+  { slug: 'vp-vg-003', categorySlug: 'veg-items', name: 'Dal Tomato', nameTe: 'పప్పు టమాటో', unit: 'pcs', defaultQuantity: 1, price: 130, compareAtPrice: 130, sortOrder: 3 },
+  { slug: 'vp-vg-004', categorySlug: 'veg-items', name: 'Aloo Fry', nameTe: 'ఆలూ ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 120, compareAtPrice: 120, sortOrder: 4 },
+  { slug: 'vp-vg-005', categorySlug: 'veg-items', name: 'Sambar', nameTe: 'సాంబార్', unit: 'pcs', defaultQuantity: 1, price: 30, compareAtPrice: 30, sortOrder: 5 },
 
-  // ========== Fry Items ==========
-  { slug: 'vp-fr-001', categorySlug: 'fry-items', name: 'Brinjal Fry', nameTe: 'వంకాయ ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 80, compareAtPrice: 80, sortOrder: 1 },
-  { slug: 'vp-fr-002', categorySlug: 'fry-items', name: 'Mutton Fry', nameTe: 'మటన్ ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 280, compareAtPrice: 280, sortOrder: 2 },
+  // ========== Sea Food Items ==========
+  { slug: 'vp-sf-001', categorySlug: 'seafood-items', name: 'Fish Fry', nameTe: 'చేపల ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 220, compareAtPrice: 220, sortOrder: 1 },
+  { slug: 'vp-sf-002', categorySlug: 'seafood-items', name: 'Fish Curry', nameTe: 'చేపల కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 2 },
+  { slug: 'vp-sf-003', categorySlug: 'seafood-items', name: 'Prawns Fry', nameTe: 'రొయ్యల ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 260, compareAtPrice: 260, sortOrder: 3 },
+  { slug: 'vp-sf-004', categorySlug: 'seafood-items', name: 'Prawns Curry', nameTe: 'రొయ్యల కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 240, compareAtPrice: 240, sortOrder: 4 },
 
   // ========== Rice Items ==========
-  { slug: 'vp-ri-001', categorySlug: 'rice-items', name: 'Plain Rice', nameTe: 'ప్లెయిన్ రైస్', unit: 'pcs', defaultQuantity: 1, price: 60, compareAtPrice: 60, sortOrder: 1 },
-  { slug: 'vp-ri-002', categorySlug: 'rice-items', name: 'Lemon Rice', nameTe: 'నిమ్మకాయ రైస్', unit: 'pcs', defaultQuantity: 1, price: 90, compareAtPrice: 90, sortOrder: 2 },
-  { slug: 'vp-ri-003', categorySlug: 'rice-items', name: 'Tomato Rice', nameTe: 'టమాటో రైస్', unit: 'pcs', defaultQuantity: 1, price: 90, compareAtPrice: 90, sortOrder: 3 },
-  { slug: 'vp-ri-004', categorySlug: 'rice-items', name: 'Vegetable Pulao', nameTe: 'వెజిటబుల్ పులావ్', unit: 'pcs', defaultQuantity: 1, price: 130, compareAtPrice: 130, sortOrder: 4 },
-  { slug: 'vp-ri-005', categorySlug: 'rice-items', name: 'Curd Rice', nameTe: 'పెరుగు అన్నం', unit: 'pcs', defaultQuantity: 1, price: 80, compareAtPrice: 80, sortOrder: 5 },
+  { slug: 'vp-ri-001', categorySlug: 'rice-items', name: 'Plain Rice', nameTe: 'ప్లెయిన్ రైస్', unit: 'pcs', defaultQuantity: 1, price: 50, compareAtPrice: 50, sortOrder: 1 },
+  { slug: 'vp-ri-002', categorySlug: 'rice-items', name: 'Curd Rice', nameTe: 'పెరుగు అన్నం', unit: 'pcs', defaultQuantity: 1, price: 60, compareAtPrice: 60, sortOrder: 2 },
+  { slug: 'vp-ri-003', categorySlug: 'rice-items', name: 'Sambar Rice', nameTe: 'సాంబార్ రైస్', unit: 'pcs', defaultQuantity: 1, price: 60, compareAtPrice: 60, sortOrder: 3 },
+  { slug: 'vp-ri-004', categorySlug: 'rice-items', name: 'Veg Biryani', nameTe: 'వెజ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 150, compareAtPrice: 150, sortOrder: 4 },
+  { slug: 'vp-ri-005', categorySlug: 'rice-items', name: 'Egg Biryani', nameTe: 'ఎగ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 5 },
 
-  // ========== Biryani Items ==========
-  { slug: 'vp-bi-001', categorySlug: 'biryani-items', name: 'Chicken Dum Biryani', nameTe: 'చికెన్ దమ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 1 },
-  { slug: 'vp-bi-002', categorySlug: 'biryani-items', name: 'Chicken Fry Piece Biryani', nameTe: 'చికెన్ ఫ్రై పీస్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 180, compareAtPrice: 180, sortOrder: 2 },
-  { slug: 'vp-bi-003', categorySlug: 'biryani-items', name: 'Mutton Biryani', nameTe: 'మటన్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 260, compareAtPrice: 260, sortOrder: 3 },
-  { slug: 'vp-bi-004', categorySlug: 'biryani-items', name: 'Egg Biryani', nameTe: 'ఎగ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 140, compareAtPrice: 140, sortOrder: 4 },
-  { slug: 'vp-bi-005', categorySlug: 'biryani-items', name: 'Veg Biryani', nameTe: 'వెజ్ బిర్యానీ', unit: 'pcs', defaultQuantity: 1, price: 140, compareAtPrice: 140, sortOrder: 5 },
+  // ========== Inventory: Rice ==========
+  { slug: 'vp-inv-rice-001', categorySlug: 'inv-rice', name: 'Sona Masoori Rice', nameTe: 'సోనా మసూరి బియ్యం', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 50, lowStockThreshold: 10 },
+  { slug: 'vp-inv-rice-002', categorySlug: 'inv-rice', name: 'Basmati Rice', nameTe: 'బాస్మతి బియ్యం', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 2, stockQuantity: 30, lowStockThreshold: 8 },
 
-  // ========== Other Items ==========
-  { slug: 'vp-ot-001', categorySlug: 'other-items', name: 'Curd', nameTe: 'పెరుగు', unit: 'pcs', defaultQuantity: 1, price: 30, compareAtPrice: 30, sortOrder: 1 },
-  { slug: 'vp-ot-002', categorySlug: 'other-items', name: 'Rasam', nameTe: 'రసం', unit: 'pcs', defaultQuantity: 1, price: 40, compareAtPrice: 40, sortOrder: 2 },
-  { slug: 'vp-ot-003', categorySlug: 'other-items', name: 'Sambar', nameTe: 'సాంబార్', unit: 'pcs', defaultQuantity: 1, price: 40, compareAtPrice: 40, sortOrder: 3 },
+  // ========== Inventory: Dal ==========
+  { slug: 'vp-inv-dal-001', categorySlug: 'inv-dal', name: 'Toor Dal', nameTe: 'కందిపప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 20, lowStockThreshold: 5 },
+  { slug: 'vp-inv-dal-002', categorySlug: 'inv-dal', name: 'Moong Dal', nameTe: 'పెసరపప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 2, stockQuantity: 15, lowStockThreshold: 5 },
+  { slug: 'vp-inv-dal-003', categorySlug: 'inv-dal', name: 'Chana Dal', nameTe: 'శనగపప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 3, stockQuantity: 12, lowStockThreshold: 4 },
+  { slug: 'vp-inv-dal-004', categorySlug: 'inv-dal', name: 'Urad Dal', nameTe: 'మినపప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 4, stockQuantity: 10, lowStockThreshold: 3 },
 
-  // ========== Seafood Items ==========
-  { slug: 'vp-sf-001', categorySlug: 'seafood-items', name: 'Fish Fry', nameTe: 'చేపల ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 1 },
-  { slug: 'vp-sf-002', categorySlug: 'seafood-items', name: 'Fish Pulusu (Andhra Style)', nameTe: 'చేపల పులుసు (ఆంధ్ర స్టైల్)', unit: 'pcs', defaultQuantity: 1, price: 210, compareAtPrice: 210, sortOrder: 2 },
-  { slug: 'vp-sf-003', categorySlug: 'seafood-items', name: 'Prawn Curry', nameTe: 'రొయ్యల కర్రీ', unit: 'pcs', defaultQuantity: 1, price: 200, compareAtPrice: 200, sortOrder: 3 },
-  { slug: 'vp-sf-004', categorySlug: 'seafood-items', name: 'Prawn Fry', nameTe: 'రొయ్యల ఫ్రై', unit: 'pcs', defaultQuantity: 1, price: 220, compareAtPrice: 220, sortOrder: 4 },
-  { slug: 'vp-sf-005', categorySlug: 'seafood-items', name: 'Royyala Iguru (Andhra Prawn Curry)', nameTe: 'రొయ్యల ఇగురు (ఆంధ్ర రొయ్యల కర్రీ)', unit: 'pcs', defaultQuantity: 1, price: 250, compareAtPrice: 250, sortOrder: 5 },
+  // ========== Inventory: Oil ==========
+  { slug: 'vp-inv-oil-001', categorySlug: 'inv-oil', name: 'Sunflower Oil', nameTe: 'పొద్దుతిరుగుడు నూనె', unit: 'L', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 25, lowStockThreshold: 5 },
+  { slug: 'vp-inv-oil-002', categorySlug: 'inv-oil', name: 'Groundnut Oil', nameTe: 'వేరుశనగ నూనె', unit: 'L', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 2, stockQuantity: 15, lowStockThreshold: 4 },
+  { slug: 'vp-inv-oil-003', categorySlug: 'inv-oil', name: 'Mustard Oil', nameTe: 'ఆవ నూనె', unit: 'L', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 3, stockQuantity: 10, lowStockThreshold: 3 },
 
-  // ========== Rice & Grains (Inventory) ==========
-  { slug: 'vp-rg-001', categorySlug: 'rice-grains', name: 'Raw Rice', nameTe: 'బియ్యం', unit: 'kg', defaultQuantity: 1, price: 50, compareAtPrice: 50, sortOrder: 1 },
-  { slug: 'vp-rg-002', categorySlug: 'rice-grains', name: 'Basmati Rice', nameTe: 'బాస్మతి బియ్యం', unit: 'kg', defaultQuantity: 1, price: 120, compareAtPrice: 120, sortOrder: 2 },
-  { slug: 'vp-rg-003', categorySlug: 'rice-grains', name: 'Toor Dal', nameTe: 'కందిపప్పు', unit: 'kg', defaultQuantity: 1, price: 130, compareAtPrice: 130, sortOrder: 3 },
-  { slug: 'vp-rg-004', categorySlug: 'rice-grains', name: 'Moong Dal', nameTe: 'పెసరపప్పు', unit: 'kg', defaultQuantity: 1, price: 110, compareAtPrice: 110, sortOrder: 4 },
-  { slug: 'vp-rg-005', categorySlug: 'rice-grains', name: 'Chana Dal', nameTe: 'శనగపప్పు', unit: 'kg', defaultQuantity: 1, price: 90, compareAtPrice: 90, sortOrder: 5 },
+  // ========== Inventory: Basic ==========
+  { slug: 'vp-inv-basic-001', categorySlug: 'inv-basic', name: 'Salt', nameTe: 'ఉప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 20, lowStockThreshold: 5 },
 
-  // ========== Spices & Powders (Inventory) ==========
-  { slug: 'vp-sp-001', categorySlug: 'spices-powders', name: 'Turmeric Powder', nameTe: 'పసుపు పొడి', unit: 'gm', defaultQuantity: 100, price: 30, compareAtPrice: 30, sortOrder: 1 },
-  { slug: 'vp-sp-002', categorySlug: 'spices-powders', name: 'Red Chilli Powder', nameTe: 'ఎర్ర మిర్చి పొడి', unit: 'gm', defaultQuantity: 100, price: 40, compareAtPrice: 40, sortOrder: 2 },
-  { slug: 'vp-sp-003', categorySlug: 'spices-powders', name: 'Coriander Powder', nameTe: 'ధనియాల పొడి', unit: 'gm', defaultQuantity: 100, price: 35, compareAtPrice: 35, sortOrder: 3 },
-  { slug: 'vp-sp-004', categorySlug: 'spices-powders', name: 'Cumin Powder', nameTe: 'జీలకర్ర పొడి', unit: 'gm', defaultQuantity: 100, price: 50, compareAtPrice: 50, sortOrder: 4 },
-  { slug: 'vp-sp-005', categorySlug: 'spices-powders', name: 'Garam Masala', nameTe: 'గరం మసాలా', unit: 'gm', defaultQuantity: 100, price: 60, compareAtPrice: 60, sortOrder: 5 },
-  { slug: 'vp-sp-006', categorySlug: 'spices-powders', name: 'Black Pepper', nameTe: 'నల్ల మిరియాలు', unit: 'gm', defaultQuantity: 100, price: 80, compareAtPrice: 80, sortOrder: 6 },
-  { slug: 'vp-sp-007', categorySlug: 'spices-powders', name: 'Mustard Seeds', nameTe: 'ఆవాలు', unit: 'gm', defaultQuantity: 100, price: 20, compareAtPrice: 20, sortOrder: 7 },
-  { slug: 'vp-sp-008', categorySlug: 'spices-powders', name: 'Cumin Seeds', nameTe: 'జీలకర్ర', unit: 'gm', defaultQuantity: 100, price: 50, compareAtPrice: 50, sortOrder: 8 },
-  { slug: 'vp-sp-009', categorySlug: 'spices-powders', name: 'Cloves', nameTe: 'లవంగాలు', unit: 'gm', defaultQuantity: 100, price: 120, compareAtPrice: 120, sortOrder: 9 },
-  { slug: 'vp-sp-010', categorySlug: 'spices-powders', name: 'Cardamom', nameTe: 'ఏలకులు', unit: 'gm', defaultQuantity: 100, price: 200, compareAtPrice: 200, sortOrder: 10 },
-  { slug: 'vp-sp-011', categorySlug: 'spices-powders', name: 'Cinnamon', nameTe: 'దాల్చిన చెక్క', unit: 'gm', defaultQuantity: 100, price: 100, compareAtPrice: 100, sortOrder: 11 },
-
-  // ========== Oils & Dairy (Inventory) ==========
-  { slug: 'vp-od-001', categorySlug: 'oils-dairy', name: 'Cooking Oil', nameTe: 'వంట నూనె', unit: 'L', defaultQuantity: 1, price: 150, compareAtPrice: 150, sortOrder: 1 },
-  { slug: 'vp-od-002', categorySlug: 'oils-dairy', name: 'Ghee', nameTe: 'నెయ్యి', unit: 'kg', defaultQuantity: 1, price: 600, compareAtPrice: 600, sortOrder: 2 },
-  { slug: 'vp-od-003', categorySlug: 'oils-dairy', name: 'Butter', nameTe: 'వెన్న', unit: 'gm', defaultQuantity: 500, price: 250, compareAtPrice: 250, sortOrder: 3 },
-
-  // ========== Other Cooking Ingredients (Inventory) ==========
-  { slug: 'vp-oc-001', categorySlug: 'other-cooking', name: 'Tamarind', nameTe: 'చింతపండు', unit: 'kg', defaultQuantity: 1, price: 150, compareAtPrice: 150, sortOrder: 1 },
-  { slug: 'vp-oc-002', categorySlug: 'other-cooking', name: 'Cashew Nuts', nameTe: 'జీడిపప్పు', unit: 'gm', defaultQuantity: 100, price: 120, compareAtPrice: 120, sortOrder: 2 },
-
-  // ========== Ready Mix / Kitchen Items (Inventory) ==========
-  { slug: 'vp-rm-001', categorySlug: 'ready-mix-kitchen', name: 'Sambar Powder', nameTe: 'సాంబార్ పొడి', unit: 'gm', defaultQuantity: 100, price: 40, compareAtPrice: 40, sortOrder: 1 },
-  { slug: 'vp-rm-002', categorySlug: 'ready-mix-kitchen', name: 'Rasam Powder', nameTe: 'రసం పొడి', unit: 'gm', defaultQuantity: 100, price: 35, compareAtPrice: 35, sortOrder: 2 },
-  { slug: 'vp-rm-003', categorySlug: 'ready-mix-kitchen', name: 'Biryani Masala', nameTe: 'బిర్యానీ మసాలా', unit: 'gm', defaultQuantity: 100, price: 50, compareAtPrice: 50, sortOrder: 3 },
-  { slug: 'vp-rm-004', categorySlug: 'ready-mix-kitchen', name: 'Chicken Masala', nameTe: 'చికెన్ మసాలా', unit: 'gm', defaultQuantity: 100, price: 45, compareAtPrice: 45, sortOrder: 4 },
-  { slug: 'vp-rm-005', categorySlug: 'ready-mix-kitchen', name: 'Ginger Garlic Paste', nameTe: 'అల్లం వెల్లుల్లి పేస్ట్', unit: 'gm', defaultQuantity: 100, price: 30, compareAtPrice: 30, sortOrder: 5 },
+  // ========== Inventory: Spices ==========
+  { slug: 'vp-inv-spice-001', categorySlug: 'inv-spices', name: 'Turmeric Powder', nameTe: 'పసుపు పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 2, lowStockThreshold: 1 },
+  { slug: 'vp-inv-spice-002', categorySlug: 'inv-spices', name: 'Red Chilli Powder', nameTe: 'ఎర్ర మిర్చి పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 2, stockQuantity: 3, lowStockThreshold: 1 },
+  { slug: 'vp-inv-spice-003', categorySlug: 'inv-spices', name: 'Coriander Powder', nameTe: 'ధనియాల పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 3, stockQuantity: 2, lowStockThreshold: 1 },
+  { slug: 'vp-inv-spice-004', categorySlug: 'inv-spices', name: 'Garam Masala', nameTe: 'గరం మసాలా', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 4, stockQuantity: 1, lowStockThreshold: 1 },
+  { slug: 'vp-inv-spice-005', categorySlug: 'inv-spices', name: 'Cumin Seeds', nameTe: 'జీలకర్ర', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 5, stockQuantity: 1.5, lowStockThreshold: 1 },
+  { slug: 'vp-inv-spice-006', categorySlug: 'inv-spices', name: 'Mustard Seeds', nameTe: 'ఆవాలు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 6, stockQuantity: 1, lowStockThreshold: 1 },
 ];
 
 // =============================================================================

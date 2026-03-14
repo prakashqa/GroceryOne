@@ -12,6 +12,7 @@ export interface Tenant {
   branding: TenantBranding;
   contactEmail?: string;
   contactPhone?: string;
+  businessAddress?: string;
   defaultLanguage: SupportedLanguage;
   supportedLanguages: SupportedLanguage[];
   currency: string;

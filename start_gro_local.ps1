@@ -25,7 +25,7 @@ if ($pgService) {
 }
 else {
     Write-Host "  PostgreSQL service not found" -ForegroundColor Yellow
-    Write-Host "  Please ensure PostgreSQL is installed and running on localhost:5432" -ForegroundColor Yellow
+    Write-Host "  Please ensure PostgreSQL is installed and running on localhost:5433" -ForegroundColor Yellow
     Write-Host "  You can install PostgreSQL from: https://www.postgresql.org/download/" -ForegroundColor Gray
 }
 
@@ -190,7 +190,7 @@ Write-Host "Access Points:" -ForegroundColor Cyan
 Write-Host "  Backend API:         http://localhost:3000/api/v1" -ForegroundColor White
 Write-Host "  API Documentation:   http://localhost:3000/api/v1/docs" -ForegroundColor White
 Write-Host "  Metro Bundler:       http://localhost:8081" -ForegroundColor White
-Write-Host "  PostgreSQL:          localhost:5432" -ForegroundColor White
+Write-Host "  PostgreSQL:          localhost:5433" -ForegroundColor White
 Write-Host "  Redis:               localhost:6379" -ForegroundColor White
 Write-Host ""
 

@@ -48,6 +48,21 @@ export interface PinAuthResult {
 /**
  * Service for PIN authentication API calls
  */
+export interface SignupRequest {
+  businessName: string;
+  ownerFirstName: string;
+  ownerLastName?: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
+export interface SignupResult {
+  success: boolean;
+  data?: PinLoginResponse;
+  error?: string;
+}
+
 export const PinAuthApi = {
   /**
    * Verify PIN with backend API
@@ -150,6 +165,87 @@ export const PinAuthApi = {
    * @param identifier - User email or phone number
    * @returns Promise resolving to tenant info or error
    */
+  /**
+   * Register a new business (signup).
+   * Does NOT require tenant context — creates a new tenant.
+   * @param request - Signup data
+   * @returns Promise resolving to auth result with tokens + tenantSlug
+   */
+  async signup(request: SignupRequest): Promise<SignupResult> {
+    const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.SIGNUP}`;
+
+    if (__DEV__) {
+      console.log('[PinAuthApi] Signing up...');
+      console.log('[PinAuthApi] URL:', url);
+      console.log('[PinAuthApi] Email:', request.email);
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Version': API_CONFIG.VERSION,
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errorData.message || 'Signup failed',
+        };
+      }
+
+      const data = await response.json();
+      const responseData = data.data || data;
+
+      if (__DEV__) {
+        console.log('[PinAuthApi] Signup success! Tenant:', responseData.tenantSlug);
+      }
+
+      return {
+        success: true,
+        data: responseData,
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof Error && error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timed out. Please check your connection and try again.',
+        };
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Network error';
+      const isNetworkError =
+        errorMessage === 'Network request failed' ||
+        errorMessage === 'Failed to fetch' ||
+        errorMessage.includes('ECONNREFUSED');
+
+      if (isNetworkError) {
+        const devHint = __DEV__ ? ` (${url})` : '';
+        return {
+          success: false,
+          error: `Server unreachable. Check that backend is running and device is on the same WiFi.${devHint}`,
+        };
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  },
+
   async resolveTenant(identifier: string): Promise<ResolveTenantResult> {
     const url = `${API_CONFIG.BASE_URL}${API_ENDPOINTS.AUTH.RESOLVE_TENANT}`;
 

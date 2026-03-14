@@ -13,6 +13,7 @@ export interface Category {
   icon: string;
   sortOrder: number;
   isActive: boolean;
+  trackInventory?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,11 +37,15 @@ export interface UpdateCategoryDto {
 export const categoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get all categories
-    getCategories: builder.query<Category[], { includeInactive?: boolean }>({
-      query: ({ includeInactive = false }) => ({
+    getCategories: builder.query<Category[], { includeInactive?: boolean; tenantSlug?: string; trackInventory?: boolean }>({
+      query: ({ includeInactive = false, trackInventory }) => ({
         url: '/categories',
-        params: { includeInactive },
+        params: { includeInactive, ...(trackInventory !== undefined && { trackInventory }) },
       }),
+      // Ensure tenantSlug is part of the cache key so different tenants never share cached data
+      serializeQueryArgs: ({ queryArgs }) => {
+        return `categories-${queryArgs.tenantSlug ?? 'none'}-${queryArgs.includeInactive ?? false}-trackInv-${queryArgs.trackInventory ?? 'all'}`;
+      },
       providesTags: (result) =>
         result
           ? [

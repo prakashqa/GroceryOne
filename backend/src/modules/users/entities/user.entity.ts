@@ -16,7 +16,7 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../../tenant/entities/tenant.entity';
 
-export type UserRole = 'customer' | 'admin' | 'manager' | 'super_admin';
+export type UserRole = 'cashier' | 'admin' | 'manager' | 'super_admin';
 export type UserStatus = 'active' | 'inactive' | 'blocked';
 
 @Entity('users', { schema: 'public' })
@@ -55,7 +55,7 @@ export class User {
   @Column({
     type: 'varchar',
     length: 20,
-    default: 'customer',
+    default: 'cashier',
   })
   role: UserRole;
 

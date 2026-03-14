@@ -18,6 +18,7 @@ import cartOperationsReducer from './slices/cartOperationsSlice';
 import scanReducer from '../features/orderScanning/store/scanSlice';
 import pinReducer from '../features/pinAuth/store/pinSlice';
 import reportsReducer from '../features/reports/store/reportsSlice';
+import subscriptionReducer from './slices/subscriptionSlice';
 
 export const rootReducer = combineReducers({
   // API reducer (RTK Query)
@@ -36,6 +37,7 @@ export const rootReducer = combineReducers({
   scan: scanReducer,
   pin: pinReducer,
   reports: reportsReducer,
+  subscription: subscriptionReducer,
 });
 
 export type RootState = ReturnType<typeof rootReducer>;

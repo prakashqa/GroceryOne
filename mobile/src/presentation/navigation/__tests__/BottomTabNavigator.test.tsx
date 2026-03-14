@@ -38,9 +38,9 @@ jest.mock('react-i18next', () => ({
       const translations: Record<string, string> = {
         'navigation.dashboard': 'Dashboard',
         'navigation.items': 'Items',
-        'navigation.carts': 'Carts',
+        'navigation.orders': 'Orders',
         'navigation.more': 'More',
-        'picking.cartReview': 'Cart Review',
+        'picking.orderReview': 'Order Review',
       };
       return translations[key] || key;
     },
@@ -54,9 +54,9 @@ jest.mock('../../screens/dashboard', () => ({
 }));
 
 jest.mock('../../screens/picking', () => ({
-  ManageCartsScreen: () => null,
+  ManageOrdersScreen: () => null,
   PickingScreen: () => null,
-  CartScreen: () => null,
+  OrderScreen: () => null,
 }));
 
 jest.mock('../../screens/items', () => ({
@@ -93,13 +93,13 @@ jest.mock('../../../features/orderScanning', () => ({
 // Mock vector icons
 jest.mock('react-native-vector-icons/MaterialIcons', () => 'Icon');
 
-import { BottomTabNavigator, TabParamList, CartsStackParamList, DashboardStackParamList, ItemsStackParamList, MoreStackParamList } from '../BottomTabNavigator';
+import { BottomTabNavigator, TabParamList, OrdersStackParamList, DashboardStackParamList, ItemsStackParamList, MoreStackParamList } from '../BottomTabNavigator';
 
 describe('BottomTabNavigator', () => {
   describe('Tab Configuration', () => {
     it('exports TabParamList type with correct tabs', () => {
       // TabParamList should include Dashboard, Items, Carts, Reports, and Settings
-      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'CartsTab', 'ReportsTab', 'MoreTab'];
+      const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'OrdersTab', 'ReportsTab', 'MoreTab'];
       expect(tabs).toHaveLength(5);
     });
 
@@ -111,7 +111,7 @@ describe('BottomTabNavigator', () => {
   });
 
   describe('Navigation Structure', () => {
-    const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'CartsTab', 'ReportsTab', 'MoreTab'];
+    const tabs: (keyof TabParamList)[] = ['DashboardTab', 'ItemsTab', 'OrdersTab', 'ReportsTab', 'MoreTab'];
 
     it('has Dashboard as a tab', () => {
       expect(tabs).toContain('DashboardTab');
@@ -121,8 +121,8 @@ describe('BottomTabNavigator', () => {
       expect(tabs).toContain('ItemsTab');
     });
 
-    it('has Carts as a tab', () => {
-      expect(tabs).toContain('CartsTab');
+    it('has Orders as a tab', () => {
+      expect(tabs).toContain('OrdersTab');
     });
 
     it('has More as a tab', () => {
@@ -131,18 +131,18 @@ describe('BottomTabNavigator', () => {
   });
 
   describe('Scan Screen Registration', () => {
-    it('CartsStack includes CameraCapture screen for scan access from Carts tab', () => {
-      // CameraCapture must be in CartsStack so users can scan from Picking
-      // when accessed via the Carts tab (CartsTab → ManageCarts → Cart → Picking → Scan)
-      const cartsScreens: (keyof CartsStackParamList)[] = ['CameraCapture'];
-      expect(cartsScreens).toContain('CameraCapture');
+    it('OrdersStack includes CameraCapture screen for scan access from Orders tab', () => {
+      // CameraCapture must be in OrdersStack so users can scan from Picking
+      // when accessed via the Orders tab (OrdersTab → ManageOrders → Order → Picking → Scan)
+      const ordersScreens: (keyof OrdersStackParamList)[] = ['CameraCapture'];
+      expect(ordersScreens).toContain('CameraCapture');
     });
 
-    it('CartsStack includes ScanReview screen for reviewing scanned items', () => {
-      // ScanReview must be in CartsStack so users can review scanned items
+    it('OrdersStack includes ScanReview screen for reviewing scanned items', () => {
+      // ScanReview must be in OrdersStack so users can review scanned items
       // after CameraCapture navigates to ScanReview
-      const cartsScreens: (keyof CartsStackParamList)[] = ['ScanReview'];
-      expect(cartsScreens).toContain('ScanReview');
+      const ordersScreens: (keyof OrdersStackParamList)[] = ['ScanReview'];
+      expect(ordersScreens).toContain('ScanReview');
     });
 
     it('DashboardStack includes scan screens', () => {
@@ -154,10 +154,15 @@ describe('BottomTabNavigator', () => {
   });
 
   describe('Items Stack Registration', () => {
-    it('ItemsStack includes Items and Cart screens', () => {
-      const itemsScreens: (keyof ItemsStackParamList)[] = ['Items', 'Cart'];
+    it('ItemsStack includes Items and Order screens', () => {
+      const itemsScreens: (keyof ItemsStackParamList)[] = ['Items', 'Order'];
       expect(itemsScreens).toContain('Items');
-      expect(itemsScreens).toContain('Cart');
+      expect(itemsScreens).toContain('Order');
+    });
+
+    it('ItemsStack includes PrinterSettings screen for printer access from Items tab', () => {
+      const itemsScreens: (keyof ItemsStackParamList)[] = ['Items', 'Order', 'PrinterSettings'];
+      expect(itemsScreens).toContain('PrinterSettings');
     });
   });
 
@@ -183,13 +188,13 @@ describe('BottomTabNavigator', () => {
       const translations: Record<string, string> = {
         'navigation.dashboard': 'Dashboard',
         'navigation.items': 'Items',
-        'navigation.carts': 'Carts',
+        'navigation.orders': 'Orders',
         'navigation.more': 'More',
       };
 
       expect(translations['navigation.dashboard']).toBe('Dashboard');
       expect(translations['navigation.items']).toBe('Items');
-      expect(translations['navigation.carts']).toBe('Carts');
+      expect(translations['navigation.orders']).toBe('Orders');
       expect(translations['navigation.more']).toBe('More');
     });
   });

@@ -6,7 +6,11 @@ import { MerchantInfo, ReceiptItem, ReceiptTranslations } from '../receiptGenera
 
 export const mockMerchantInfo: MerchantInfo = {
   name: 'Prakash Groceries',
-  address: 'Main Street, Vizag',
+  address: '123 Test Street, Hyderabad',
+};
+
+export const mockMerchantInfoNoAddress: MerchantInfo = {
+  name: 'No Address Store',
 };
 
 export const mockItems: ReceiptItem[] = [

@@ -33,4 +33,9 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Track inventory for this category', example: false })
+  @IsOptional()
+  @IsBoolean()
+  trackInventory?: boolean;
 }

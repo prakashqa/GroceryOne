@@ -64,23 +64,24 @@ jest.mock('../../../../domain/utils/itemTranslations', () => ({
 let mockTenant = { slug: 'freshmart', name: 'FreshMart' };
 let mockIsAuthenticated = true;
 
-let mockCategories = [{ id: 'cat-1', name: 'Rice & Atta', icon: '🌾' }];
+let mockCategories = [{ id: 'cat-1', name: 'Rice & Atta', icon: '🌾', trackInventory: true }];
+let mockCategoriesLoading = false;
 
 jest.mock('react-redux', () => ({
   useSelector: (selector) => {
     if (selector.mockName === 'selectTenant') return mockTenant;
     if (selector.mockName === 'selectIsAuthenticated') return mockIsAuthenticated;
-    if (selector.mockName === 'selectCategories') return mockCategories;
     return undefined;
   },
   useDispatch: () => jest.fn(),
 }));
 
-jest.mock('../../../../store/slices/catalogSlice', () => {
-  const fn = jest.fn();
-  fn.mockName = 'selectCategories';
-  return { selectCategories: fn };
-});
+jest.mock('../../../../data/api/categoryApi', () => ({
+  useGetCategoriesQuery: () => ({
+    data: mockCategories,
+    isLoading: mockCategoriesLoading,
+  }),
+}));
 
 jest.mock('../../../../store/slices/tenantSlice', () => {
   const fn = jest.fn();
@@ -104,14 +105,18 @@ let mockStockReportError = false;
 const mockRefetchLowStock = jest.fn();
 const mockRefetchStockReport = jest.fn();
 
-// Mock ItemFormModal
+// Mock ItemFormModal — capture props for assertions
 let mockItemFormVisible = false;
+let mockItemFormMode: string | undefined;
+let mockItemFormCategories: any[] = [];
 jest.mock('../../../components/management/ItemFormModal', () => {
   const { View, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ visible, onClose, onSubmit, testID }) => {
+    default: ({ visible, onClose, onSubmit, testID, mode, categories }) => {
       mockItemFormVisible = visible;
+      mockItemFormMode = mode;
+      mockItemFormCategories = categories || [];
       if (!visible) return null;
       return (
         <View testID={testID || 'item-form-modal'}>
@@ -204,6 +209,10 @@ describe('InventoryDashboardScreen', () => {
     mockStockReportError = false;
     mockTenant = { slug: 'freshmart', name: 'FreshMart' };
     mockIsAuthenticated = true;
+    mockCategories = [{ id: 'cat-1', name: 'Rice & Atta', icon: '🌾', trackInventory: true }];
+    mockCategoriesLoading = false;
+    mockItemFormMode = undefined;
+    mockItemFormCategories = [];
   });
 
   describe('Core Functionality', () => {
@@ -412,6 +421,27 @@ describe('InventoryDashboardScreen', () => {
       mockItemFormVisible = false;
       fireEvent.press(getByTestId('inventory-add-item-btn'));
       expect(mockItemFormVisible).toBe(true);
+    });
+
+    it('passes mode="inventory" to ItemFormModal', () => {
+      mockStockReportData.push(...stockReportItems);
+      render(<InventoryDashboardScreen />);
+      expect(mockItemFormMode).toBe('inventory');
+    });
+
+    it('passes inventory categories from API to ItemFormModal', () => {
+      // useGetCategoriesQuery returns inventory categories (trackInventory: true)
+      mockCategories = [
+        { id: 'cat-inv', name: 'Inventory Spices', icon: '🌶', trackInventory: true },
+        { id: 'cat-inv-2', name: 'Inventory Oils', icon: '🫒', trackInventory: true },
+      ];
+      mockStockReportData.push(...stockReportItems);
+      render(<InventoryDashboardScreen />);
+
+      // Should pass all categories from API (which are already filtered by trackInventory: true)
+      const categoryIds = mockItemFormCategories.map((c: any) => c.id);
+      expect(categoryIds).toContain('cat-inv');
+      expect(categoryIds).toContain('cat-inv-2');
     });
   });
 

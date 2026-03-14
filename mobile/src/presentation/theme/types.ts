@@ -117,10 +117,18 @@ export interface ThemeBorderRadius {
   md: number; // 12
   lg: number; // 16
   xl: number; // 24
+  '2xl': number; // 32
   full: number; // 9999
 }
 
 export interface ThemeShadows {
+  xs: {
+    shadowColor: string;
+    shadowOffset: { width: number; height: number };
+    shadowOpacity: number;
+    shadowRadius: number;
+    elevation: number;
+  };
   sm: {
     shadowColor: string;
     shadowOffset: { width: number; height: number };

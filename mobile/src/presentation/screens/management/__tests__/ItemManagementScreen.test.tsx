@@ -53,6 +53,75 @@ const preloadedState = {
   },
 };
 
+describe('ItemManagementScreen - Inventory Item Filtering', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should NOT display inventory items (trackInventory: true)', () => {
+    const stateWithInventory = {
+      catalog: {
+        categories: [
+          { id: 'cat-1', name: 'Rice', icon: '🍚', sortOrder: 1, isActive: true },
+          { id: 'cat-inv', name: 'Inventory Spices', icon: '🌶', sortOrder: 2, isActive: true, trackInventory: true },
+        ],
+        items: [
+          {
+            id: 'item-1',
+            categoryId: 'cat-1',
+            name: 'Basmati Rice',
+            unit: 'kg' as const,
+            defaultQuantity: 5,
+            trackInventory: false,
+          },
+          {
+            id: 'item-inv-1',
+            categoryId: 'cat-inv',
+            name: 'Salt',
+            unit: 'kg' as const,
+            defaultQuantity: 1,
+            trackInventory: true,
+          },
+        ],
+        isInitialized: true,
+      },
+    };
+
+    const { getByText, queryByText } = renderWithProviders(<ItemManagementScreen />, {
+      preloadedState: stateWithInventory,
+    });
+
+    // Order items should appear
+    expect(getByText('Basmati Rice')).toBeTruthy();
+
+    // Inventory items should NOT appear
+    expect(queryByText('Salt')).toBeNull();
+  });
+
+  it('should NOT display inventory categories in category chips', () => {
+    const stateWithInventory = {
+      catalog: {
+        categories: [
+          { id: 'cat-1', name: 'Rice', icon: '🍚', sortOrder: 1, isActive: true, trackInventory: false },
+          { id: 'cat-inv', name: 'Inventory Spices', icon: '🌶', sortOrder: 2, isActive: true, trackInventory: true },
+        ],
+        items: [],
+        isInitialized: true,
+      },
+    };
+
+    const { getByTestId, queryByTestId } = renderWithProviders(<ItemManagementScreen />, {
+      preloadedState: stateWithInventory,
+    });
+
+    // Order category chip should appear
+    expect(getByTestId('category-chip-cat-1')).toBeTruthy();
+
+    // Inventory category chip should NOT appear
+    expect(queryByTestId('category-chip-cat-inv')).toBeNull();
+  });
+});
+
 describe('ItemManagementScreen - Category Filter Chips', () => {
   beforeEach(() => {
     jest.clearAllMocks();

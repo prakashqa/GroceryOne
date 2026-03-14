@@ -164,7 +164,9 @@ describe('PickingScreen', () => {
       await waitFor(() => {
         // Add button should be replaced with quantity controls
         expect(queryByTestId('product-grid-item-atta-1-add-button')).toBeNull();
-        expect(getByText('In Cart')).toBeTruthy();
+        // Quantity controls (decrement/increment) should be visible
+        expect(getByTestId('product-grid-item-atta-1-decrement')).toBeTruthy();
+        expect(getByTestId('product-grid-item-atta-1-increment')).toBeTruthy();
       });
     });
 
@@ -191,11 +193,12 @@ describe('PickingScreen', () => {
       fireEvent.press(getByTestId('quantity-option-2'));
 
       // Press Add to Cart
-      fireEvent.press(getByText('Add to Cart'));
+      fireEvent.press(getByText('Add to Order'));
 
       // Modal should close and item should be added with quantity 2
       await waitFor(() => {
-        expect(getByText('In Cart')).toBeTruthy();
+        // Quantity controls should be visible (badge removed, controls are the indicator)
+        expect(getByTestId('product-grid-item-atta-1-decrement')).toBeTruthy();
         // Find the formatted quantity display text (e.g., "2 kg")
         const qtyTexts = getAllByText('2 kg');
         expect(qtyTexts.length).toBeGreaterThan(0);
@@ -232,7 +235,7 @@ describe('PickingScreen', () => {
     });
   });
 
-  describe('cart tabs navigation', () => {
+  describe('order tabs navigation', () => {
     const defaultCartState = {
       ...seedCatalogState,
       multiCart: {
@@ -264,7 +267,7 @@ describe('PickingScreen', () => {
       },
     };
 
-    it('should display active cart tab with cart name', async () => {
+    it('should display active order tab with order name', async () => {
       const { getByTestId, getByText } = renderWithProviders(<PickingScreen />, {
         preloadedState: defaultCartState,
       });
@@ -272,11 +275,11 @@ describe('PickingScreen', () => {
       await waitFor(() => {
         const activeCartBtn = getByTestId('cart-tabs-active-cart');
         expect(activeCartBtn).toBeTruthy();
-        expect(getByText('Default Cart')).toBeTruthy();
+        expect(getByText('Default Order')).toBeTruthy();
       });
     });
 
-    it('should display Cart List button', async () => {
+    it('should display Order List button', async () => {
       const { getByTestId, getByText } = renderWithProviders(<PickingScreen />, {
         preloadedState: defaultCartState,
       });
@@ -284,11 +287,11 @@ describe('PickingScreen', () => {
       await waitFor(() => {
         const cartListBtn = getByTestId('cart-tabs-cart-list');
         expect(cartListBtn).toBeTruthy();
-        expect(getByText('Cart List')).toBeTruthy();
+        expect(getByText('Order List')).toBeTruthy();
       });
     });
 
-    it('should display New Cart button', async () => {
+    it('should display New Order button', async () => {
       const { getByTestId, getByText } = renderWithProviders(<PickingScreen />, {
         preloadedState: defaultCartState,
       });
@@ -296,11 +299,11 @@ describe('PickingScreen', () => {
       await waitFor(() => {
         const newCartBtn = getByTestId('cart-tabs-new-cart');
         expect(newCartBtn).toBeTruthy();
-        expect(getByText('New Cart')).toBeTruthy();
+        expect(getByText('New Order')).toBeTruthy();
       });
     });
 
-    it('should navigate to Cart screen when active cart tab is pressed', async () => {
+    it('should navigate to Order screen when active order tab is pressed', async () => {
       mockUseNavigationSpy = true;
 
       const { getByTestId } = renderWithProviders(<PickingScreen />, {
@@ -315,10 +318,10 @@ describe('PickingScreen', () => {
       const activeCartBtn = getByTestId('cart-tabs-active-cart');
       fireEvent.press(activeCartBtn);
 
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
+      expect(mockNavigate).toHaveBeenCalledWith('Order');
     });
 
-    it('should navigate to ManageCarts screen when Cart List button is pressed', async () => {
+    it('should navigate to ManageOrders screen when Order List button is pressed', async () => {
       mockUseNavigationSpy = true;
 
       const { getByTestId } = renderWithProviders(<PickingScreen />, {
@@ -333,7 +336,7 @@ describe('PickingScreen', () => {
       const cartListBtn = getByTestId('cart-tabs-cart-list');
       fireEvent.press(cartListBtn);
 
-      expect(mockNavigate).toHaveBeenCalledWith('ManageCarts');
+      expect(mockNavigate).toHaveBeenCalledWith('ManageOrders');
     });
 
     it('should navigate to CameraCapture screen when scan button is pressed', async () => {
@@ -354,7 +357,7 @@ describe('PickingScreen', () => {
       expect(mockNavigate).toHaveBeenCalledWith('CameraCapture');
     });
 
-    it('should show cart count badge on Cart List button when multiple carts exist', async () => {
+    it('should show order count badge on Order List button when multiple orders exist', async () => {
       const multiCartState = {
         ...seedCatalogState,
         multiCart: {
@@ -504,8 +507,8 @@ describe('PickingScreen', () => {
     });
   });
 
-  describe('cart footer', () => {
-    it('should show cart footer when items are in cart', async () => {
+  describe('order footer', () => {
+    it('should show order footer when items are in order', async () => {
       const { getByText, getByTestId } = renderWithProviders(<PickingScreen />, {
         preloadedState: seedCatalogState,
       });
@@ -524,11 +527,11 @@ describe('PickingScreen', () => {
         expect(getByTestId('cart-footer')).toBeTruthy();
         // Text can be "1 item added" or "1 items added" depending on i18n pluralization in test env
         expect(getByText(/1 items? added/)).toBeTruthy();
-        expect(getByText('View Cart')).toBeTruthy();
+        expect(getByText('View Order')).toBeTruthy();
       });
     });
 
-    it('should navigate to Cart when View Cart is pressed', async () => {
+    it('should navigate to Order when View Order is pressed', async () => {
       mockUseNavigationSpy = true;
 
       const { getByText, getByTestId } = renderWithProviders(<PickingScreen />, {
@@ -553,7 +556,7 @@ describe('PickingScreen', () => {
       const viewCartButton = getByTestId('cart-footer-button');
       fireEvent.press(viewCartButton);
 
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
+      expect(mockNavigate).toHaveBeenCalledWith('Order');
     });
   });
 

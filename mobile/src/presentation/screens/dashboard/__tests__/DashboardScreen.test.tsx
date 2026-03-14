@@ -39,18 +39,18 @@ jest.mock('react-i18next', () => ({
       const translations: Record<string, string> = {
         'dashboard.title': 'Dashboard',
         'dashboard.todaysOverview': "Today's Overview",
-        'dashboard.cartsCreated': 'Carts',
+        'dashboard.cartsCreated': 'Orders',
         'dashboard.itemsPicked': 'Items',
         'dashboard.totalQuantity': 'Qty',
         'dashboard.salesAmount': 'Sales',
         'dashboard.quickActions': 'Quick Actions',
-        'dashboard.newCart': 'New Cart',
+        'dashboard.newCart': 'New Order',
         'dashboard.scanList': 'Scan List',
-        'dashboard.viewCarts': 'View Carts',
+        'dashboard.viewOrders': 'View Orders',
         'dashboard.manageItems': 'Manage Items',
-        'dashboard.activeCart': 'Active Cart',
+        'dashboard.activeCart': 'Active Order',
         'dashboard.continue': 'Continue',
-        'dashboard.recentCarts': 'Recent Carts',
+        'dashboard.recentCarts': 'Recent Orders',
         'dashboard.viewAll': 'View All',
         'dashboard.draft': 'Draft',
         'dashboard.printed': 'Printed',
@@ -58,10 +58,10 @@ jest.mock('react-i18next', () => ({
         'dashboard.items': 'items',
         'dashboard.qty': 'qty',
         'dashboard.lastUpdated': 'Last updated',
-        'dashboard.noRecentCarts': 'No recent carts',
+        'dashboard.noRecentCarts': 'No recent orders',
         'dashboard.startPicking': 'Start picking',
         'dashboard.ocrFromPaper': 'OCR from paper',
-        'dashboard.seeAllCarts': 'See all carts',
+        'dashboard.seeAllOrders': 'See all orders',
         'dashboard.categoriesItems': 'Categories & Items',
         'dashboard.resumeDraft': 'Resume Draft',
         'manageCategories.title': 'Manage Categories',
@@ -70,7 +70,7 @@ jest.mock('react-i18next', () => ({
         'dashboard.viewSummary': 'View daily summary',
         'dashboard.reports': 'Reports',
         'dashboard.viewAnalytics': 'Sales & analytics',
-        'dashboard.startByCreating': 'Create a cart to get started',
+        'dashboard.startByCreating': 'Create an order to get started',
         'dashboard.goodMorning': 'Good morning',
         'dashboard.goodAfternoon': 'Good afternoon',
         'dashboard.goodEvening': 'Good evening',
@@ -79,11 +79,11 @@ jest.mock('react-i18next', () => ({
         'time.hoursAgo': '{{count}} hr ago',
         'time.yesterday': 'Yesterday',
         'time.daysAgo': '{{count}} days ago',
-        'picking.createCart': 'Create New Cart',
-        'picking.cartName': 'Cart Name',
-        'picking.enterCartName': 'Enter cart name',
+        'picking.createCart': 'Create New Order',
+        'picking.cartName': 'Order Name',
+        'picking.enterCartName': 'Enter order name',
         'picking.create': 'Create',
-        'picking.duplicateName': 'A cart with this name already exists',
+        'picking.duplicateName': 'An order with this name already exists',
         'cancel': 'Cancel',
       };
       const fallback = typeof fallbackOrOptions === 'string' ? fallbackOrOptions : undefined;
@@ -297,7 +297,7 @@ describe('DashboardScreen', () => {
 
     it('renders quick action buttons', () => {
       const { getByText } = render(<DashboardScreen />);
-      expect(getByText('New Cart')).toBeTruthy();
+      expect(getByText('New Order')).toBeTruthy();
       expect(getByText('Scan List')).toBeTruthy();
       expect(getByText('Manage Categories')).toBeTruthy();
       expect(getByText('Manage Items')).toBeTruthy();
@@ -309,14 +309,14 @@ describe('DashboardScreen', () => {
       expect(queryByText('Resume Draft')).toBeNull();
     });
 
-    it('renders active cart preview when active cart exists', () => {
+    it('renders active order preview when active order exists', () => {
       const { getByText } = render(<DashboardScreen />);
       expect(getByText('Morning Order')).toBeTruthy();
     });
 
-    it('renders recent carts section', () => {
+    it('renders recent orders section', () => {
       const { getByText } = render(<DashboardScreen />);
-      expect(getByText('Recent Carts')).toBeTruthy();
+      expect(getByText('Recent Orders')).toBeTruthy();
     });
 
     it('renders with testID', () => {
@@ -336,30 +336,30 @@ describe('DashboardScreen', () => {
     });
   });
 
-  describe('Without Active Cart', () => {
-    it('hides active cart preview when no active cart', () => {
+  describe('Without Active Order', () => {
+    it('hides active order preview when no active order', () => {
       setupSelectorMock({ activeCart: null, itemCount: 0, categoryCount: 0, totalQuantity: 0, grandTotal: 0 });
       const { queryByText } = render(<DashboardScreen />);
       expect(queryByText('Morning Order')).toBeNull();
     });
   });
 
-  describe('New Cart Creation', () => {
-    it('shows CreateCartModal when New Cart is pressed', () => {
+  describe('New Order Creation', () => {
+    it('shows CreateOrderModal when New Order is pressed', () => {
       const { getByTestId, getByText } = render(<DashboardScreen testID="dashboard" />);
       fireEvent.press(getByTestId('quick-action-new-cart'));
       // Modal should be visible with Create New Cart title
-      expect(getByText('Create New Cart')).toBeTruthy();
+      expect(getByText('Create New Order')).toBeTruthy();
     });
 
-    it('does not navigate immediately when New Cart is pressed', () => {
+    it('does not navigate immediately when New Order is pressed', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       fireEvent.press(getByTestId('quick-action-new-cart'));
       // Should NOT navigate immediately - modal should be shown first
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('does not create cart immediately when New Cart is pressed', () => {
+    it('does not create order immediately when New Order is pressed', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       fireEvent.press(getByTestId('quick-action-new-cart'));
       // Should NOT dispatch createCart immediately - wait for user to enter name
@@ -394,13 +394,13 @@ describe('DashboardScreen', () => {
     });
 
 
-    it('navigates to Picking screen to add items when Continue is pressed on active cart', () => {
+    it('navigates to Picking screen to add items when Continue is pressed on active order', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       fireEvent.press(getByTestId('active-cart-continue-btn'));
       expect(mockNavigate).toHaveBeenCalledWith('Picking');
     });
 
-    it('sets active cart and navigates to Cart when a Recent Cart is pressed', () => {
+    it('sets active order and navigates to Order when a Recent Order is pressed', () => {
       const { getByTestId } = render(<DashboardScreen testID="dashboard" />);
       // Press the first recent cart (cart-2)
       fireEvent.press(getByTestId('recent-cart-cart-2'));
@@ -411,8 +411,8 @@ describe('DashboardScreen', () => {
           payload: 'cart-2',
         })
       );
-      // Should navigate directly to Cart screen, not CartsTab
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
+      // Should navigate directly to Order screen, not OrdersTab
+      expect(mockNavigate).toHaveBeenCalledWith('Order');
     });
   });
 
@@ -424,7 +424,7 @@ describe('DashboardScreen', () => {
     });
   });
 
-  describe('Recent Carts price calculation', () => {
+  describe('Recent Orders price calculation', () => {
     it('should calculate correct totals for gm items (quantity stored in kg)', () => {
       // Cart with gm items: price is per-kg, quantity stored in base unit (kg)
       // 500/kg × 0.2kg = 100, 300/kg × 0.5kg = 150 → total = 250
@@ -507,8 +507,8 @@ describe('DashboardScreen', () => {
     });
   });
 
-  describe('Recent Carts - Today\'s carts and paidAmount', () => {
-    it('should show all of today\'s carts in Recent Carts section', () => {
+  describe('Recent Orders - Today\'s orders and paidAmount', () => {
+    it('should show all of today\'s orders in Recent Orders section', () => {
       const now = new Date();
       const fiveTodayCarts = [
         {
@@ -576,7 +576,7 @@ describe('DashboardScreen', () => {
       expect(getByTestId('recent-cart-cart-e')).toBeTruthy();
     });
 
-    it('should display paidAmount for paid carts in Recent Carts', () => {
+    it('should display paidAmount for paid orders in Recent Orders', () => {
       const paidCart = {
         id: 'cart-paid',
         name: 'Paid Cart',
@@ -602,7 +602,7 @@ describe('DashboardScreen', () => {
       expect(cartElement.props.accessibilityLabel).toContain('₹500');
     });
 
-    it('should display paidItemCount for paid carts when items array is empty', () => {
+    it('should display paidItemCount for paid orders when items array is empty', () => {
       const paidCartNoItems = {
         id: 'cart-paid-empty',
         name: 'Paid Empty Cart',
@@ -626,7 +626,7 @@ describe('DashboardScreen', () => {
       expect(getByText(/^5\s/)).toBeTruthy();
     });
 
-    it('should show carts from previous days in Recent Carts section', () => {
+    it('should show orders from previous days in Recent Orders section', () => {
       const now = new Date();
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -674,7 +674,7 @@ describe('DashboardScreen', () => {
       expect(getByTestId('recent-cart-cart-old')).toBeTruthy();
     });
 
-    it('should limit Recent Carts to 10 most recent', () => {
+    it('should limit Recent Orders to 10 most recent', () => {
       const now = new Date();
       const manyCarts = Array.from({ length: 15 }, (_, i) => ({
         id: `cart-${i}`,

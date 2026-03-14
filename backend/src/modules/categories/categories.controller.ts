@@ -43,19 +43,22 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Get all categories' })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   @ApiQuery({ name: 'includeItems', required: false, type: Boolean })
+  @ApiQuery({ name: 'trackInventory', required: false, type: Boolean, description: 'Filter by inventory tracking: true=inventory categories, false=ordering categories' })
   @ApiResponse({ status: 200, description: 'List of categories', type: [Category] })
   async findAll(
     @Req() req: Request,
     @Query('includeInactive') includeInactive?: string,
     @Query('includeItems') includeItems?: string,
+    @Query('trackInventory') trackInventory?: string,
   ): Promise<Category[]> {
     const inactive = includeInactive === 'true';
     const withItems = includeItems === 'true';
+    const trackInv = trackInventory === undefined ? undefined : trackInventory === 'true';
 
     if (withItems) {
-      return this.categoriesService.findAllWithItems(inactive, req.tenantId!);
+      return this.categoriesService.findAllWithItems(inactive, req.tenantId!, trackInv);
     }
-    return this.categoriesService.findAll(inactive, req.tenantId!);
+    return this.categoriesService.findAll(inactive, req.tenantId!, trackInv);
   }
 
   @Get('count')

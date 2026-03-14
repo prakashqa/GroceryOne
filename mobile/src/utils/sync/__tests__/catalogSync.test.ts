@@ -210,6 +210,65 @@ describe('catalogSync', () => {
       expect(items[0].sortOrder).toBe(0);
     });
 
+    it('should map trackInventory field from backend item', async () => {
+      const inventoryItem = { ...mockBackendItem, trackInventory: true };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [inventoryItem] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      expect(items[0].trackInventory).toBe(true);
+    });
+
+    it('should default trackInventory to false when backend omits field', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [mockBackendItem] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      expect(items[0].trackInventory).toBe(false);
+    });
+
+    it('should map stockQuantity from backend item', async () => {
+      const itemWithStock = { ...mockBackendItem, stockQuantity: 50, trackInventory: true };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [itemWithStock] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      expect(items[0].stockQuantity).toBe(50);
+    });
+
+    it('should parse string stockQuantity values', async () => {
+      const itemWithStringStock = { ...mockBackendItem, stockQuantity: '25.50', trackInventory: true };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [itemWithStringStock] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      expect(items[0].stockQuantity).toBe(25.5);
+    });
+
+    it('should map lowStockThreshold from backend item', async () => {
+      const itemWithThreshold = { ...mockBackendItem, lowStockThreshold: 10, trackInventory: true };
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [itemWithThreshold] }),
+      });
+
+      const items = await fetchItemsFromBackend();
+
+      expect(items[0].lowStockThreshold).toBe(10);
+    });
+
     it('should throw on non-ok response', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,

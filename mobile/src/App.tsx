@@ -19,11 +19,14 @@ import { ErrorBoundary } from './presentation/components/common';
 import { initializeCatalog, mergeCatalogFromBackend, selectIsCatalogInitialized, selectCategories } from './store/slices/catalogSlice';
 import { loadOrSeedCatalog, refreshCatalogFromBackend } from './utils/storage/catalogStorage';
 import { selectTenant } from './store/slices/tenantSlice';
+import { selectIsPinVerified } from './features/pinAuth/store/pinSlice';
 import { hydrateMultiCart, syncCartsFromBackend, clearMultiCartInMemory, selectIsMultiCartHydrated } from './store/slices/multiCartSlice';
 import { selectAccessToken } from './store/slices/authSlice';
 import { loadOrFetchCarts, fetchCartsFromBackend } from './utils/storage/cartHydration';
 import { processPendingSyncQueue } from './store/middleware/multiCartPersistMiddleware';
 import { processPendingCatalogSyncQueue } from './store/middleware/catalogPersistMiddleware';
+import { setThemeMode } from './store/slices/settingsSlice';
+import { loadGlobalThemeMode } from './utils/storage/settingsStorage';
 
 // Ignore specific warnings (temporary)
 LogBox.ignoreLogs([
@@ -42,6 +45,17 @@ function AppContent() {
   const tenantSlug = tenant?.slug;
   const isMultiCartHydrated = useSelector(selectIsMultiCartHydrated);
   const accessToken = useSelector(selectAccessToken);
+  const isPinVerified = useSelector(selectIsPinVerified);
+
+  // ── Global Theme Hydration (pre-auth) ──
+  // Loads theme preference from global AsyncStorage key before tenant is resolved
+  useEffect(() => {
+    loadGlobalThemeMode().then((mode) => {
+      if (mode) {
+        dispatch(setThemeMode(mode));
+      }
+    });
+  }, [dispatch]);
 
   // Track which tenant we've already cleared for, so clearMultiCartInMemory
   // only fires once per tenant change (not on every effect re-run when
@@ -52,8 +66,9 @@ function AppContent() {
   // Runs on first mount / after login when carts haven't been hydrated yet.
   // Re-runs when accessToken changes (e.g., after login provides token).
   // Also re-runs after tenant switch since resetMultiCart() clears isHydrated.
+  // Gated on isPinVerified to prevent loading during onboarding flow.
   useEffect(() => {
-    if (!tenantSlug || isMultiCartHydrated) return;
+    if (!tenantSlug || !isPinVerified || isMultiCartHydrated) return;
 
     // Clear stale carts from a previous tenant in Redux only (no AsyncStorage wipe).
     // Uses clearMultiCartInMemory instead of resetMultiCart to avoid destroying the
@@ -97,12 +112,12 @@ function AppContent() {
     });
 
     return () => { controller.abort(); }; // Cleanup: cancel in-flight fetch on tenant/token change
-  }, [dispatch, tenantSlug, isMultiCartHydrated, accessToken]);
+  }, [dispatch, tenantSlug, isPinVerified, isMultiCartHydrated, accessToken]);
 
   // ── Cart Hydration Phase 2: Background refresh from backend after cache load ──
   // Ensures stale cached data gets updated with latest backend state
   useEffect(() => {
-    if (!tenantSlug || !isMultiCartHydrated || !accessToken) return;
+    if (!tenantSlug || !isPinVerified || !isMultiCartHydrated || !accessToken) return;
 
     const controller = new AbortController();
 
@@ -139,18 +154,21 @@ function AppContent() {
 
     return () => { controller.abort(); }; // Cleanup: cancel in-flight fetch on tenant/token change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, tenantSlug, isMultiCartHydrated, accessToken]);
+  }, [dispatch, tenantSlug, isPinVerified, isMultiCartHydrated, accessToken]);
 
   // Phase 1: Initial load from backend or cache
   // Also re-fetch if initialized but categories are empty (network was unavailable during first load)
+  // Gated on isPinVerified to prevent loading during onboarding flow.
   useEffect(() => {
-    if (!tenantSlug) return;
+    if (!tenantSlug || !isPinVerified) return;
 
+    const controller = new AbortController();
     const shouldFetchCatalog = !isCatalogInitialized || (isCatalogInitialized && categories.length === 0);
 
     if (shouldFetchCatalog) {
       console.log('[App] Loading catalog...', { isCatalogInitialized, categoriesCount: categories.length, tenantSlug });
       loadOrSeedCatalog(tenantSlug).then((catalogData) => {
+        if (controller.signal.aborted) return; // Guard: tenant changed, discard stale response
         console.log('[App] Catalog loaded:', {
           categoriesCount: catalogData.categories.length,
           itemsCount: catalogData.items.length,
@@ -169,16 +187,22 @@ function AppContent() {
         processPendingCatalogSyncQueue(store.getState);
       });
     }
-  }, [dispatch, isCatalogInitialized, categories.length, tenantSlug]);
+
+    return () => { controller.abort(); }; // Cleanup: cancel stale catalog load on tenant change
+  }, [dispatch, isCatalogInitialized, categories.length, tenantSlug, isPinVerified]);
 
   // Phase 2: Background refresh from backend after cache load
   // Ensures stale cached data (e.g. missing MRP/price fields) gets updated
   // NOTE: categories.length intentionally NOT in deps to avoid infinite re-render loop
+  // Gated on isPinVerified to prevent loading during onboarding flow.
   useEffect(() => {
-    if (!tenantSlug) return;
+    if (!tenantSlug || !isPinVerified) return;
+
+    const controller = new AbortController();
 
     if (isCatalogInitialized && categories.length > 0) {
       refreshCatalogFromBackend(tenantSlug).then((freshData) => {
+        if (controller.signal.aborted) return; // Guard: tenant changed, discard stale response
         if (freshData) {
           console.log('[App] Background refresh: merging catalog with fresh backend data', {
             categoriesCount: freshData.categories.length,
@@ -189,8 +213,10 @@ function AppContent() {
         }
       });
     }
+
+    return () => { controller.abort(); }; // Cleanup: cancel stale catalog refresh on tenant change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, isCatalogInitialized, tenantSlug]);
+  }, [dispatch, isCatalogInitialized, tenantSlug, isPinVerified]);
 
   return <RootNavigator />;
 }

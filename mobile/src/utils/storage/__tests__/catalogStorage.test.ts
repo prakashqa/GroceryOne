@@ -168,8 +168,49 @@ describe('catalogStorage', () => {
 
       expect(result.categories).toHaveLength(0);
       expect(result.items).toHaveLength(0);
-      expect(result.fromCache).toBe(true);
+      expect(result.fromCache).toBe(false);
       expect(result.error).toBeDefined();
+    });
+
+    it('should return empty data without error when backend returns 0 categories (new tenant)', async () => {
+      (catalogSync.syncBackendToLocal as jest.Mock).mockResolvedValueOnce({
+        categories: [],
+        items: [],
+      });
+
+      const result = await loadOrSeedCatalog(TEST_TENANT);
+
+      expect(result.categories).toHaveLength(0);
+      expect(result.items).toHaveLength(0);
+      expect(result.fromCache).toBe(false);
+      expect(result.error).toBeUndefined();
+    });
+
+    it('should fall through to cache with error when backend returns null and cache is empty', async () => {
+      (catalogSync.syncBackendToLocal as jest.Mock).mockResolvedValueOnce(null);
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(null);
+
+      const result = await loadOrSeedCatalog(TEST_TENANT);
+
+      expect(result.categories).toHaveLength(0);
+      expect(result.error).toBeDefined();
+    });
+
+    it('should scope empty catalog result to the provided tenantId (tenant isolation)', async () => {
+      const tenantA = 'tenant-a';
+      const tenantB = 'tenant-b';
+
+      (catalogSync.syncBackendToLocal as jest.Mock).mockResolvedValue({
+        categories: [],
+        items: [],
+      });
+
+      await loadOrSeedCatalog(tenantA);
+      await loadOrSeedCatalog(tenantB);
+
+      expect(catalogSync.syncBackendToLocal).toHaveBeenCalledWith({ tenantId: tenantA });
+      expect(catalogSync.syncBackendToLocal).toHaveBeenCalledWith({ tenantId: tenantB });
+      expect(catalogSync.syncBackendToLocal).toHaveBeenCalledTimes(2);
     });
   });
 

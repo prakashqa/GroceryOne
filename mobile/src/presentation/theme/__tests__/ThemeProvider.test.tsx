@@ -70,7 +70,7 @@ describe('ThemeProvider', () => {
     );
 
     expect(getByTestId('theme-mode').props.children).toBe('light');
-    expect(getByTestId('background-color').props.children).toBe('#F8FAF8');
+    expect(getByTestId('background-color').props.children).toBe('#F5F7FA');
     expect(getByTestId('is-dark').props.children).toBe('false');
   });
 
@@ -85,7 +85,7 @@ describe('ThemeProvider', () => {
     );
 
     expect(getByTestId('theme-mode').props.children).toBe('dark');
-    expect(getByTestId('background-color').props.children).toBe('#121212');
+    expect(getByTestId('background-color').props.children).toBe('#0F0F0F');
     expect(getByTestId('is-dark').props.children).toBe('true');
   });
 

@@ -70,6 +70,9 @@ export class Tenant {
   @Column({ name: 'contact_phone', length: 20, nullable: true })
   contactPhone?: string;
 
+  @Column({ name: 'business_address', length: 500, nullable: true })
+  businessAddress?: string;
+
   @Column({ name: 'default_language', length: 5, default: 'en' })
   defaultLanguage: string;
 

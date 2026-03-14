@@ -14,7 +14,7 @@ import { useResponsiveStyles } from '../../hooks';
 
 // Screen imports
 import { DashboardScreen } from '../screens/dashboard';
-import { PickingScreen, CartScreen, ManageCartsScreen } from '../screens/picking';
+import { PickingScreen, OrderScreen, ManageOrdersScreen } from '../screens/picking';
 import {
   SettingsScreen,
   AppearanceSettingsScreen,
@@ -41,7 +41,7 @@ import { InventoryDashboardScreen, InventoryItemDetailScreen } from '../screens/
 export type TabParamList = {
   DashboardTab: undefined;
   ItemsTab: undefined;
-  CartsTab: undefined;
+  OrdersTab: undefined;
   ReportsTab: undefined;
   MoreTab: undefined;
 };
@@ -50,8 +50,8 @@ export type TabParamList = {
 export type DashboardStackParamList = {
   Dashboard: undefined;
   Picking: undefined;
-  Cart: undefined;
-  ManageCarts: undefined;
+  Order: undefined;
+  ManageOrders: undefined;
   Settings: undefined;
   AppearanceSettings: undefined;
   LanguageSettings: undefined;
@@ -65,9 +65,9 @@ export type DashboardStackParamList = {
   Reports: undefined;
 };
 
-export type CartsStackParamList = {
-  ManageCarts: undefined;
-  Cart: undefined;
+export type OrdersStackParamList = {
+  ManageOrders: undefined;
+  Order: undefined;
   Picking: undefined;
   CameraCapture: undefined;
   ScanReview: undefined;
@@ -96,7 +96,8 @@ export type MoreStackParamList = {
 
 export type ItemsStackParamList = {
   Items: undefined;
-  Cart: undefined;
+  Order: undefined;
+  PrinterSettings: undefined;
 };
 
 export type ReportsStackParamList = {
@@ -106,7 +107,7 @@ export type ReportsStackParamList = {
 const Tab = createBottomTabNavigator<TabParamList>();
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
 const ItemsStack = createNativeStackNavigator<ItemsStackParamList>();
-const CartsStack = createNativeStackNavigator<CartsStackParamList>();
+const OrdersStack = createNativeStackNavigator<OrdersStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 const ReportsStack = createNativeStackNavigator<ReportsStackParamList>();
 
@@ -147,15 +148,15 @@ function DashboardStackNavigator() {
         options={{ headerShown: false }}
       />
       <DashboardStack.Screen
-        name="Cart"
-        component={CartScreen}
+        name="Order"
+        component={OrderScreen}
         options={{
           title: t('picking.cartReview'),
         }}
       />
       <DashboardStack.Screen
-        name="ManageCarts"
-        component={ManageCartsScreen}
+        name="ManageOrders"
+        component={ManageOrdersScreen}
         options={{
           headerShown: false,
         }}
@@ -273,10 +274,17 @@ function ItemsStackNavigator() {
         options={{ headerShown: false }}
       />
       <ItemsStack.Screen
-        name="Cart"
-        component={CartScreen}
+        name="Order"
+        component={OrderScreen}
         options={{
           title: t('picking.cartReview'),
+        }}
+      />
+      <ItemsStack.Screen
+        name="PrinterSettings"
+        component={PrinterSettingsScreen}
+        options={{
+          title: 'Printer Settings',
         }}
       />
     </ItemsStack.Navigator>
@@ -284,14 +292,14 @@ function ItemsStackNavigator() {
 }
 
 /**
- * Carts Stack Navigator
+ * Orders Stack Navigator
  */
-function CartsStackNavigator() {
+function OrdersStackNavigator() {
   const theme = useTheme();
   const { t } = useTranslation('common');
 
   return (
-    <CartsStack.Navigator
+    <OrdersStack.Navigator
       screenOptions={{
         headerShown: true,
         headerStyle: {
@@ -309,78 +317,78 @@ function CartsStackNavigator() {
         },
       }}
     >
-      <CartsStack.Screen
-        name="ManageCarts"
-        component={ManageCartsScreen}
+      <OrdersStack.Screen
+        name="ManageOrders"
+        component={ManageOrdersScreen}
         options={{
           headerShown: false,
         }}
       />
-      <CartsStack.Screen
-        name="Cart"
-        component={CartScreen}
+      <OrdersStack.Screen
+        name="Order"
+        component={OrderScreen}
         options={{
           title: t('picking.cartReview'),
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="Picking"
         component={PickingScreen}
         options={{ headerShown: false }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="CameraCapture"
         component={CameraCaptureScreen}
         options={{ headerShown: false }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="ScanReview"
         component={ScanReviewScreen}
         options={{ headerShown: false }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
           title: 'Settings',
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="AppearanceSettings"
         component={AppearanceSettingsScreen}
         options={{
           title: 'Appearance',
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="LanguageSettings"
         component={LanguageSettingsScreen}
         options={{
           title: 'Language',
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{
           title: 'Notifications',
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="PrinterSettings"
         component={PrinterSettingsScreen}
         options={{
           title: 'Printer Settings',
         }}
       />
-      <CartsStack.Screen
+      <OrdersStack.Screen
         name="About"
         component={AboutScreen}
         options={{
           title: 'About',
         }}
       />
-    </CartsStack.Navigator>
+    </OrdersStack.Navigator>
   );
 }
 
@@ -555,11 +563,15 @@ export function BottomTabNavigator() {
         tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopWidth: 0,
           paddingTop: responsiveStyles.contentPadding > 20 ? 8 : 4,
           paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          height: responsiveStyles.tabBarHeight,
+          height: Platform.OS === 'ios' ? 72 : responsiveStyles.tabBarHeight,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 8,
         },
         tabBarLabelStyle: {
           fontSize: responsiveStyles.tabBarLabelSize,
@@ -604,18 +616,18 @@ export function BottomTabNavigator() {
         })}
       />
       <Tab.Screen
-        name="CartsTab"
-        component={CartsStackNavigator}
+        name="OrdersTab"
+        component={OrdersStackNavigator}
         options={{
-          tabBarLabel: t('navigation.carts', 'Carts'),
+          tabBarLabel: t('navigation.carts', 'Orders'),
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="shopping-cart" color={color} size={responsiveStyles.tabBarIconSize} />
+            <TabBarIcon name="receipt-long" color={color} size={responsiveStyles.tabBarIconSize} />
           ),
         }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('CartsTab', { screen: 'ManageCarts' });
+            navigation.navigate('OrdersTab', { screen: 'ManageOrders' });
           },
         })}
       />

@@ -3,13 +3,16 @@
  * Handles authentication with tenant context
  */
 
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { PasswordService } from './services/password.service';
 import { TokenBlacklistService } from '../../core/redis/token-blacklist.service';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { TenantService } from '../../tenant/tenant.service';
+import { SignupDto } from './dto/signup.dto';
 
 export interface JwtPayload {
   sub: string; // user id
@@ -45,6 +48,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly passwordService: PasswordService,
     private readonly tokenBlacklistService: TokenBlacklistService,
+    private readonly subscriptionService: SubscriptionService,
+    private readonly tenantService: TenantService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -275,5 +281,95 @@ export class AuthService {
     // 5. Issue new token pair
     this.logger.log(`Token refreshed for user ${user.email || user.phone}`);
     return this.login(user);
+  }
+
+  /**
+   * Register a new business (creates tenant + admin user + trial subscription).
+   * Runs in a transaction to ensure atomicity.
+   * This is a PUBLIC endpoint — no tenant context required.
+   */
+  async signup(dto: SignupDto): Promise<AuthTokens> {
+    // 1. Check email uniqueness across ALL tenants
+    const existingUser = await this.userRepository.findOne({
+      where: [{ email: dto.email }],
+    });
+    if (existingUser) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    // 2. Generate slug from business name
+    const slug = await this.generateUniqueSlug(dto.businessName);
+
+    // 3. Run in transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 3a. Create tenant
+      const tenant = await this.tenantService.create({
+        name: dto.businessName,
+        slug,
+        contactEmail: dto.email,
+        contactPhone: dto.phone,
+      });
+
+      // 3b. Create admin user
+      const passwordHash = await this.passwordService.hash(dto.password);
+      const user = this.userRepository.create({
+        tenantId: tenant.id,
+        email: dto.email,
+        phone: dto.phone,
+        passwordHash,
+        firstName: dto.ownerFirstName,
+        lastName: dto.ownerLastName,
+        role: 'admin',
+        status: 'active',
+        emailVerifiedAt: new Date(),
+      });
+      const savedUser = await this.userRepository.save(user);
+      savedUser.tenant = tenant;
+
+      // 3c. Create trial subscription
+      await this.subscriptionService.createTrialSubscription(tenant.id);
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(`Signup completed: tenant=${slug}, user=${dto.email}`);
+
+      // 4. Generate tokens and return
+      return this.login(savedUser);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Generate a unique slug from a business name.
+   * Appends random suffix if collision detected.
+   */
+  private async generateUniqueSlug(businessName: string): Promise<string> {
+    let slug = businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (slug.length < 2) {
+      slug = 'business';
+    }
+
+    // Check for collision
+    const existing = await this.tenantService.findBySlug(slug);
+    if (existing) {
+      const suffix = Math.random().toString(36).substring(2, 6);
+      slug = `${slug}-${suffix}`;
+    }
+
+    return slug;
   }
 }

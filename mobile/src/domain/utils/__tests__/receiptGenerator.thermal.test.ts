@@ -148,7 +148,7 @@ describe('receiptGenerator - thermal', () => {
       const lines = receipt.split('\n');
       const titleLine = lines.find((line) => line.includes('PICKING LIST'));
       const merchantLine = lines.find((line) => line.includes('PRAKASH GROCERIES'));
-      const addressLine = lines.find((line) => line.includes('Main Street, Vizag'));
+      const addressLine = lines.find((line) => line.includes('123 Test Street, Hyderabad'));
 
       expect(titleLine!.startsWith('\u0002')).toBe(true);
       expect(merchantLine!.startsWith('\u0002')).toBe(true);

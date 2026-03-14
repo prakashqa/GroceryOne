@@ -17,6 +17,7 @@ export interface TenantSeed {
   subscriptionPlan: SubscriptionPlan;
   contactEmail: string;
   contactPhone: string;
+  businessAddress?: string;
   primaryColor: string;
   secondaryColor: string;
   defaultLanguage: string;
@@ -50,6 +51,7 @@ export const SEED_TENANTS: TenantSeed[] = [
     subscriptionPlan: 'premium',
     contactEmail: 'contact@freshmart.com',
     contactPhone: '+91-9876543210',
+    businessAddress: 'MG Road, Hyderabad',
     primaryColor: '#4CAF50',
     secondaryColor: '#8BC34A',
     defaultLanguage: 'en',
@@ -65,6 +67,7 @@ export const SEED_TENANTS: TenantSeed[] = [
     subscriptionPlan: 'standard',
     contactEmail: 'info@quickbasket.com',
     contactPhone: '+91-9123456780',
+    businessAddress: 'Jubilee Hills, Hyderabad',
     primaryColor: '#2196F3',
     secondaryColor: '#03A9F4',
     defaultLanguage: 'en',
@@ -80,6 +83,7 @@ export const SEED_TENANTS: TenantSeed[] = [
     subscriptionPlan: 'standard',
     contactEmail: 'contact@vijayparcelpos.com',
     contactPhone: '+91-9345678901',
+    businessAddress: '',
     primaryColor: '#FF5722',
     secondaryColor: '#FF9800',
     defaultLanguage: 'te',
@@ -116,7 +120,7 @@ export const SEED_USERS: UserSeed[] = [
     pin: '5678',
     firstName: 'Priya',
     lastName: 'Sharma',
-    role: 'customer',
+    role: 'cashier',
     status: 'active',
     preferredLanguage: 'te',
   },
@@ -141,7 +145,7 @@ export const SEED_USERS: UserSeed[] = [
     pin: '8765',
     firstName: 'Lakshmi',
     lastName: 'Devi',
-    role: 'customer',
+    role: 'cashier',
     status: 'active',
     preferredLanguage: 'te',
   },
@@ -166,7 +170,7 @@ export const SEED_USERS: UserSeed[] = [
     pin: '1357',
     firstName: 'Srikanth',
     lastName: 'Naidu',
-    role: 'customer',
+    role: 'cashier',
     status: 'active',
     preferredLanguage: 'te',
   },
@@ -179,16 +183,16 @@ export const LOGIN_CREDENTIALS = {
   freshmart: {
     tenantSlug: 'freshmart',
     admin: { email: 'admin@freshmart.com', password: 'Admin@FM123', pin: '1234' },
-    customer: { email: 'customer@freshmart.com', password: 'Customer@FM123', pin: '5678' },
+    cashier: { email: 'customer@freshmart.com', password: 'Customer@FM123', pin: '5678' },
   },
   quickbasket: {
     tenantSlug: 'quickbasket',
     admin: { email: 'admin@quickbasket.com', password: 'Admin@QB123', pin: '4321' },
-    customer: { email: 'customer@quickbasket.com', password: 'Customer@QB123', pin: '8765' },
+    cashier: { email: 'customer@quickbasket.com', password: 'Customer@QB123', pin: '8765' },
   },
   vijayparcelpos: {
     tenantSlug: 'vijayparcelpos',
     admin: { email: 'admin@vijayparcelpos.com', password: 'Admin@VP123', pin: '2468' },
-    customer: { email: 'customer@vijayparcelpos.com', password: 'Customer@VP123', pin: '1357' },
+    cashier: { email: 'customer@vijayparcelpos.com', password: 'Customer@VP123', pin: '1357' },
   },
 };

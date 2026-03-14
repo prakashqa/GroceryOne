@@ -8,6 +8,7 @@ import React from 'react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import catalogReducer from '../../store/slices/catalogSlice';
+import { tenantSlice } from '../../store/slices/tenantSlice';
 import { useCatalog } from '../useCatalog';
 
 // Mock RTK Query hooks
@@ -41,9 +42,18 @@ const createTestStore = (initialCatalog = { categories: [], items: [], isInitial
   return configureStore({
     reducer: {
       catalog: catalogReducer,
+      tenant: tenantSlice.reducer,
     },
     preloadedState: {
       catalog: initialCatalog,
+      tenant: {
+        tenant: { slug: 'freshmart', name: 'FreshMart Groceries' },
+        config: null,
+        branding: null,
+        currentLanguage: 'en',
+        isLoading: false,
+        error: null,
+      },
     },
   });
 };
@@ -55,6 +65,27 @@ const createWrapper = (store: ReturnType<typeof createTestStore>) => {
   );
 };
 
+// Helper to create test store with no tenant set
+const createNoTenantStore = () => {
+  return configureStore({
+    reducer: {
+      catalog: catalogReducer,
+      tenant: tenantSlice.reducer,
+    },
+    preloadedState: {
+      catalog: { categories: [], items: [], isInitialized: false },
+      tenant: {
+        tenant: null,
+        config: null,
+        branding: null,
+        currentLanguage: 'en',
+        isLoading: false,
+        error: null,
+      },
+    },
+  });
+};
+
 describe('useCatalog', () => {
   beforeEach(() => {
     // Reset mock API state
@@ -62,6 +93,7 @@ describe('useCatalog', () => {
       categories: { data: mockCategories, isLoading: false, error: null },
       items: { data: mockItems, isLoading: false, error: null },
     };
+    jest.clearAllMocks();
   });
 
   describe('data fetching', () => {
@@ -267,6 +299,67 @@ describe('useCatalog', () => {
       result.current.items.forEach((item) => {
         expect(item.mrp).toBe(150);
       });
+    });
+  });
+
+  describe('tenant isolation guard', () => {
+    it('should skip API calls when tenant is not set', () => {
+      const { useGetCategoriesQuery } = require('../../data/api/categoryApi');
+      const { useGetItemsQuery } = require('../../data/api/productApi');
+
+      const store = createNoTenantStore();
+      renderHook(() => useCatalog(), {
+        wrapper: createWrapper(store),
+      });
+
+      // Verify that queries were called with skip: true option
+      expect(useGetCategoriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: false, trackInventory: false }),
+        expect.objectContaining({ skip: true }),
+      );
+      expect(useGetItemsQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: false }),
+        expect.objectContaining({ skip: true }),
+      );
+    });
+
+    it('should not skip API calls when tenant is set', () => {
+      const { useGetCategoriesQuery } = require('../../data/api/categoryApi');
+      const { useGetItemsQuery } = require('../../data/api/productApi');
+
+      const store = createTestStore();
+      renderHook(() => useCatalog(), {
+        wrapper: createWrapper(store),
+      });
+
+      // Verify that queries were called with skip: false option
+      expect(useGetCategoriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: false, tenantSlug: 'freshmart', trackInventory: false }),
+        expect.objectContaining({ skip: false }),
+      );
+      expect(useGetItemsQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: false, tenantSlug: 'freshmart' }),
+        expect.objectContaining({ skip: false }),
+      );
+    });
+
+    it('should pass tenantSlug to category and item queries', () => {
+      const { useGetCategoriesQuery } = require('../../data/api/categoryApi');
+      const { useGetItemsQuery } = require('../../data/api/productApi');
+
+      const store = createTestStore();
+      renderHook(() => useCatalog(), {
+        wrapper: createWrapper(store),
+      });
+
+      expect(useGetCategoriesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantSlug: 'freshmart', trackInventory: false }),
+        expect.any(Object),
+      );
+      expect(useGetItemsQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantSlug: 'freshmart' }),
+        expect.any(Object),
+      );
     });
   });
 });

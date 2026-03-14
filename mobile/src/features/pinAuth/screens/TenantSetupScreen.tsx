@@ -23,6 +23,7 @@ import { useAppDispatch } from '../../../core/hooks/useAppDispatch';
 import { setTenant } from '../../../store/slices/tenantSlice';
 import { PinAuthApi } from '../services/PinAuthApi';
 import { PinSecureStorage } from '../services/PinSecureStorage';
+import { AuthScreenControls } from '../components/AuthScreenControls';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Must match TenantProvider / RootNavigator
@@ -108,6 +109,9 @@ export const TenantSetupScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={[styles.content, { paddingHorizontal: theme.spacing.lg }]}>
+          {/* Theme & Language Controls */}
+          <AuthScreenControls />
+
           {/* Header */}
           <View style={styles.header}>
             <Text
@@ -216,6 +220,25 @@ export const TenantSetupScreen: React.FC = () => {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Sign Up Link */}
+          <TouchableOpacity
+            style={[styles.signupLink, { marginTop: theme.spacing.lg }]}
+            onPress={() => navigation.navigate('Signup')}
+            testID="tenant-signup-link"
+          >
+            <Text
+              style={[
+                styles.signupLinkText,
+                {
+                  color: theme.colors.primary,
+                  fontSize: theme.typography.fontSize.md,
+                },
+              ]}
+            >
+              {t('tenant.signupLink', 'New business? Sign up')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -256,6 +279,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   buttonText: {},
+  signupLink: {
+    alignItems: 'center',
+  },
+  signupLinkText: {},
 });
 
 export default TenantSetupScreen;

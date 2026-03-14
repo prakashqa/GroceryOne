@@ -69,7 +69,7 @@ describe('AddQuantityModal', () => {
     });
 
     it('should display Add to Cart button', () => {
-      expect(renderModal().getByText('Add to Cart')).toBeTruthy();
+      expect(renderModal().getByText('Add to Order')).toBeTruthy();
     });
 
     it('should display close button', () => {
@@ -118,7 +118,7 @@ describe('AddQuantityModal', () => {
     it('should call onAddToCart with item and selected quantity when Add to Cart is pressed', () => {
       const { getByText, getByTestId } = renderModal();
       fireEvent.press(getByTestId('quantity-option-5'));
-      fireEvent.press(getByText('Add to Cart'));
+      fireEvent.press(getByText('Add to Order'));
       expect(mockOnAddToCart).toHaveBeenCalledWith(mockItem, 5, 'kg');
     });
 
@@ -126,14 +126,14 @@ describe('AddQuantityModal', () => {
       const { getByText, getByTestId } = renderModal();
       fireEvent.press(getByTestId('custom-quantity-option'));
       fireEvent.changeText(getByTestId('custom-quantity-input'), '15');
-      fireEvent.press(getByText('Add to Cart'));
+      fireEvent.press(getByText('Add to Order'));
       expect(mockOnAddToCart).toHaveBeenCalledWith(mockItem, 15, 'kg');
     });
 
     it('should close modal after adding to cart', () => {
       const { getByText, getByTestId } = renderModal();
       fireEvent.press(getByTestId('quantity-option-1'));
-      fireEvent.press(getByText('Add to Cart'));
+      fireEvent.press(getByText('Add to Order'));
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
   });
@@ -151,7 +151,7 @@ describe('AddQuantityModal', () => {
 
   describe('edge cases', () => {
     it('should handle null item gracefully', () => {
-      expect(renderModal({ item: null as unknown as Item }).queryByText('Add to Cart')).toBeNull();
+      expect(renderModal({ item: null as unknown as Item }).queryByText('Add to Order')).toBeNull();
     });
 
     it('should reset selection when modal is reopened', () => {
@@ -172,7 +172,7 @@ describe('AddQuantityModal', () => {
       const { getByText, getByTestId } = renderModal();
       fireEvent.press(getByTestId('custom-quantity-option'));
       fireEvent.changeText(getByTestId('custom-quantity-input'), '0');
-      fireEvent.press(getByText('Add to Cart'));
+      fireEvent.press(getByText('Add to Order'));
       expect(mockOnAddToCart).not.toHaveBeenCalled();
     });
   });
@@ -197,14 +197,14 @@ describe('AddQuantityModal', () => {
       expect(banner).toBeTruthy();
     });
 
-    it('should show Update Cart button text when item is in cart', () => {
+    it('should show Update Order button text when item is in cart', () => {
       const { getByText } = renderModal({ quantityInCart: 5 });
-      expect(getByText('Update Cart')).toBeTruthy();
+      expect(getByText('Update Order')).toBeTruthy();
     });
 
-    it('should show Add to Cart button text when item is NOT in cart', () => {
+    it('should show Add to Order button text when item is NOT in cart', () => {
       const { getByText } = renderModal();
-      expect(getByText('Add to Cart')).toBeTruthy();
+      expect(getByText('Add to Order')).toBeTruthy();
     });
 
     it('should show Remove from Cart button when item is in cart and onRemove provided', () => {
@@ -255,7 +255,7 @@ describe('AddQuantityModal', () => {
         ...tabletResponsive, fontScale: 1.35, touchTargetMinSize: 64,
         modalWidth: 600, componentPadding: 28, cardBorderRadius: 20, iconSize: 38,
       });
-      expect(renderModal().getByText('Add to Cart')).toBeTruthy();
+      expect(renderModal().getByText('Add to Order')).toBeTruthy();
     });
   });
 });

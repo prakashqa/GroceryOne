@@ -57,14 +57,14 @@ import type { RootState } from '../../../store/rootReducer';
 import { loadOrSeedCatalog } from '../../../utils/storage/catalogStorage';
 import { API_CONFIG } from '../../../core/config/api.config';
 import AddQuantityModal from './AddQuantityModal';
-import NewCartConfirmModal from '../../components/picking/NewCartConfirmModal';
-import CreateCartModal from '../../components/picking/CreateCartModal';
+import NewOrderConfirmModal from '../../components/picking/NewOrderConfirmModal';
+import CreateOrderModal from '../../components/picking/CreateOrderModal';
 import PickingHeader from '../../components/picking/PickingHeader';
-import CartTabsBar from '../../components/picking/CartTabsBar';
+import OrderTabsBar from '../../components/picking/OrderTabsBar';
 import CategoryBar from '../../components/picking/CategoryBar';
 import CategoryHeader from '../../components/picking/CategoryHeader';
 import ProductGrid from '../../components/picking/ProductGrid';
-import CartFooter from '../../components/picking/CartFooter';
+import OrderFooter from '../../components/picking/OrderFooter';
 import { useTheme, useIsDarkMode } from '../../theme';
 import { useTranslation } from 'react-i18next';
 
@@ -100,6 +100,16 @@ const PickingScreen: React.FC = () => {
   const cartItems = useSelector(selectActiveCartItems);
   const itemCount = useSelector(selectActiveCartItemCount);
   const totalCartCount = useSelector(selectCartCount);
+
+  // Calculate total price from cart items for the order footer
+  const cartTotalPrice = useMemo(() => {
+    return (cartItems || []).reduce((sum, ci) => {
+      if (ci.priceSnapshot !== undefined && ci.priceSnapshot > 0) {
+        return sum + ci.priceSnapshot * ci.quantity;
+      }
+      return sum;
+    }, 0);
+  }, [cartItems]);
   // Use count selector (primitive) to avoid reselect memoization warnings —
   // selectTodaysCarts returns a new array reference on every render
   const todaysCartCount = useSelector(
@@ -279,11 +289,11 @@ const PickingScreen: React.FC = () => {
   }, [selectedItem, cartItems]);
 
   const handleGoToManageCarts = useCallback(() => {
-    navigation.navigate('ManageCarts');
+    navigation.navigate('ManageOrders');
   }, [navigation]);
 
   const handleGoToCart = useCallback(() => {
-    navigation.navigate('Cart');
+    navigation.navigate('Order');
   }, [navigation]);
 
   const handleCategorySelect = useCallback((categoryId: string) => {
@@ -383,7 +393,7 @@ const PickingScreen: React.FC = () => {
 
       {/* Cart Tabs */}
       <View style={{ backgroundColor: theme.colors.headerBackground }}>
-        <CartTabsBar
+        <OrderTabsBar
           activeCartName={activeCartName}
           activeCartItemCount={itemCount}
           todaysCartCount={todaysCartCount}
@@ -447,8 +457,9 @@ const PickingScreen: React.FC = () => {
 
       {/* Cart Footer - shows when items in cart */}
       {itemCount > 0 && (
-        <CartFooter
+        <OrderFooter
           itemCount={itemCount}
+          totalPrice={cartTotalPrice}
           onViewCart={handleGoToCart}
           isSyncing={isSyncing}
           testID="cart-footer"
@@ -466,7 +477,7 @@ const PickingScreen: React.FC = () => {
         onRemove={handleModalRemove}
       />
 
-      <NewCartConfirmModal
+      <NewOrderConfirmModal
         visible={newCartModalVisible}
         onClose={() => setNewCartModalVisible(false)}
         onConfirm={handleConfirmNewCart}
@@ -474,7 +485,7 @@ const PickingScreen: React.FC = () => {
         testID="new-cart-confirm-modal"
       />
 
-      <CreateCartModal
+      <CreateOrderModal
         visible={createCartModalVisible}
         onClose={() => setCreateCartModalVisible(false)}
         onCreateCart={handleCreateCart}

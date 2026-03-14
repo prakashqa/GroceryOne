@@ -18,6 +18,7 @@ import { HistoricSeedService } from './historic-seed.service';
 import { TenantUserSeedService } from './tenant-user-seed.service';
 import { SeedController } from './seed.controller';
 import { PasswordService } from '../../modules/auth/services/password.service';
+import { SubscriptionModule } from '../../modules/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PasswordService } from '../../modules/auth/services/password.service';
       TenantConfig,
       User,
     ]),
+    SubscriptionModule,
   ],
   controllers: [SeedController],
   providers: [

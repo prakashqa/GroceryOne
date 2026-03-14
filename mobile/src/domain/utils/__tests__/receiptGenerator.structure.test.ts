@@ -5,7 +5,7 @@
  */
 
 import { generatePickingListReceipt, ReceiptItem } from '../receiptGenerator';
-import { mockMerchantInfo, mockItems } from './receiptGenerator.fixtures';
+import { mockMerchantInfo, mockMerchantInfoNoAddress, mockItems } from './receiptGenerator.fixtures';
 
 describe('receiptGenerator - structure', () => {
   describe('cart name display', () => {
@@ -59,13 +59,35 @@ describe('receiptGenerator - structure', () => {
       expect(receipt).toContain('PRAKASH GROCERIES');
     });
 
-    it('should include merchant address below the name', () => {
+    it('should include merchant address below the name when address is provided', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
       });
 
-      expect(receipt).toContain('Main Street, Vizag');
+      expect(receipt).toContain('123 Test Street, Hyderabad');
+    });
+
+    it('should NOT include any address when merchant has no address', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfoNoAddress,
+        items: mockItems,
+      });
+
+      expect(receipt).not.toContain('Main Street');
+      expect(receipt).not.toContain('Vizag');
+      expect(receipt).not.toContain('123 Test Street');
+      expect(receipt).toContain('NO ADDRESS STORE');
+    });
+
+    it('should NOT include address when address is empty string', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: { name: 'Empty Addr Store', address: '' },
+        items: mockItems,
+      });
+
+      expect(receipt).not.toContain('Main Street');
+      expect(receipt).toContain('EMPTY ADDR STORE');
     });
 
     it('should include phone number when provided', () => {
@@ -78,6 +100,36 @@ describe('receiptGenerator - structure', () => {
       });
 
       expect(receipt).toContain('+91 98765 43210');
+    });
+
+    it('should correctly format header with name, address, and phone', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: {
+          name: 'Tenant A Store',
+          address: 'A Street, A City',
+          phone: '+91-1111111111',
+        },
+        items: mockItems,
+      });
+
+      expect(receipt).toContain('TENANT A STORE');
+      expect(receipt).toContain('A Street, A City');
+      expect(receipt).toContain('+91-1111111111');
+    });
+
+    it('should correctly format header with name and phone only when no address (tenant isolation)', () => {
+      const receipt = generatePickingListReceipt({
+        merchantInfo: {
+          name: 'Tenant B Store',
+          phone: '+91-2222222222',
+        },
+        items: mockItems,
+      });
+
+      expect(receipt).toContain('TENANT B STORE');
+      expect(receipt).toContain('+91-2222222222');
+      expect(receipt).not.toContain('A Street');
+      expect(receipt).not.toContain('Main Street');
     });
   });
 

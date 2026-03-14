@@ -28,6 +28,7 @@ import { LoginDto } from './dto/login.dto';
 import { PinLoginDto } from './dto/pin-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResolveTenantDto } from './dto/resolve-tenant.dto';
+import { SignupDto } from './dto/signup.dto';
 import { User } from '../users/entities/user.entity';
 
 interface AuthenticatedRequest extends ExpressRequest {
@@ -131,6 +132,34 @@ export class AuthController {
     }
 
     return this.authService.login(user);
+  }
+
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new business (creates tenant + admin user + trial subscription)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Signup successful',
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1...',
+        refreshToken: 'eyJhbGciOiJIUzI1...',
+        expiresIn: 3600,
+        tenantSlug: 'fresh-mart-groceries',
+        user: {
+          id: 'uuid',
+          email: 'admin@freshmart.com',
+          firstName: 'Rajesh',
+          lastName: 'Kumar',
+          role: 'admin',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async signup(@Body() signupDto: SignupDto) {
+    return this.authService.signup(signupDto);
   }
 
   @Post('refresh')

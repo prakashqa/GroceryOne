@@ -25,7 +25,7 @@ export class Category {
   @Index()
   slug: string;
 
-  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: false })
   @Index()
   tenantId: string;
 
@@ -43,6 +43,9 @@ export class Category {
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
+
+  @Column({ name: 'track_inventory', default: false })
+  trackInventory: boolean;
 
   @OneToMany(() => Item, (item) => item.category)
   items: Item[];

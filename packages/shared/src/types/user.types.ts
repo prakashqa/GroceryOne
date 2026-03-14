@@ -22,7 +22,7 @@ export interface User {
   updatedAt: Date;
 }
 
-export type UserRole = 'customer' | 'admin' | 'manager' | 'super_admin';
+export type UserRole = 'cashier' | 'admin' | 'manager' | 'super_admin';
 
 export type UserStatus = 'active' | 'inactive' | 'blocked';
 
@@ -77,6 +77,15 @@ export interface RegisterData {
   password: string;
   firstName: string;
   lastName?: string;
+}
+
+export interface SignupData {
+  businessName: string;
+  ownerFirstName: string;
+  ownerLastName?: string;
+  email: string;
+  phone: string;
+  password: string;
 }
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {

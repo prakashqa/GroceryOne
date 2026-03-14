@@ -13,6 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RootState } from '../../store/rootReducer';
 import { logout, setTokens } from '../../store/slices/authSlice';
+import { setExpired } from '../../store/slices/subscriptionSlice';
 import { API_CONFIG } from '../../core/config/api.config';
 import type { AuthTokens } from '@groceryone/shared';
 
@@ -118,6 +119,12 @@ const baseQueryWithReauth: BaseQueryFn<
 
   let result = await baseQuery(args, api, extraOptions);
 
+  // If we get a 402, subscription has expired
+  if (result.error && result.error.status === 402) {
+    api.dispatch(setExpired());
+    return result;
+  }
+
   // If we get a 401, try to refresh the token
   if (result.error && result.error.status === 401) {
     const state = api.getState() as RootState;
@@ -170,6 +177,7 @@ export const baseApi = createApi({
     'Wishlist',
     'Tenant',
     'Inventory',
+    'Subscription',
   ],
   endpoints: () => ({}),
 });

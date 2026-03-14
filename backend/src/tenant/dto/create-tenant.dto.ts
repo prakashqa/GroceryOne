@@ -64,6 +64,12 @@ export class CreateTenantDto {
   @IsString()
   contactPhone?: string;
 
+  @ApiPropertyOptional({ example: 'MG Road, Hyderabad' })
+  @IsOptional()
+  @IsString()
+  @Length(2, 500)
+  businessAddress?: string;
+
   @ApiPropertyOptional({ example: 'en' })
   @IsOptional()
   @IsString()

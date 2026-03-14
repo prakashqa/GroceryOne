@@ -68,12 +68,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         styles.container,
         {
           backgroundColor: isInCart ? theme.colors.inCartBackground : theme.colors.surface,
-          borderRadius: theme.borderRadius.lg,
+          borderRadius: theme.borderRadius.xl,
           margin: theme.spacing.xs,
-          borderWidth: isInCart ? 1.5 : 0,
-          borderColor: isInCart ? theme.colors.inCartBorder : 'transparent',
+          borderWidth: isInCart ? 0 : 0,
+          borderColor: 'transparent',
         },
-        theme.shadows.sm,
+        theme.shadows.md,
       ]}
       testID={testID}
     >
@@ -90,39 +90,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           style={[
             styles.infoContainer,
             {
-              padding: theme.spacing.smd,
-              paddingTop: isInCart ? theme.spacing.smd : theme.spacing.md,
+              padding: theme.spacing.md,
+              paddingBottom: theme.spacing.xs,
             },
           ]}
         >
-          {/* In Cart Badge */}
-          {isInCart && (
-            <View
-              style={[
-                styles.inCartBadge,
-                {
-                  backgroundColor: theme.colors.inCartBadge,
-                  borderRadius: theme.borderRadius.sm,
-                  paddingHorizontal: theme.spacing.sm,
-                  paddingVertical: theme.spacing.xs,
-                  marginBottom: theme.spacing.xs,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.inCartText,
-                  {
-                    color: theme.colors.textInverse,
-                    fontSize: theme.typography.fontSize.xs,
-                    fontWeight: theme.typography.fontWeight.bold,
-                  },
-                ]}
-              >
-                {t('picking.inCart')}
-              </Text>
-            </View>
-          )}
           {/* Out of Stock Badge */}
           {isOutOfStock && !isInCart && (
             <View
@@ -187,13 +159,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {
                 color: theme.colors.text,
                 fontSize: isTablet
-                  ? theme.typography.fontSize['2xl']
-                  : theme.typography.fontSize.xl,
-                fontWeight: theme.typography.fontWeight.bold,
-                lineHeight: isTablet ? 28 : 24,
+                  ? Math.round(theme.typography.fontSize['2xl'] * 0.9)
+                  : Math.round(theme.typography.fontSize.xl * 0.9),
+                fontWeight: theme.typography.fontWeight.semibold,
+                lineHeight: isTablet ? 25 : 22,
               },
             ]}
-            numberOfLines={2}
+            numberOfLines={1}
           >
             {productName}
           </Text>
@@ -202,9 +174,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               styles.quantityUnit,
               {
                 color: theme.colors.textSecondary,
-                fontSize: isTablet
-                  ? theme.typography.fontSize.xl
-                  : theme.typography.fontSize.lg,
+                fontSize: theme.typography.fontSize.sm,
                 fontWeight: theme.typography.fontWeight.regular,
                 marginTop: theme.spacing.xs,
               },
@@ -216,17 +186,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Price display */}
           {item.price !== undefined && (
             <View
-              style={[styles.priceRow, { marginTop: theme.spacing.xs }]}
+              style={[styles.priceRow, { marginTop: theme.spacing.sm }]}
               testID={testID ? `${testID}-price` : undefined}
             >
               <Text
                 style={[
                   styles.priceText,
                   {
-                    color: theme.colors.primary,
+                    color: theme.colors.text,
                     fontSize: isTablet
-                      ? theme.typography.fontSize.xl
-                      : theme.typography.fontSize.lg,
+                      ? theme.typography.fontSize.xxl
+                      : theme.typography.fontSize.xl,
                     fontWeight: theme.typography.fontWeight.bold,
                   },
                 ]}
@@ -234,20 +204,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {formatItemPrice(item.price)}
               </Text>
               {item.mrp !== undefined && item.mrp > item.price && (
-                <Text
-                  style={[
-                    styles.mrpText,
-                    {
-                      color: theme.colors.textSecondary,
-                      fontSize: isTablet
-                        ? theme.typography.fontSize.md
-                        : theme.typography.fontSize.sm,
-                    },
-                  ]}
-                  testID={testID ? `${testID}-mrp` : undefined}
-                >
-                  {formatItemPrice(item.mrp)}
-                </Text>
+                <>
+                  <Text
+                    style={[
+                      styles.mrpText,
+                      {
+                        color: theme.colors.textSecondary,
+                        fontSize: isTablet
+                          ? theme.typography.fontSize.md
+                          : theme.typography.fontSize.sm,
+                        opacity: 0.5,
+                      },
+                    ]}
+                    testID={testID ? `${testID}-mrp` : undefined}
+                  >
+                    {formatItemPrice(item.mrp)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.discountBadge,
+                      {
+                        backgroundColor: theme.colors.successBackground,
+                        borderRadius: theme.borderRadius.xs,
+                        paddingHorizontal: 4,
+                        paddingVertical: 1,
+                        marginLeft: 4,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: theme.colors.success,
+                        fontSize: theme.typography.fontSize.xs,
+                        fontWeight: theme.typography.fontWeight.bold,
+                      }}
+                    >
+                      {`-${Math.round(((item.mrp - item.price) / item.mrp) * 100)}%`}
+                    </Text>
+                  </View>
+                </>
               )}
             </View>
           )}
@@ -259,7 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         style={[
           styles.actionContainer,
           {
-            paddingHorizontal: theme.spacing.smd,
+            paddingHorizontal: theme.spacing.md,
             paddingBottom: theme.spacing.smd,
           },
         ]}
@@ -272,6 +267,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 backgroundColor: theme.colors.background,
                 borderRadius: theme.borderRadius.xl,
                 padding: theme.spacing.xs,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
               },
             ]}
           >
@@ -379,9 +376,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               styles.addButton,
               {
                 backgroundColor: isOutOfStock ? theme.colors.textLight : theme.colors.buttonPrimary,
-                borderRadius: theme.borderRadius.xl,
-                paddingVertical: theme.spacing.sm,
-                paddingHorizontal: theme.spacing.lg,
+                borderRadius: theme.borderRadius.full,
+                height: 40,
                 opacity: isPending || isOutOfStock ? 0.5 : 1,
               },
             ]}
@@ -404,14 +400,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   styles.addButtonText,
                   {
                     color: theme.colors.buttonPrimaryText,
-                    fontSize: isTablet
-                      ? theme.typography.fontSize.lg
-                      : theme.typography.fontSize.md,
+                    fontSize: theme.typography.fontSize.md,
                     fontWeight: theme.typography.fontWeight.semibold,
                   },
                 ]}
               >
-                {t('picking.add')}
+                + {t('picking.add')}
               </Text>
             )}
           </TouchableOpacity>
@@ -454,7 +448,10 @@ const styles = StyleSheet.create({
   },
   addButton: {
     alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
+  discountBadge: {},
   addButtonText: {},
   priceRow: {
     flexDirection: 'row',
@@ -464,7 +461,6 @@ const styles = StyleSheet.create({
   priceText: {},
   mrpText: {
     textDecorationLine: 'line-through',
-    opacity: 0.7,
   },
 });
 

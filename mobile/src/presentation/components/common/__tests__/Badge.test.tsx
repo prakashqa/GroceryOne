@@ -64,7 +64,7 @@ describe('Badge', () => {
 
       const badge = getByTestId('badge');
       const flatStyle = flattenStyle(badge.props.style);
-      expect(flatStyle.backgroundColor).toBe('#F1F8E9');
+      expect(flatStyle.backgroundColor).toBe('#EDF7EE');
     });
 
     it('renders success variant', () => {

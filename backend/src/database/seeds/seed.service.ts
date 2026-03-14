@@ -91,8 +91,8 @@ export class SeedService {
           // Seed categories for this tenant
           const categoryMap = await this.seedCategories(categories, report, tenant.id);
 
-          // Seed items for this tenant
-          await this.seedItems(items, categoryMap, report, tenant.id);
+          // Seed items for this tenant (pass category seed data for trackInventory lookup)
+          await this.seedItems(items, categoryMap, report, tenant.id, categories);
         } catch (error) {
           const errMsg = `Failed to seed tenant '${tenant.slug}': ${error instanceof Error ? error.message : String(error)}`;
           this.logger.error(errMsg);
@@ -136,8 +136,14 @@ export class SeedService {
         });
 
         if (existing) {
+          // Update trackInventory if it changed
+          const expectedTrackInventory = seedCategory.trackInventory ?? false;
+          if (existing.trackInventory !== expectedTrackInventory) {
+            existing.trackInventory = expectedTrackInventory;
+            await this.categoryRepository.save(existing);
+            this.logger.debug(`Updated trackInventory for category '${seedCategory.slug}'`);
+          }
           categoryMap.set(seedCategory.slug, existing.id);
-          this.logger.debug(`Category '${seedCategory.slug}' already exists, skipping`);
           continue;
         }
 
@@ -148,6 +154,7 @@ export class SeedService {
           nameTe: seedCategory.nameTe,
           icon: seedCategory.icon,
           sortOrder: seedCategory.sortOrder,
+          trackInventory: seedCategory.trackInventory ?? false,
           isActive: true,
           tenantId,
         });
@@ -170,7 +177,14 @@ export class SeedService {
   /**
    * Seed items
    */
-  private async seedItems(items: ItemSeed[], categoryMap: Map<string, string>, report: SeedReport, tenantId: string): Promise<void> {
+  private async seedItems(items: ItemSeed[], categoryMap: Map<string, string>, report: SeedReport, tenantId: string, categorySeedData?: CategorySeed[]): Promise<void> {
+    // Build category slug -> trackInventory lookup
+    const categoryTrackInventory = new Map<string, boolean>();
+    if (categorySeedData) {
+      for (const cat of categorySeedData) {
+        categoryTrackInventory.set(cat.slug, cat.trackInventory ?? true);
+      }
+    }
     for (const seedItem of items) {
       try {
         // Get category ID
@@ -198,6 +212,9 @@ export class SeedService {
           continue;
         }
 
+        // Determine trackInventory from category seed data (default: true)
+        const shouldTrackInventory = categoryTrackInventory.get(seedItem.categorySlug) ?? true;
+
         // Create item
         const item = this.itemRepository.create({
           slug: seedItem.slug,
@@ -211,8 +228,9 @@ export class SeedService {
           sortOrder: seedItem.sortOrder,
           isActive: true,
           tenantId,
-          trackInventory: true,
-          stockQuantity: 100,
+          trackInventory: shouldTrackInventory,
+          stockQuantity: seedItem.stockQuantity ?? (shouldTrackInventory ? 100 : 0),
+          lowStockThreshold: seedItem.lowStockThreshold ?? (shouldTrackInventory ? 10 : 0),
         });
 
         const saved = await this.itemRepository.save(item);

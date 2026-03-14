@@ -76,11 +76,13 @@ describe('ProductCard', () => {
 
   describe('Not In Cart State', () => {
     it('renders Add button when not in cart', () => {
-      expect(renderCard().getByText('Add')).toBeTruthy();
+      const { getByTestId } = renderCard({ testID: 'product-card' });
+      expect(getByTestId('product-card-add-button')).toBeTruthy();
     });
 
-    it('does not show IN CART badge when not in cart', () => {
+    it('does not show any badge when not in cart', () => {
       expect(renderCard().queryByText('IN CART')).toBeNull();
+      expect(renderCard().queryByText('In Cart')).toBeNull();
     });
 
     it('calls onAdd when Add button is pressed', () => {
@@ -90,13 +92,8 @@ describe('ProductCard', () => {
   });
 
   describe('In Cart State', () => {
-    it('shows IN CART badge when item is in cart', () => {
-      expect(renderCard({ quantityInCart: 2 }).getByText('IN CART')).toBeTruthy();
-    });
-
-    it('IN CART badge does not use absolute positioning to prevent overlap with product name', () => {
-      const badgeView = renderCard({ quantityInCart: 2 }).getByText('IN CART').parent;
-      expect(flattenStyle(badgeView?.props?.style).position).not.toBe('absolute');
+    it('does not show IN CART badge — quantity controls are sufficient indicator', () => {
+      expect(renderCard({ quantityInCart: 2 }).queryByText('IN CART')).toBeNull();
     });
 
     it('shows quantity controls when in cart', () => {

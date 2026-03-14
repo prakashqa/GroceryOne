@@ -35,6 +35,7 @@ export class TenantMiddleware implements NestMiddleware {
       '/admin',
       '/seed',
       '/auth/resolve-tenant',
+      '/auth/signup',
     ];
     if (skipRoutes.some((route) => req.path.startsWith(route))) {
       return next();

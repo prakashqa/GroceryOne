@@ -113,6 +113,7 @@ export const API_ENDPOINTS = {
     LOGIN: '/auth/login',
     LOGIN_PIN: '/auth/login/pin',
     RESOLVE_TENANT: '/auth/resolve-tenant',
+    SIGNUP: '/auth/signup',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
     REFRESH: '/auth/refresh',
@@ -178,5 +179,12 @@ export const API_ENDPOINTS = {
   // Tenant
   TENANT: {
     CONFIG: '/tenant/config',
+  },
+
+  // Subscriptions
+  SUBSCRIPTIONS: {
+    CURRENT: '/subscriptions/current',
+    CREATE: '/subscriptions',
+    HISTORY: '/subscriptions/history',
   },
 } as const;

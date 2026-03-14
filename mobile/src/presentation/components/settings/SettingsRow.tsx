@@ -118,6 +118,7 @@ const SettingsRow: React.FC<SettingsRowProps> = ({
             dynamicStyles.label,
             { color: textColor, fontWeight: theme.typography.fontWeight.medium },
           ]}
+          numberOfLines={1}
         >
           {label}
         </Text>

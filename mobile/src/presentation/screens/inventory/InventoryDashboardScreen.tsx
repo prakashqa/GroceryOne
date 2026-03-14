@@ -26,7 +26,7 @@ import { useResponsiveStyles } from '../../../hooks';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
 import { selectTenant } from '../../../store/slices/tenantSlice';
 import { selectIsAuthenticated } from '../../../store/slices/authSlice';
-import { selectCategories } from '../../../store/slices/catalogSlice';
+import { useGetCategoriesQuery } from '../../../data/api/categoryApi';
 import {
   useGetLowStockItemsQuery,
   useGetStockReportQuery,
@@ -51,8 +51,17 @@ const InventoryDashboardScreen: React.FC = () => {
 
   const tenant = useSelector(selectTenant);
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const categories = useSelector(selectCategories) || [];
   const skipQuery = !tenant?.slug || !isAuthenticated;
+
+  // Fetch inventory categories directly from API (trackInventory: true)
+  // Cannot use selectCategories from Redux — useCatalog only fetches order categories
+  const {
+    data: inventoryCategories = [],
+    isLoading: categoriesLoading,
+  } = useGetCategoriesQuery(
+    { includeInactive: false, tenantSlug: tenant?.slug, trackInventory: true },
+    { skip: skipQuery }
+  );
 
   const {
     data: lowStockItems,
@@ -70,7 +79,7 @@ const InventoryDashboardScreen: React.FC = () => {
 
   const [createItem] = useCreateItemMutation();
 
-  const isLoading = skipQuery || lowStockLoading || stockReportLoading;
+  const isLoading = skipQuery || lowStockLoading || stockReportLoading || categoriesLoading;
   const isError = !skipQuery && (lowStockError || stockReportError);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +119,7 @@ const InventoryDashboardScreen: React.FC = () => {
   );
 
   const handleAddItemSubmit = useCallback(
-    async (data: { name: string; categoryId: string; unit: string; defaultQuantity: number; mrp: number; salePrice?: number }) => {
+    async (data: { name: string; categoryId: string; unit: string; defaultQuantity: number; stockQuantity?: number; lowStockThreshold?: number }) => {
       try {
         const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         await createItem({
@@ -119,10 +128,9 @@ const InventoryDashboardScreen: React.FC = () => {
           categoryId: data.categoryId,
           unit: data.unit,
           defaultQuantity: data.defaultQuantity,
-          compareAtPrice: data.mrp,
-          price: data.salePrice,
           trackInventory: true,
-          stockQuantity: 0,
+          stockQuantity: data.stockQuantity ?? 0,
+          lowStockThreshold: data.lowStockThreshold ?? 10,
         }).unwrap();
         setShowItemFormModal(false);
         refetchStockReport();
@@ -330,12 +338,13 @@ const InventoryDashboardScreen: React.FC = () => {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* Item Form Modal */}
+      {/* Item Form Modal — Inventory mode with inventory categories */}
       <ItemFormModal
         visible={showItemFormModal}
         onClose={() => setShowItemFormModal(false)}
         onSubmit={handleAddItemSubmit}
-        categories={categories}
+        categories={inventoryCategories}
+        mode="inventory"
         testID="inventory-item-form"
       />
     </SafeAreaView>

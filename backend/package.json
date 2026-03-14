@@ -25,7 +25,7 @@
     "unseed": "ts-node src/database/seeds/run-unseed.ts",
     "seed:historic": "ts-node src/database/seeds/run-historic-seed.ts",
     "seed:tenants": "ts-node src/database/seeds/run-tenant-user-seed.ts",
-    "seed:all": "npm run seed && npm run seed:historic && npm run seed:tenants"
+    "seed:all": "npm run seed:tenants && npm run seed && npm run seed:historic"
   },
   "dependencies": {
     "@groceryone/shared": "*",

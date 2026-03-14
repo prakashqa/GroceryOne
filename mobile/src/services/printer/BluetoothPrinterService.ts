@@ -14,6 +14,26 @@ const BLEPrinter = Platform.OS !== 'web'
   ? require('react-native-thermal-receipt-printer-image-qr').BLEPrinter
   : null;
 
+/**
+ * Encode raw bytes to Base64 for printRawData().
+ * The native library (react-native-thermal-receipt-printer-image-qr)
+ * expects Base64-encoded data, NOT hex strings.
+ */
+export const bytesToBase64 = (bytes: number[]): string => {
+  const binary = String.fromCharCode(...bytes);
+  return btoa(binary);
+};
+
+/**
+ * ESC/POS command constants (Base64-encoded for printRawData)
+ */
+export const ESC_POS = {
+  /** GS V 1 — Partial paper cut (leaves small connection for easy tear) */
+  CUT_PARTIAL: bytesToBase64([0x1D, 0x56, 0x01]),
+  /** ESC d 4 — Feed 4 lines before cutting */
+  FEED_4_LINES: bytesToBase64([0x1B, 0x64, 0x04]),
+};
+
 // Bluetooth device interface
 export interface BluetoothDevice {
   id: string;
@@ -498,13 +518,20 @@ class BluetoothPrinterService {
       });
       job.status = 'completed';
 
-      // Paper feed: best-effort. printText uses printRawData internally
-      // which can silently fail over BLE. The receipt bitmap already includes
-      // trailing whitespace for paper feed, so this is a bonus.
+      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
+      // printRawData expects Base64, not hex — the native library decodes with Base64.decode().
       try {
-        await BLEPrinter.printText('\n\n\n\n');
+        await BLEPrinter.printRawData(ESC_POS.FEED_4_LINES);
       } catch {
         // Swallow paper feed errors — don't fail the print job
+      }
+
+      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
+      // Sends [0x1D, 0x56, 0x01] — leaves a small paper connection for easy tear.
+      try {
+        await BLEPrinter.printRawData(ESC_POS.CUT_PARTIAL);
+      } catch {
+        // Swallow cut errors — printer may not have a cutter
       }
     } catch (error: any) {
       job.status = 'failed';
@@ -581,13 +608,18 @@ class BluetoothPrinterService {
 
       job.status = 'completed';
 
-      // Paper feed: best-effort. printText uses printRawData internally
-      // which can silently fail over BLE. The receipt bitmap already includes
-      // trailing whitespace for paper feed, so this is a bonus.
+      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
       try {
-        await BLEPrinter.printText('\n\n\n\n');
+        await BLEPrinter.printRawData(ESC_POS.FEED_4_LINES);
       } catch {
         // Swallow paper feed errors — don't fail the print job
+      }
+
+      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
+      try {
+        await BLEPrinter.printRawData(ESC_POS.CUT_PARTIAL);
+      } catch {
+        // Swallow cut errors — printer may not have a cutter
       }
     } catch (error: any) {
       job.status = 'failed';

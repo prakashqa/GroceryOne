@@ -1,10 +1,10 @@
 {
-  "title": "Shopping Cart",
+  "title": "Order",
   "items": "{{count}} item",
   "items_plural": "{{count}} items",
   "empty": {
-    "title": "Your Cart is Empty",
-    "description": "Looks like you haven't added anything to your cart yet",
+    "title": "Your Order is Empty",
+    "description": "Looks like you haven't added anything to your order yet",
     "shopNow": "Start Shopping"
   },
   "item": {
@@ -36,9 +36,9 @@
   },
   "checkout": "Proceed to Checkout",
   "continueShopping": "Continue Shopping",
-  "updateCart": "Update Cart",
-  "clearCart": "Clear Cart",
-  "confirmClear": "Are you sure you want to clear your cart?",
-  "stockWarning": "Some items in your cart have limited stock",
+  "updateCart": "Update Order",
+  "clearCart": "Clear Order",
+  "confirmClear": "Are you sure you want to clear your order?",
+  "stockWarning": "Some items in your order have limited stock",
   "priceChanged": "Price updated for some items"
 }

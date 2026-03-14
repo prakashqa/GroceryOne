@@ -51,7 +51,7 @@ type RootStackParamList = {
   CameraCapture: undefined;
   ScanReview: undefined;
   Picking: undefined;
-  Cart: undefined;
+  Order: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -257,7 +257,7 @@ export const ScanReviewScreen: React.FC = () => {
           text: t('picking.viewCart'),
           onPress: () => {
             dispatch(clearSession());
-            navigation.navigate('Cart');
+            navigation.navigate('Order');
           },
         },
         {

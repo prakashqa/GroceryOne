@@ -3,11 +3,11 @@ import request from 'supertest';
 const CREDENTIALS = {
   freshmart: {
     admin: { identifier: 'admin@freshmart.com', password: 'Admin@FM123', pin: '1234' },
-    customer: { identifier: 'customer@freshmart.com', password: 'Customer@FM123', pin: '5678' },
+    cashier: { identifier: 'customer@freshmart.com', password: 'Customer@FM123', pin: '5678' },
   },
   quickbasket: {
     admin: { identifier: 'admin@quickbasket.com', password: 'Admin@QB123', pin: '4321' },
-    customer: { identifier: 'customer@quickbasket.com', password: 'Customer@QB123', pin: '8765' },
+    cashier: { identifier: 'customer@quickbasket.com', password: 'Customer@QB123', pin: '8765' },
   },
 };
 
@@ -25,11 +25,11 @@ export async function loginAsAdmin(
   return { accessToken: res.body.data.accessToken, user: res.body.data.user };
 }
 
-export async function loginAsCustomer(
+export async function loginAsCashier(
   server: any,
   tenant: 'freshmart' | 'quickbasket' = 'freshmart',
 ): Promise<{ accessToken: string; user: any }> {
-  const creds = CREDENTIALS[tenant].customer;
+  const creds = CREDENTIALS[tenant].cashier;
   const res = await request(server)
     .post('/api/v1/auth/login')
     .set('X-Tenant-ID', tenant)
@@ -42,7 +42,7 @@ export async function loginAsCustomer(
 export async function loginWithPin(
   server: any,
   tenant: 'freshmart' | 'quickbasket' = 'freshmart',
-  role: 'admin' | 'customer' = 'admin',
+  role: 'admin' | 'cashier' = 'admin',
 ): Promise<{ accessToken: string; user: any }> {
   const creds = CREDENTIALS[tenant][role];
   const res = await request(server)

@@ -28,7 +28,7 @@ export class Item {
   @Index()
   slug: string;
 
-  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: false })
   @Index()
   tenantId: string;
 

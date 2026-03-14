@@ -23,6 +23,7 @@ export interface Category {
   name: string;
   nameTe?: string; // Telugu name
   icon: string;
+  trackInventory?: boolean; // true = inventory category, false = ordering/POS category
 }
 
 export interface Item {

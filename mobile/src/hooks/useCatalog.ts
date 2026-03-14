@@ -12,6 +12,7 @@ import {
   selectCategories,
   selectItems,
 } from '../store/slices/catalogSlice';
+import { selectTenant } from '../store/slices/tenantSlice';
 import type { Category, Item } from '../domain/types/picking';
 import { findCategoryByIdOrUuid } from '../domain/utils/categoryLookup';
 
@@ -69,20 +70,28 @@ interface UseCatalogResult {
  * const item = getItemById('sp-001');
  */
 export const useCatalog = (): UseCatalogResult => {
-  // Fetch from API
+  // Include tenantSlug in query args so RTK Query creates separate cache entries per tenant
+  const tenant = useSelector(selectTenant);
+  const tenantSlug = tenant?.slug;
+
+  // Skip API queries when tenant context is not available to prevent
+  // requests without tenant isolation (tenant header won't be set)
+  const skipQuery = !tenantSlug;
+
+  // Fetch from API (tenantSlug in args differentiates cache keys per tenant)
   const {
     data: apiCategories,
     isLoading: loadingCategories,
     error: categoriesError,
     refetch: refetchCategories,
-  } = useGetCategoriesQuery({ includeInactive: false });
+  } = useGetCategoriesQuery({ includeInactive: false, tenantSlug, trackInventory: false }, { skip: skipQuery });
 
   const {
     data: apiItems,
     isLoading: loadingItems,
     error: itemsError,
     refetch: refetchItems,
-  } = useGetItemsQuery({ includeInactive: false });
+  } = useGetItemsQuery({ includeInactive: false, tenantSlug }, { skip: skipQuery });
 
   // Fallback to Redux store
   const storeCategories = useSelector(selectCategories);
@@ -96,14 +105,17 @@ export const useCatalog = (): UseCatalogResult => {
 
   const items = useMemo(() => {
     const rawItems = apiItems ?? storeItems;
-    // Ensure mrp is populated from compareAtPrice for items from API
-    return rawItems.map(item => {
-      const apiItem = item as ApiItem;
-      if (item.mrp === undefined && apiItem.compareAtPrice != null) {
-        return { ...item, mrp: Number(apiItem.compareAtPrice) };
-      }
-      return item;
-    });
+    // Exclude inventory items (trackInventory === true) — only show order/POS items
+    return rawItems
+      .filter(item => (item as ApiItem).trackInventory !== true)
+      .map(item => {
+        // Ensure mrp is populated from compareAtPrice for items from API
+        const apiItem = item as ApiItem;
+        if (item.mrp === undefined && apiItem.compareAtPrice != null) {
+          return { ...item, mrp: Number(apiItem.compareAtPrice) };
+        }
+        return item;
+      });
   }, [apiItems, storeItems]);
 
   // Combined loading state

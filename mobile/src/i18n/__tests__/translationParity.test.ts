@@ -315,6 +315,20 @@ describe('Translation Parity Tests', () => {
     });
   });
 
+  describe('Branding — GroOne not GroceryOne', () => {
+    it('should use "GroOne" not "GroceryOne" in English about text', () => {
+      const aboutText = enCommon.more.about;
+      expect(aboutText).toContain('GroOne');
+      expect(aboutText).not.toContain('GroceryOne');
+    });
+
+    it('should use "GroOne" not "GroceryOne" in Telugu about text', () => {
+      const aboutText = teCommon.more.about;
+      expect(aboutText).toContain('GroOne');
+      expect(aboutText).not.toContain('GroceryOne');
+    });
+  });
+
   describe('Translation Value Quality', () => {
     it('should have Telugu Unicode characters for Telugu translations', () => {
       const teKeys = getNestedKeys(teCommon);

@@ -7,7 +7,7 @@ import { formatUserRole } from '../userFormatters';
 describe('formatUserRole', () => {
   it('should capitalize single-word roles', () => {
     expect(formatUserRole('admin')).toBe('Admin');
-    expect(formatUserRole('customer')).toBe('Customer');
+    expect(formatUserRole('cashier')).toBe('Cashier');
     expect(formatUserRole('manager')).toBe('Manager');
   });
 

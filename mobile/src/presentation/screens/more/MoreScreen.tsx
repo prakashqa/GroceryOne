@@ -135,7 +135,6 @@ const MoreScreen: React.FC = () => {
         <SettingsSection title={t('more.sections.management', 'Management')}>
           <SettingsRow
             label={t('more.inventory', 'Inventory')}
-            value={t('more.inventoryDescription', 'Stock management and reports')}
             icon="inventory"
             onPress={handleInventoryPress}
             hasChevron
@@ -147,7 +146,6 @@ const MoreScreen: React.FC = () => {
         <SettingsSection title={t('more.sections.settings', 'Settings')}>
           <SettingsRow
             label={t('more.settings', 'Settings')}
-            value={t('more.settingsDescription', 'App preferences and configuration')}
             icon="settings"
             onPress={handleSettingsPress}
             hasChevron
@@ -158,7 +156,7 @@ const MoreScreen: React.FC = () => {
         {/* App Section */}
         <SettingsSection title={t('more.sections.app', 'App')}>
           <SettingsRow
-            label={t('more.about', 'About GroceryOne')}
+            label={t('more.about', 'About GroOne')}
             icon="about"
             onPress={handleAboutPress}
             hasChevron

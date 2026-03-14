@@ -32,15 +32,19 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
     ({ item }: { item: Category }) => {
       const isSelected = selectedCategoryId === item.id;
       const categoryName = getTranslatedCategoryName(item);
-      // Take only first word for compact display
-      const displayName = categoryName.split(' ')[0].split(',')[0];
 
       return (
         <TouchableOpacity
           style={[
-            styles.categoryItem,
+            styles.categoryPill,
             {
-              marginHorizontal: theme.spacing.xs,
+              backgroundColor: isSelected ? theme.colors.primary : theme.colors.surface,
+              borderRadius: theme.borderRadius.full,
+              borderWidth: isSelected ? 0 : 1,
+              borderColor: theme.colors.border,
+              paddingHorizontal: isTablet ? theme.spacing.md : theme.spacing.smd,
+              paddingVertical: isTablet ? theme.spacing.sm : theme.spacing.xs + 2,
+              marginRight: theme.spacing.sm,
             },
           ]}
           onPress={() => onCategorySelect(item.id)}
@@ -50,68 +54,41 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
           accessibilityState={{ selected: isSelected }}
           testID={testID ? `${testID}-item-${item.id}` : undefined}
         >
-          <View
+          <Text
             style={[
-              styles.iconContainer,
+              styles.categoryIcon,
               {
-                backgroundColor: theme.colors.background,
-                width: isTablet ? 70 : 56,
-                height: isTablet ? 70 : 56,
-                borderRadius: isTablet ? 35 : 28,
-                borderWidth: isSelected ? 2 : 0,
-                borderColor: isSelected ? theme.colors.primary : 'transparent',
-              },
-              isSelected && {
-                backgroundColor: theme.colors.inCartBackground,
+                fontSize: isTablet
+                  ? theme.typography.fontSize.xl
+                  : theme.typography.fontSize.lg,
+                marginRight: theme.spacing.xs,
               },
             ]}
-            testID={
-              isSelected && testID
-                ? `${testID}-item-${item.id}-selected`
-                : undefined
-            }
           >
-            <Text
-              style={[
-                styles.categoryIcon,
-                {
-                  fontSize: isTablet
-                    ? theme.typography.fontSize.xxxl
-                    : theme.typography.fontSize.xxl,
-                },
-              ]}
-            >
-              {item.icon}
-            </Text>
-          </View>
+            {item.icon}
+          </Text>
           <Text
             style={[
               styles.categoryName,
               {
-                color: isSelected ? theme.colors.primary : theme.colors.textSecondary,
+                color: isSelected ? '#FFFFFF' : theme.colors.textSecondary,
                 fontSize: isTablet
                   ? theme.typography.fontSize.md
                   : theme.typography.fontSize.sm,
                 fontWeight: isSelected
                   ? theme.typography.fontWeight.bold
                   : theme.typography.fontWeight.medium,
-                marginTop: theme.spacing.xs,
               },
             ]}
             numberOfLines={1}
+            testID={
+              isSelected && testID
+                ? `${testID}-item-${item.id}-selected`
+                : undefined
+            }
           >
-            {displayName}
+            {categoryName}
           </Text>
-          {/* Selected indicator pill */}
-          <View
-            style={[
-              styles.selectedIndicator,
-              {
-                backgroundColor: isSelected ? theme.colors.primary : 'transparent',
-                marginTop: theme.spacing.xs / 2,
-              },
-            ]}
-          />
         </TouchableOpacity>
       );
     },
@@ -125,7 +102,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
       style={[
         styles.container,
         {
-          paddingVertical: theme.spacing.sm,
+          paddingVertical: theme.spacing.smd,
         },
       ]}
       testID={testID}
@@ -139,7 +116,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingHorizontal: responsiveStyles.contentPadding - theme.spacing.xs,
+            paddingHorizontal: theme.spacing.md,
           },
         ]}
       />
@@ -150,24 +127,12 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
 const styles = StyleSheet.create({
   container: {},
   listContent: {},
-  categoryItem: {
-    alignItems: 'center',
-  },
-  iconContainer: {
-    justifyContent: 'center',
+  categoryPill: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   categoryIcon: {},
-  categoryName: {
-    textAlign: 'center',
-    maxWidth: 70,
-  },
-  selectedIndicator: {
-    height: 3,
-    width: 20,
-    borderRadius: 2,
-    alignSelf: 'center',
-  },
+  categoryName: {},
 });
 
 export default CategoryBar;

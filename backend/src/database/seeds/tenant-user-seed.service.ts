@@ -11,6 +11,7 @@ import { Tenant } from '../../tenant/entities/tenant.entity';
 import { TenantConfig } from '../../tenant/entities/tenant-config.entity';
 import { User } from '../../modules/users/entities/user.entity';
 import { PasswordService } from '../../modules/auth/services/password.service';
+import { SubscriptionService } from '../../modules/subscription/subscription.service';
 import { SeedService } from './seed.service';
 import {
   SEED_TENANTS,
@@ -41,6 +42,7 @@ export class TenantUserSeedService implements OnModuleInit {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly passwordService: PasswordService,
+    private readonly subscriptionService: SubscriptionService,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly seedService: SeedService,
@@ -152,6 +154,16 @@ export class TenantUserSeedService implements OnModuleInit {
 
         if (existing) {
           tenantMap.set(seedTenant.slug, existing.id);
+          // Ensure existing tenant has a subscription
+          try {
+            const hasActiveSub = await this.subscriptionService.isSubscriptionActive(existing.id);
+            if (!hasActiveSub) {
+              await this.subscriptionService.createTrialSubscription(existing.id);
+              this.logger.log(`Created trial subscription for existing tenant: ${seedTenant.slug}`);
+            }
+          } catch (subError) {
+            this.logger.warn(`Could not check/create subscription for tenant '${seedTenant.slug}': ${subError}`);
+          }
           this.logger.debug(
             `Tenant '${seedTenant.slug}' already exists, skipping`,
           );
@@ -167,6 +179,7 @@ export class TenantUserSeedService implements OnModuleInit {
           subscriptionPlan: seedTenant.subscriptionPlan,
           contactEmail: seedTenant.contactEmail,
           contactPhone: seedTenant.contactPhone,
+          businessAddress: seedTenant.businessAddress || undefined,
           primaryColor: seedTenant.primaryColor,
           secondaryColor: seedTenant.secondaryColor,
           defaultLanguage: seedTenant.defaultLanguage,
@@ -183,6 +196,14 @@ export class TenantUserSeedService implements OnModuleInit {
           tenantId: saved.id,
         });
         await this.configRepository.save(config);
+
+        // Create trial subscription for new tenant
+        try {
+          await this.subscriptionService.createTrialSubscription(saved.id);
+          this.logger.log(`Created trial subscription for tenant: ${seedTenant.slug}`);
+        } catch (subError) {
+          this.logger.warn(`Could not create subscription for tenant '${seedTenant.slug}': ${subError}`);
+        }
 
         // Create tenant schema
         const schemaName = `tenant_${seedTenant.slug.replace(/-/g, '_')}`;
@@ -231,9 +252,19 @@ export class TenantUserSeedService implements OnModuleInit {
         });
 
         if (existing) {
-          this.logger.debug(
-            `User '${seedUser.email}' already exists in tenant '${seedUser.tenantSlug}', skipping`,
-          );
+          // Update role if it changed (e.g., customer → cashier rename)
+          if (existing.role !== seedUser.role) {
+            const oldRole = existing.role;
+            existing.role = seedUser.role;
+            await this.userRepository.save(existing);
+            this.logger.log(
+              `Updated role for '${seedUser.email}' from '${oldRole}' to '${seedUser.role}'`,
+            );
+          } else {
+            this.logger.debug(
+              `User '${seedUser.email}' already exists in tenant '${seedUser.tenantSlug}', skipping`,
+            );
+          }
           continue;
         }
 

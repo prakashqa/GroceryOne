@@ -40,9 +40,11 @@ jest.mock('react-i18next', () => ({
         'items.noItems': 'No items found',
         'items.addedToCart': 'Added to cart',
         'picking.add': 'Add',
-        'picking.inCart': 'In Cart',
+        'picking.inOrder': 'In Order',
         'picking.outOfStock': 'OUT OF STOCK',
         'picking.lowStock': 'LOW STOCK',
+        'picking.viewCart': 'View Order',
+        'picking.itemsAdded': '{{count}} items added',
       };
       return translations[key] || (typeof fallback === 'string' ? fallback : key);
     },
@@ -55,6 +57,24 @@ jest.mock('../../../../hooks', () => ({
   useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
   useDeviceType: () => ({ isTablet: false, isPhone: true }),
 }));
+
+// Mock react-native-vector-icons
+jest.mock('react-native-vector-icons/MaterialIcons', () => 'Icon');
+
+// Mock safe area insets (used by OrderFooter)
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
+// Mock AddQuantityModal
+jest.mock('../../picking/AddQuantityModal', () => {
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: any) =>
+      props.visible ? <View testID="add-quantity-modal" /> : null,
+  };
+});
 
 // Mock item translations
 jest.mock('../../../../domain/utils/itemTranslations', () => ({
@@ -89,7 +109,7 @@ const mockItems = [
     unit: 'kg',
     defaultQuantity: 5,
     price: 250,
-    trackInventory: true,
+    trackInventory: false, // Order item with stock tracking disabled
     stockQuantity: 50,
   }),
   buildMockItem({
@@ -99,7 +119,7 @@ const mockItems = [
     unit: 'L',
     defaultQuantity: 1,
     price: 180,
-    trackInventory: true,
+    trackInventory: false, // Order item
     stockQuantity: 10,
     lowStockThreshold: 15,
   }),
@@ -110,7 +130,7 @@ const mockItems = [
     unit: 'kg',
     defaultQuantity: 1,
     price: 100,
-    trackInventory: true,
+    trackInventory: false, // Order item — out of stock
     stockQuantity: 0,
   }),
   buildMockItem({
@@ -133,6 +153,7 @@ function setupMockSelectors(overrides: {
   allCarts?: any[];
   todaysCarts?: any[];
   activeCartItems?: any[];
+  orderItemCount?: number;
 } = {}) {
   const defaults = {
     categories: mockCategories,
@@ -141,13 +162,11 @@ function setupMockSelectors(overrides: {
     allCarts: [],
     todaysCarts: [],
     activeCartItems: [],
+    orderItemCount: 0,
     ...overrides,
   };
 
-  // Track call order to distinguish selectors with similar toString()
-  let selectorCallIndex = 0;
   mockUseSelector.mockImplementation((selector: Function) => {
-    selectorCallIndex++;
     const selectorStr = selector.toString();
     if (selectorStr.includes('catalog.categories') || selectorStr.includes('selectCategories')) {
       return defaults.categories;
@@ -160,6 +179,10 @@ function setupMockSelectors(overrides: {
     }
     if (selectorStr.includes('carts') && selectorStr.includes('filter')) {
       return defaults.todaysCarts;
+    }
+    // selectActiveCartItemCount — plain function that calls selectActiveCartItems internally
+    if (selectorStr.includes('selectActiveCartItems') && selectorStr.includes('length')) {
+      return defaults.orderItemCount;
     }
     // selectActiveCartItems — reselect memoized selector (function with resultFunc)
     if (typeof (selector as any).resultFunc === 'function') {
@@ -190,24 +213,44 @@ describe('ItemsScreen', () => {
       expect(getByText('Untracked Item')).toBeTruthy();
     });
 
-    it('tapping item when no cart exists creates cart with HHMM-DDMMYY-XX format', () => {
+    it('tapping item opens quantity modal (does not auto-add or navigate)', () => {
       setupMockSelectors({ activeCart: null, todaysCarts: [] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByText, getByTestId } = render(<ItemsScreen />);
 
       fireEvent.press(getByText('Aashirvaad Atta'));
 
-      // Should dispatch createCart with the correct format
+      // Should show modal, not dispatch or navigate
+      expect(getByTestId('add-quantity-modal')).toBeTruthy();
+      expect(mockNavigate).not.toHaveBeenCalled();
+
+      const addItemCall = mockDispatch.mock.calls.find(
+        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
+      );
+      expect(addItemCall).toBeUndefined();
+    });
+
+    it('add button creates cart when none exists and adds item with quantity 1', () => {
+      setupMockSelectors({ activeCart: null, todaysCarts: [] });
+      const { getByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('item-item-1-add-button'));
+
+      // Should dispatch createCart with HHMM-DDMMYY-XX format
       const createCartCall = mockDispatch.mock.calls.find(
         (call: any) => call[0]?.type === 'multiCart/createCart'
       );
       expect(createCartCall).toBeDefined();
+      expect(createCartCall[0].payload.name).toMatch(/^\d{4}-\d{6}-\d{2}$/);
 
-      const cartName = createCartCall[0].payload.name;
-      // Format: HHMM-DDMMYY-XX
-      expect(cartName).toMatch(/^\d{4}-\d{6}-\d{2}$/);
+      // Should dispatch addItemToActiveCart with quantity 1
+      const addItemCall = mockDispatch.mock.calls.find(
+        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
+      );
+      expect(addItemCall).toBeDefined();
+      expect(addItemCall[0].payload.quantity).toBe(1);
     });
 
-    it('tapping item when active draft cart exists adds to existing cart without creating new one', () => {
+    it('add button uses existing draft cart without creating new one', () => {
       const existingCart = {
         id: 'cart-1',
         name: '1030-130326-01',
@@ -217,9 +260,9 @@ describe('ItemsScreen', () => {
         updatedAt: new Date().toISOString(),
       };
       setupMockSelectors({ activeCart: existingCart, todaysCarts: [existingCart] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByTestId } = render(<ItemsScreen />);
 
-      fireEvent.press(getByText('Aashirvaad Atta'));
+      fireEvent.press(getByTestId('item-item-1-add-button'));
 
       // Should NOT dispatch createCart
       const createCartCall = mockDispatch.mock.calls.find(
@@ -243,33 +286,17 @@ describe('ItemsScreen', () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      // Active cart is paid, so a new one should be created
+      // Active cart is paid, so add button should create a new one
       setupMockSelectors({ activeCart: firstCart, todaysCarts: [firstCart] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByTestId } = render(<ItemsScreen />);
 
-      fireEvent.press(getByText('Aashirvaad Atta'));
+      fireEvent.press(getByTestId('item-item-1-add-button'));
 
       const createCartCall = mockDispatch.mock.calls.find(
         (call: any) => call[0]?.type === 'multiCart/createCart'
       );
       expect(createCartCall).toBeDefined();
-
-      const cartName = createCartCall[0].payload.name;
-      // Second cart of the day should end with -02
-      expect(cartName).toMatch(/-02$/);
-    });
-
-    it('item added with quantity 1 in base units', () => {
-      setupMockSelectors({ activeCart: null, todaysCarts: [] });
-      const { getByText } = render(<ItemsScreen />);
-
-      fireEvent.press(getByText('Aashirvaad Atta'));
-
-      const addItemCall = mockDispatch.mock.calls.find(
-        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
-      );
-      expect(addItemCall).toBeDefined();
-      expect(addItemCall[0].payload.quantity).toBe(1);
+      expect(createCartCall[0].payload.name).toMatch(/-02$/);
     });
 
     it('add button adds item without navigating to Cart', () => {
@@ -288,16 +315,26 @@ describe('ItemsScreen', () => {
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
-    it('pressing card navigates to Cart', () => {
+    it('pressing card opens quantity modal instead of navigating to Order', () => {
       setupMockSelectors({ activeCart: null, todaysCarts: [] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByText, getByTestId } = render(<ItemsScreen />);
 
       fireEvent.press(getByText('Aashirvaad Atta'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
+      // Should show AddQuantityModal
+      expect(getByTestId('add-quantity-modal')).toBeTruthy();
+
+      // Should NOT navigate to Order
+      expect(mockNavigate).not.toHaveBeenCalled();
+
+      // Should NOT dispatch addItemToActiveCart (modal handles that)
+      const addItemCall = mockDispatch.mock.calls.find(
+        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
+      );
+      expect(addItemCall).toBeUndefined();
     });
 
-    it('increment button adds item without navigating to Cart', () => {
+    it('increment button adds item without navigating to Order', () => {
       const existingCart = {
         id: 'cart-1',
         name: '1030-130326-01',
@@ -330,26 +367,16 @@ describe('ItemsScreen', () => {
   });
 
   describe('Frontend Validations', () => {
-    it('out-of-stock items cannot be added — does not create cart or add item', () => {
+    it('order items with stockQuantity=0 and trackInventory=false can still be tapped (no stock blocking)', () => {
+      // Order items (trackInventory=false) with stockQuantity=0 are always addable
+      // because stock tracking is disabled for them
       setupMockSelectors({ activeCart: null, todaysCarts: [] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByText, getByTestId } = render(<ItemsScreen />);
 
       fireEvent.press(getByText('Out of Stock Item'));
 
-      // Should NOT dispatch createCart
-      const createCartCall = mockDispatch.mock.calls.find(
-        (call: any) => call[0]?.type === 'multiCart/createCart'
-      );
-      expect(createCartCall).toBeUndefined();
-
-      // Should NOT dispatch addItemToActiveCart
-      const addItemCall = mockDispatch.mock.calls.find(
-        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
-      );
-      expect(addItemCall).toBeUndefined();
-
-      // Should NOT navigate
-      expect(mockNavigate).not.toHaveBeenCalled();
+      // Should open quantity modal (not blocked by stock check)
+      expect(getByTestId('add-quantity-modal')).toBeTruthy();
     });
 
     it('decrement button dispatches decrementItemInActiveCart', () => {
@@ -406,20 +433,16 @@ describe('ItemsScreen', () => {
 
     it('items with trackInventory=false are always addable regardless of stockQuantity', () => {
       setupMockSelectors({ activeCart: null, todaysCarts: [] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByText, getByTestId } = render(<ItemsScreen />);
 
       // item-4 has trackInventory=false and stockQuantity=0
       fireEvent.press(getByText('Untracked Item'));
 
-      // Should create cart and add item
-      const addItemCall = mockDispatch.mock.calls.find(
-        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
-      );
-      expect(addItemCall).toBeDefined();
-      expect(mockNavigate).toHaveBeenCalledWith('Cart');
+      // Should open quantity modal (not be blocked by stock check)
+      expect(getByTestId('add-quantity-modal')).toBeTruthy();
     });
 
-    it('tapping item when active cart is paid creates a new cart', () => {
+    it('tapping item when active cart is paid opens quantity modal (does not auto-create cart)', () => {
       const paidCart = {
         id: 'cart-1',
         name: '1030-130326-01',
@@ -429,15 +452,43 @@ describe('ItemsScreen', () => {
         updatedAt: new Date().toISOString(),
       };
       setupMockSelectors({ activeCart: paidCart, todaysCarts: [paidCart] });
-      const { getByText } = render(<ItemsScreen />);
+      const { getByText, getByTestId } = render(<ItemsScreen />);
 
       fireEvent.press(getByText('Aashirvaad Atta'));
 
-      // Should dispatch createCart since active cart is paid
-      const createCartCall = mockDispatch.mock.calls.find(
-        (call: any) => call[0]?.type === 'multiCart/createCart'
-      );
-      expect(createCartCall).toBeDefined();
+      // Should open modal, cart creation happens when user confirms in modal
+      expect(getByTestId('add-quantity-modal')).toBeTruthy();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Inventory Item Filtering', () => {
+    it('should NOT display inventory items (trackInventory: true) on Items screen', () => {
+      const mixedItems = [
+        buildMockItem({ id: 'order-1', name: 'Chicken Fry', trackInventory: false }),
+        buildMockItem({ id: 'order-2', name: 'Brinjal Curry', trackInventory: undefined }),
+        buildMockItem({ id: 'inv-1', name: 'Salt', trackInventory: true }),
+        buildMockItem({ id: 'inv-2', name: 'Toor Dal', trackInventory: true }),
+      ];
+      setupMockSelectors({ items: mixedItems });
+      const { getByText, queryByText } = render(<ItemsScreen />);
+
+      // Order items should appear
+      expect(getByText('Chicken Fry')).toBeTruthy();
+      expect(getByText('Brinjal Curry')).toBeTruthy();
+
+      // Inventory items should NOT appear
+      expect(queryByText('Salt')).toBeNull();
+      expect(queryByText('Toor Dal')).toBeNull();
+    });
+
+    it('should display items with trackInventory=undefined (defaults to order item)', () => {
+      const items = [
+        buildMockItem({ id: 'item-no-flag', name: 'No Flag Item', trackInventory: undefined }),
+      ];
+      setupMockSelectors({ items });
+      const { getByText } = render(<ItemsScreen />);
+      expect(getByText('No Flag Item')).toBeTruthy();
     });
   });
 
@@ -454,6 +505,74 @@ describe('ItemsScreen', () => {
       expect(getByText('Tenant A Item')).toBeTruthy();
       // Items from other tenants should not appear
       expect(queryByText('Aashirvaad Atta')).toBeNull();
+    });
+  });
+
+  describe('View Mode Toggle', () => {
+    it('renders view toggle button', () => {
+      setupMockSelectors();
+      const { getByTestId } = render(<ItemsScreen />);
+      expect(getByTestId('items-view-toggle')).toBeTruthy();
+    });
+
+    it('defaults to grid view', () => {
+      setupMockSelectors();
+      const { getByTestId, queryByTestId } = render(<ItemsScreen />);
+      expect(getByTestId('items-grid')).toBeTruthy();
+      expect(queryByTestId('items-list')).toBeNull();
+    });
+
+    it('switches to list view when toggle is pressed', () => {
+      setupMockSelectors();
+      const { getByTestId, queryByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('items-view-toggle'));
+
+      expect(getByTestId('items-list')).toBeTruthy();
+      expect(queryByTestId('items-grid')).toBeNull();
+    });
+
+    it('switches back to grid view on second toggle press', () => {
+      setupMockSelectors();
+      const { getByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('items-view-toggle'));
+      fireEvent.press(getByTestId('items-view-toggle'));
+
+      expect(getByTestId('items-grid')).toBeTruthy();
+    });
+
+    it('list view renders all items', () => {
+      setupMockSelectors();
+      const { getByTestId, getByText } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('items-view-toggle'));
+
+      expect(getByText('Aashirvaad Atta')).toBeTruthy();
+      expect(getByText('Sunflower Oil')).toBeTruthy();
+    });
+  });
+
+  describe('Order Footer', () => {
+    it('does not show footer when cart is empty', () => {
+      setupMockSelectors({ orderItemCount: 0 });
+      const { queryByTestId } = render(<ItemsScreen />);
+      expect(queryByTestId('items-order-footer')).toBeNull();
+    });
+
+    it('shows footer when items are in the active order', () => {
+      setupMockSelectors({ orderItemCount: 3 });
+      const { getByTestId } = render(<ItemsScreen />);
+      expect(getByTestId('items-order-footer')).toBeTruthy();
+    });
+
+    it('footer View Order button navigates to Order screen', () => {
+      setupMockSelectors({ orderItemCount: 2 });
+      const { getByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('items-order-footer-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('Order');
     });
   });
 });

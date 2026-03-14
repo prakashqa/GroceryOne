@@ -45,6 +45,7 @@ const borderRadius = {
   md: 12,
   lg: 16,
   xl: 24,
+  '2xl': 32,
   full: 9999,
 };
 
@@ -78,7 +79,7 @@ const buttonHeights = {
 // Light theme gradients
 const lightGradients = {
   primary: ['#2E7D32', '#4CAF50'] as [string, string],
-  primarySubtle: ['#E8F5E9', '#F1F8E9'] as [string, string],
+  primarySubtle: ['#EDF7EE', '#F5F7FA'] as [string, string],
   success: ['#43A047', '#66BB6A'] as [string, string],
   info: ['#1976D2', '#42A5F5'] as [string, string],
   warning: ['#F57C00', '#FFB74D'] as [string, string],
@@ -219,20 +220,20 @@ const textStyles = {
 export const lightTheme: Theme = {
   mode: 'light',
   colors: {
-    // Primary palette (green theme)
+    // Primary palette (green theme — refined for less visual heaviness)
     primary: '#2E7D32',
-    primaryLight: '#4CAF50',
+    primaryLight: '#66BB6A',
     primaryDark: '#1B5E20',
     primaryMuted: '#388E3C',
     accent: '#FF6B35',
 
-    // Backgrounds
-    background: '#F8FAF8',
+    // Backgrounds (neutral cool gray, white header)
+    background: '#F5F7FA',
     surface: '#FFFFFF',
     card: '#FFFFFF',
-    headerBackground: '#2E7D32',
-    headerText: '#FFFFFF',
-    headerTextMuted: 'rgba(255,255,255,0.8)',
+    headerBackground: '#FFFFFF',
+    headerText: '#1A1A1A',
+    headerTextMuted: '#666666',
 
     // Text
     text: '#1A1A1A',
@@ -279,7 +280,7 @@ export const lightTheme: Theme = {
     inputFocus: '#2E7D32',
 
     // Cart/In-cart states
-    inCartBackground: '#F1F8E9',
+    inCartBackground: '#EDF7EE',
     inCartBorder: '#81C784',
     inCartBadge: '#4CAF50',
 
@@ -287,25 +288,32 @@ export const lightTheme: Theme = {
     successBackground: '#E8F5E9',
     errorBackground: '#FFEBEE',
 
-    // Status bar
-    statusBar: '#2E7D32',
+    // Status bar (matches white header)
+    statusBar: '#FFFFFF',
   },
   spacing,
   typography,
   borderRadius,
   shadows: {
+    xs: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 2,
+      elevation: 0.5,
+    },
     sm: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
+      shadowOpacity: 0.08,
+      shadowRadius: 3,
       elevation: 1,
     },
     md: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
-      shadowRadius: 4,
+      shadowRadius: 6,
       elevation: 3,
     },
     lg: {
@@ -347,13 +355,13 @@ export const darkTheme: Theme = {
     primaryMuted: '#4A7C4E',
     accent: '#FF8A65',
 
-    // Backgrounds (Material Design dark theme guidelines)
-    background: '#121212',
+    // Backgrounds (dark surface header, deeper black background)
+    background: '#0F0F0F',
     surface: '#1E1E1E',
     card: '#2C2C2C',
-    headerBackground: '#1A2E1B',
-    headerText: '#E8F5E9',
-    headerTextMuted: 'rgba(232, 245, 233, 0.7)',
+    headerBackground: '#1E1E1E',
+    headerText: '#F5F5F5',
+    headerTextMuted: 'rgba(245, 245, 245, 0.6)',
 
     // Text (high contrast for accessibility)
     text: '#FFFFFF',
@@ -415,6 +423,13 @@ export const darkTheme: Theme = {
   typography,
   borderRadius,
   shadows: {
+    xs: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.15,
+      shadowRadius: 2,
+      elevation: 0.5,
+    },
     sm: {
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },

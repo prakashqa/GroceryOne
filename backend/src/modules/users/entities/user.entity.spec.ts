@@ -15,7 +15,7 @@ describe('User Entity', () => {
     user.passwordHash = '$2b$12$hashedpassword';
     user.firstName = 'John';
     user.lastName = 'Doe';
-    user.role = 'customer';
+    user.role = 'cashier';
     user.status = 'active';
     user.preferredLanguage = 'en';
     user.createdAt = new Date();
@@ -27,7 +27,7 @@ describe('User Entity', () => {
       expect(user.id).toBeDefined();
       expect(user.tenantId).toBeDefined();
       expect(user.passwordHash).toBeDefined();
-      expect(user.role).toBe('customer');
+      expect(user.role).toBe('cashier');
       expect(user.status).toBe('active');
     });
 
@@ -42,7 +42,7 @@ describe('User Entity', () => {
 
   describe('User roles', () => {
     it('should accept valid roles', () => {
-      const validRoles: UserRole[] = ['customer', 'admin', 'manager', 'super_admin'];
+      const validRoles: UserRole[] = ['cashier', 'admin', 'manager', 'super_admin'];
       validRoles.forEach((role) => {
         user.role = role;
         expect(user.role).toBe(role);

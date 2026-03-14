@@ -55,6 +55,9 @@ export interface CreateItemDto {
   compareAtPrice?: number;
   costPrice?: number;
   sortOrder?: number;
+  trackInventory?: boolean;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
 }
 
 export interface UpdateItemDto {
@@ -75,11 +78,15 @@ export interface UpdateItemDto {
 export const productApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get all items
-    getItems: builder.query<Item[], { includeInactive?: boolean; categoryId?: string }>({
+    getItems: builder.query<Item[], { includeInactive?: boolean; categoryId?: string; tenantSlug?: string }>({
       query: ({ includeInactive = false, categoryId }) => ({
         url: '/items',
         params: { includeInactive, categoryId },
       }),
+      // Ensure tenantSlug is part of the cache key so different tenants never share cached data
+      serializeQueryArgs: ({ queryArgs }) => {
+        return `items-${queryArgs.tenantSlug ?? 'none'}-${queryArgs.includeInactive ?? false}-${queryArgs.categoryId ?? 'all'}`;
+      },
       transformResponse: (response: Item[]) => response.map(mapItemWithMrp),
       providesTags: (result) =>
         result

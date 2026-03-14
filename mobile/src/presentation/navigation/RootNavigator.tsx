@@ -26,6 +26,10 @@ import {
   PinConfirmScreen,
   PinLoginScreen,
 } from '../../features/pinAuth';
+import { SignupScreen } from '../../features/pinAuth/screens/SignupScreen';
+import { SubscriptionPlanScreen } from '../../features/pinAuth/screens/SubscriptionPlanScreen';
+import { SubscriptionExpiredScreen } from '../screens/subscription/SubscriptionExpiredScreen';
+import { selectIsSubscriptionExpired } from '../../store/slices/subscriptionSlice';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useTheme } from '../theme';
 
@@ -64,6 +68,8 @@ export type RootStackParamList = {
 
 export type PinStackParamList = {
   TenantSetup: undefined;
+  Signup: undefined;
+  SubscriptionPlan: undefined;
   PinSetup: undefined;
   PinConfirm: { pin: string };
   PinLogin: undefined;
@@ -76,7 +82,7 @@ const PinStack = createNativeStackNavigator<PinStackParamList>();
 export type {
   TabParamList,
   DashboardStackParamList,
-  CartsStackParamList,
+  OrdersStackParamList,
   SettingsStackParamList,
 } from './BottomTabNavigator';
 
@@ -84,8 +90,8 @@ export type {
 export type MainStackParamList = {
   Dashboard: undefined;
   Picking: undefined;
-  Cart: undefined;
-  ManageCarts: undefined;
+  Order: undefined;
+  ManageOrders: undefined;
   Settings: undefined;
   AppearanceSettings: undefined;
   LanguageSettings: undefined;
@@ -105,11 +111,13 @@ function PinNavigator({ isSetupMode, needsTenantSetup }: { isSetupMode: boolean;
   return (
     <PinStack.Navigator screenOptions={{ headerShown: false }}>
       {isSetupMode ? (
-        // PIN setup flow (with optional tenant setup first)
+        // PIN setup flow (with optional tenant setup / signup first)
         <>
           {needsTenantSetup && (
             <PinStack.Screen name="TenantSetup" component={TenantSetupScreen} />
           )}
+          <PinStack.Screen name="Signup" component={SignupScreen} />
+          <PinStack.Screen name="SubscriptionPlan" component={SubscriptionPlanScreen} />
           <PinStack.Screen name="PinSetup" component={PinSetupScreen} />
           <PinStack.Screen name="PinConfirm" component={PinConfirmScreen} />
         </>
@@ -132,6 +140,7 @@ export function RootNavigator() {
   const dispatch = useAppDispatch();
   const isPinSet = useAppSelector(selectIsPinSet);
   const isPinVerified = useAppSelector(selectIsPinVerified);
+  const isSubscriptionExpired = useAppSelector(selectIsSubscriptionExpired);
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasTenantContext, setHasTenantContext] = useState(false);
 
@@ -202,7 +211,8 @@ export function RootNavigator() {
    * 2. No PIN configured + no tenant → TenantSetup → PinSetup flow
    * 3. No PIN configured + has tenant → PinSetup flow
    * 4. PIN configured + not verified → PIN Login
-   * 5. PIN verified → Main app
+   * 5. PIN verified + subscription expired → SubscriptionExpired
+   * 6. PIN verified → Main app
    */
   const getActiveNavigator = () => {
     if (isInitializing) {
@@ -215,6 +225,10 @@ export function RootNavigator() {
 
     if (!isPinVerified) {
       return 'PinLogin';
+    }
+
+    if (isSubscriptionExpired) {
+      return 'SubscriptionExpired';
     }
 
     return 'Main';
@@ -237,6 +251,9 @@ export function RootNavigator() {
           <RootStack.Screen name="PinAuth">
             {() => <PinNavigator isSetupMode={false} needsTenantSetup={false} />}
           </RootStack.Screen>
+        )}
+        {activeNavigator === 'SubscriptionExpired' && (
+          <RootStack.Screen name="Main" component={SubscriptionExpiredScreen} />
         )}
         {activeNavigator === 'Main' && (
           <RootStack.Screen name="Main" component={BottomTabNavigator} />

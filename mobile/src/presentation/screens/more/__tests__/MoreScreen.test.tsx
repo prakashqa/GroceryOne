@@ -41,7 +41,7 @@ jest.mock('react-i18next', () => ({
         'more.sections.management': 'Management',
         'more.sections.settings': 'Settings',
         'more.sections.app': 'App',
-        'more.about': 'About GroceryOne',
+        'more.about': 'About GroOne',
         'more.version': 'Version',
         'more.logout': 'Logout',
         'more.logoutConfirm': 'Are you sure you want to logout?',
@@ -180,7 +180,7 @@ describe('MoreScreen', () => {
 
     it('renders About menu option', () => {
       const { getByText } = render(<MoreScreen />);
-      expect(getByText('About GroceryOne')).toBeTruthy();
+      expect(getByText('About GroOne')).toBeTruthy();
     });
 
     it('tapping About navigates to About screen', () => {
