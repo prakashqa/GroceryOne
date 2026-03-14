@@ -19,7 +19,7 @@
     "e2e:build:release": "detox build --configuration android.release",
     "e2e:test:release": "detox test --configuration android.release",
     "clean": "rimraf node_modules",
-    "eas-build-pre-install": "cd ../packages/shared && npm install --legacy-peer-deps && npm run build"
+    "eas-build-pre-install": "cd ../packages/shared && npm install --legacy-peer-deps --ignore-scripts && npm run build"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
