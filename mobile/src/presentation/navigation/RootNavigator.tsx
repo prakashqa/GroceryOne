@@ -107,15 +107,21 @@ export type MainStackParamList = {
 /**
  * PIN Navigator - Tenant setup, PIN setup, and PIN login
  */
-function PinNavigator({ isSetupMode, needsTenantSetup }: { isSetupMode: boolean; needsTenantSetup: boolean }) {
+export function PinNavigator({ isSetupMode, needsTenantSetup }: { isSetupMode: boolean; needsTenantSetup: boolean }) {
   return (
-    <PinStack.Navigator screenOptions={{ headerShown: false }}>
+    <PinStack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName={
+        isSetupMode
+          ? (needsTenantSetup ? 'TenantSetup' : 'Signup')
+          : 'PinLogin'
+      }
+    >
       {isSetupMode ? (
-        // PIN setup flow (with optional tenant setup / signup first)
+        // PIN setup flow — TenantSetup always registered so Signup ↔ TenantSetup
+        // navigation works regardless of tenant context state
         <>
-          {needsTenantSetup && (
-            <PinStack.Screen name="TenantSetup" component={TenantSetupScreen} />
-          )}
+          <PinStack.Screen name="TenantSetup" component={TenantSetupScreen} />
           <PinStack.Screen name="Signup" component={SignupScreen} />
           <PinStack.Screen name="SubscriptionPlan" component={SubscriptionPlanScreen} />
           <PinStack.Screen name="PinSetup" component={PinSetupScreen} />
