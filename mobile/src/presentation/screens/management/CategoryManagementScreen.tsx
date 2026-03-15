@@ -52,8 +52,18 @@ const CategoryManagementScreen: React.FC = () => {
   const theme = useTheme();
   const { t } = useTranslation();
 
-  const categories = useSelector(selectCategories);
-  const items = useSelector(selectItems);
+  const allCategories = useSelector(selectCategories);
+  const allItems = useSelector(selectItems);
+
+  // Filter out inventory categories — only show order/POS categories
+  const categories = useMemo(() => {
+    return allCategories.filter((cat) => cat.trackInventory !== true);
+  }, [allCategories]);
+
+  // Filter out inventory items for accurate item counts
+  const items = useMemo(() => {
+    return allItems.filter((item) => item.trackInventory !== true);
+  }, [allItems]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormModalVisible, setIsFormModalVisible] = useState(false);
