@@ -84,6 +84,7 @@ const TELUGU_REGEX = /[\u0C00-\u0C7F]/;
  * - Zero-width characters
  * - Other Unicode whitespace
  */
+// eslint-disable-next-line no-misleading-character-class
 const UNICODE_WHITESPACE_REGEX = /[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g;
 
 /**

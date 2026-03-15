@@ -2,9 +2,9 @@
  * OcrService Tests
  * TDD: Tests written first to define expected behavior
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 import { OcrService } from '../OcrService';
-import { OcrResult, ScanErrorType } from '../../types/scanning.types';
 
 // Mock expo-file-system
 jest.mock('expo-file-system', () => ({

@@ -65,6 +65,7 @@ jest.mock('react-i18next', () => ({
 
 // Mock theme
 jest.mock('../../../../presentation/theme', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   useTheme: require('../../../../__test-utils__/mocks/theme.mock').mockUseTheme,
 }));
 
@@ -81,6 +82,7 @@ jest.mock('../../../../domain/utils/itemTranslations', () => ({
 // Mock sub-components to keep tests focused
 jest.mock('../../components/ScannedItemRow', () => ({
   ScannedItemRow: ({ matchResult }: { matchResult: MatchResult }) => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Text } = require('react-native');
     return <Text testID={`scanned-item-${matchResult.parsedItem.lineIndex}`}>{matchResult.parsedItem.itemName}</Text>;
   },

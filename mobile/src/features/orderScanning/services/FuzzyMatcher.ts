@@ -30,6 +30,7 @@ const DEFAULT_CONFIG: FuzzyMatcherConfig = {
 /**
  * Zero-width characters commonly inserted by OCR engines in Telugu text
  */
+// eslint-disable-next-line no-misleading-character-class
 const ZERO_WIDTH_CHARS_REGEX = /[\u200B\u200C\u200D\uFEFF]/g;
 
 const TELUGU_VOWEL_NORMALIZATION: Record<string, string> = {

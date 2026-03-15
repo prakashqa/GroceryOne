@@ -5,7 +5,7 @@
 
 import { FuzzyMatcher } from '../FuzzyMatcher';
 import { Item } from '../../../../domain/types/picking';
-import { MatchConfidence, FuzzyMatcherConfig } from '../../types/scanning.types';
+import type { FuzzyMatcherConfig } from '../../types/scanning.types';
 
 // Mock items for testing
 const mockItems: Item[] = [

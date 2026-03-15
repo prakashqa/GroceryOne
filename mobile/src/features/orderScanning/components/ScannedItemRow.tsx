@@ -120,7 +120,7 @@ export const ScannedItemRow: React.FC<ScannedItemRowProps> = ({
         fontSize: theme.typography.fontSize.sm,
         marginBottom: theme.spacing.sm,
       }]}>
-        "{parsedItem.rawText}"
+        &quot;{parsedItem.rawText}&quot;
       </Text>
 
       {/* Main Content */}

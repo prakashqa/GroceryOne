@@ -41,7 +41,6 @@ import {
 import { selectItems } from '../../../store/slices/catalogSlice';
 import { ScannedItemRow } from '../components/ScannedItemRow';
 import { QuantityEditModal } from '../components/QuantityEditModal';
-import { MatchStatusBadge } from '../components/MatchStatusBadge';
 import { MatchResult } from '../types/scanning.types';
 import { Item } from '../../../domain/types/picking';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
