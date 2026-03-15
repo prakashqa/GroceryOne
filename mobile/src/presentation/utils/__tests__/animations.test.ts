@@ -104,7 +104,7 @@ describe('Animation Utilities', () => {
     it('starts with opacity 0', () => {
       const { result } = renderHook(() => useFadeIn());
       // Access the internal value - Animated.Value stores it in __getValue()
-      // @ts-ignore - accessing internal for testing
+      // @ts-expect-error - accessing internal for testing
       const initialValue = (result.current as any).__getValue?.() ??
         // Fallback for different RN versions
         (result.current as any)._value;
@@ -123,7 +123,7 @@ describe('Animation Utilities', () => {
 
     it('starts with scale 1', () => {
       const { result } = renderHook(() => useScaleOnPress());
-      // @ts-ignore - accessing internal for testing
+      // @ts-expect-error - accessing internal for testing
       const initialValue = (result.current.scaleValue as any).__getValue?.() ??
         (result.current.scaleValue as any)._value;
       expect(initialValue).toBe(1);
@@ -168,7 +168,7 @@ describe('Animation Utilities', () => {
       const { result } = renderHook(() => useStaggeredEntrance(3));
 
       result.current.forEach((value) => {
-        // @ts-ignore - accessing internal for testing
+        // @ts-expect-error - accessing internal for testing
         const initialValue = (value as any).__getValue?.() ?? (value as any)._value;
         expect(initialValue).toBe(0);
       });

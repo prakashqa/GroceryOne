@@ -17,7 +17,6 @@ import {
   StatusBar,
   Platform,
   Alert,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -29,7 +28,6 @@ import { useTheme } from '../../theme';
 import { useResponsiveStyles } from '../../../hooks';
 import { selectTenant } from '../../../store/slices/tenantSlice';
 import { selectIsAuthenticated } from '../../../store/slices/authSlice';
-import { Button } from '../../components/common';
 import {
   useGetStockLevelQuery,
   useAdjustStockMutation,
@@ -69,12 +67,14 @@ const InventoryItemDetailScreen: React.FC = () => {
 
   const {
     data: txnData,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isLoading: txnLoading,
   } = useGetTransactionHistoryQuery({ itemId, limit: 20, offset: 0 }, { skip: skipQuery });
 
   // Mutations
   const [adjustStock, { isLoading: adjusting }] = useAdjustStockMutation();
   const [setStock, { isLoading: settingStock }] = useSetStockMutation();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updateSettings, { isLoading: updatingSettings }] = useUpdateInventorySettingsMutation();
 
   // Local state for adjustment modal

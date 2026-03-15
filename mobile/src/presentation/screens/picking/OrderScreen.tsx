@@ -58,7 +58,6 @@ import { useTheme, useIsDarkMode, Theme } from '../../theme';
 import { useTranslation } from 'react-i18next';
 import ReceiptPreviewModal from '../../components/picking/ReceiptPreviewModal';
 import PaymentModal from '../../components/picking/PaymentModal';
-import { FadeInView } from '../../components/common';
 import type { PaymentInfo, CashPaymentDetails } from '../../../domain/types/payment';
 import { useResponsiveStyles, ResponsiveStyles } from '../../../hooks';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -97,6 +96,7 @@ const OrderScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const activeCart = useSelector(selectActiveCart);
   const cartItems = useSelector(selectActiveCartItems);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const totalItems = useSelector(selectActiveCartTotalQuantity);
   const itemCount = useSelector(selectActiveCartItemCount);
   const grandTotal = useSelector(selectActiveCartGrandTotal);
@@ -171,6 +171,7 @@ const OrderScreen: React.FC = () => {
   const summaryDividerColor = theme.colors.inCartBorder;
   const categoryIconBgColor = theme.colors.successBackground;
   const emptyIconBgColor = theme.colors.inCartBackground;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const errorLightColor = theme.colors.errorBackground;
 
   const groupedItems = useMemo(() => {
@@ -395,6 +396,7 @@ const OrderScreen: React.FC = () => {
     }
   }, [currentPickingList, printerSettings, t, navigation]);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleShare = useCallback(() => {
     // Picking list is available via generatePickingList() for future share functionality
     Alert.alert(t('picking.share'), t('picking.shareMessage'), [
@@ -790,6 +792,7 @@ const OrderScreen: React.FC = () => {
   );
 };
 
+/* eslint-disable react-native/no-unused-styles */
 const createStyles = (theme: Theme, responsiveStyles: ResponsiveStyles) =>
   StyleSheet.create({
     container: {
@@ -1173,5 +1176,6 @@ const createStyles = (theme: Theme, responsiveStyles: ResponsiveStyles) =>
       marginTop: 2,
     },
   });
+/* eslint-enable react-native/no-unused-styles */
 
 export default OrderScreen;

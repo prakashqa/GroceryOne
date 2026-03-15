@@ -2,6 +2,7 @@
  * PinLoginScreen Tests
  * TDD: Write tests first, then implement
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';

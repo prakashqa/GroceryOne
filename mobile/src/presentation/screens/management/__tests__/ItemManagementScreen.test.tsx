@@ -169,6 +169,7 @@ describe('ItemManagementScreen - Category Filter Chips', () => {
 
     const allStyle = StyleSheet.flatten(allChip.props.style);
     const riceStyle = StyleSheet.flatten(riceChip.props.style);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const vegStyle = StyleSheet.flatten(vegChip.props.style);
 
     // All chips must have the same vertical padding

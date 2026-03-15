@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { ScrollView, StyleSheet, View, Text, StatusBar, Platform, Alert } from 'react-native';
+import { ScrollView, StyleSheet, View, Text, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

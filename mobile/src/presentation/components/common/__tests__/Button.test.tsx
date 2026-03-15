@@ -260,7 +260,7 @@ describe('Button', () => {
 
   describe('Icon Only Mode', () => {
     it('renders icon-only button with square dimensions', () => {
-      const { getByTestId, queryByText } = render(
+      const { getByTestId } = render(
         <Button title="" icon="+" onPress={mockOnPress} iconOnly testID="btn" />
       );
 
@@ -271,7 +271,7 @@ describe('Button', () => {
     });
 
     it('renders icon without title text', () => {
-      const { getByText, queryByText } = render(
+      const { getByText } = render(
         <Button title="" icon="+" onPress={mockOnPress} iconOnly />
       );
 

@@ -6,7 +6,6 @@
 import {
   loadOrFetchCarts,
   fetchCartsFromBackend,
-  CartHydrationResult,
 } from '../cartHydration';
 import { loadMultiCartState } from '../multiCartStorage';
 import { API_CONFIG } from '../../../core/config/api.config';

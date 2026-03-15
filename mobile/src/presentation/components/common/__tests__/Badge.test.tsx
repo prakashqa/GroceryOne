@@ -9,7 +9,7 @@ import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock the Icon component to avoid vector-icons import issue
 jest.mock('../Icon', () => ({
-  Icon: ({ name, size, color }: { name: string; size: string; color: string }) => {
+  Icon: ({ name, size: _size, color: _color }: { name: string; size: string; color: string }) => {
     const { View, Text } = require('react-native');
     return (
       <View testID={`icon-${name}`}>

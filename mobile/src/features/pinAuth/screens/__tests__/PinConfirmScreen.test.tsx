@@ -2,6 +2,7 @@
  * PinConfirmScreen Tests
  * TDD: Write tests first, then implement
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
@@ -166,7 +167,7 @@ describe('PinConfirmScreen', () => {
     });
 
     it('should clear input on mismatch for retry', async () => {
-      const { getByText, queryByTestId } = renderWithProviders(<PinConfirmScreen />);
+      const { getByText } = renderWithProviders(<PinConfirmScreen />);
 
       // Enter non-matching PIN
       fireEvent.press(getByText('9'));
@@ -185,7 +186,7 @@ describe('PinConfirmScreen', () => {
 
   describe('navigation', () => {
     it('should allow going back to re-enter', () => {
-      const { getByTestId } = renderWithProviders(<PinConfirmScreen />);
+      renderWithProviders(<PinConfirmScreen />);
 
       // There should be a way to go back
       // Implementation could be a back button or gesture

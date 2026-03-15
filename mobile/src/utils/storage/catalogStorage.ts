@@ -175,6 +175,7 @@ export const loadOrSeedCatalog = async (tenantId: string): Promise<LoadCatalogRe
   console.log('[CatalogStorage] Local storage returned:', stored ? `${stored.categories.length} categories` : 'null');
 
   // No data available from backend or cache — genuine failure
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { API_CONFIG: config } = require('../../core/config/api.config');
   const errorMsg = `Could not load catalog. Backend: ${config.BASE_URL}. TenantId: ${tenantId}`;
   console.error(`[CatalogStorage] ❌ No catalog data available. Backend URL: ${config.BASE_URL}`);

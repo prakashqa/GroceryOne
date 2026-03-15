@@ -13,7 +13,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Pressable, ActivityIndicator 
 const formatItemPrice = (price: number): string => `₹${price}`;
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme';
-import { useResponsiveStyles, useDeviceType } from '../../../hooks';
+import { useDeviceType } from '../../../hooks';
 import { Item } from '../../../domain/types/picking';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
 
@@ -34,6 +34,7 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   item,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   categoryIcon,
   quantityInCart,
   formattedQuantity,
@@ -46,7 +47,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const theme = useTheme();
   const { t } = useTranslation('common');
-  const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
 
   const isInCart = quantityInCart > 0;

@@ -9,10 +9,11 @@
 import { Platform } from 'react-native';
 
 // Conditionally require native module — crashes on web
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-disable @typescript-eslint/no-var-requires */
 const TcpSocket = Platform.OS !== 'web'
   ? require('react-native-tcp-socket').default
   : null;
+/* eslint-enable @typescript-eslint/no-var-requires */
 
 // Printer protocol type (only RAW TCP for thermal printers)
 export type PrinterProtocol = 'raw';
@@ -100,6 +101,7 @@ const formatPrintText = (text: string): string => {
 /**
  * Print via RAW socket on port 9100 for thermal printers
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const printViaRAWSocket = async (
   ipAddress: string,
   content: string,
@@ -816,7 +818,7 @@ class NetworkPrinterService {
    * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
    * @param printerInfo Optional printer info for direct connection
    */
-  async printImage(base64Image: string, imageWidth: number = 576, printerInfo?: PrinterInfo): Promise<NetworkPrintJob> {
+  async printImage(base64Image: string, _imageWidth: number = 576, printerInfo?: PrinterInfo): Promise<NetworkPrintJob> {
     // Network printers via raw TCP need ESC/POS raster encoding for images.
     // For now, send the text content via the standard print path as a fallback.
     // TODO: Implement ESC/POS GS v 0 raster encoding for proper image printing

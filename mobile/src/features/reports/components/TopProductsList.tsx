@@ -131,6 +131,7 @@ const ProductItem: React.FC<ProductItemProps> = ({ product, rank }) => {
 export const TopProductsList: React.FC<TopProductsListProps> = ({
   products,
   limit = 10,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLoading = false,
   testID,
 }) => {

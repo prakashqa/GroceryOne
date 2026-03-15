@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import CashPaymentSection from '../CashPaymentSection';
 
 // Mock theme
@@ -53,7 +53,7 @@ describe('CashPaymentSection', () => {
 
   describe('Change Calculation', () => {
     it('should display change when received amount is greater than total', () => {
-      const { getByTestId, rerender } = render(
+      const { getByTestId } = render(
         <CashPaymentSection {...defaultProps} receivedAmount="300" />
       );
 

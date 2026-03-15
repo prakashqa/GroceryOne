@@ -12,7 +12,6 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '../../theme';
 import { useResponsiveStyles } from '../../../hooks';

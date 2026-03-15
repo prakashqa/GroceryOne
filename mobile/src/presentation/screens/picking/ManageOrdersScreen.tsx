@@ -28,7 +28,6 @@ import {
   selectActiveCartId,
   selectTodaysCarts,
   selectYesterdaysCarts,
-  selectCartsByDateRange,
   selectCartsSortedByDate,
   createCart,
   setActiveCart,
@@ -60,6 +59,7 @@ const ManageOrdersScreen: React.FC = () => {
   const theme = useTheme();
   const { t } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isTablet } = useDeviceType();
 
   const allCarts = useSelector(selectAllCarts);

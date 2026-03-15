@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { DateFilterBar, DateFilter } from '../DateFilterBar';
+import { DateFilterBar } from '../DateFilterBar';
 
 // Mock theme
 jest.mock('../../../theme', () => ({

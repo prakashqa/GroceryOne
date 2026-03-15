@@ -2,9 +2,10 @@
  * PinInput Component Tests
  * TDD: Write tests first, then implement
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { PinInput } from '../PinInput';
 
 // Mock theme hook

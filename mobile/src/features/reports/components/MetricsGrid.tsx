@@ -22,6 +22,7 @@ const formatCurrency = (value: number): string => {
 
 export const MetricsGrid: React.FC<MetricsGridProps> = ({
   metrics,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLoading = false,
   testID,
 }) => {

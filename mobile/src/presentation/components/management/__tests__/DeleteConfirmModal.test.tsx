@@ -36,7 +36,7 @@ describe('DeleteConfirmModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('వస్తువును తొలగించు')).toBeTruthy();
+        expect(getByText('ఐటెమ్ను తొలగించు')).toBeTruthy();
       });
     });
 
@@ -68,7 +68,7 @@ describe('DeleteConfirmModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('ఈ వస్తువు ఏవైనా షాపింగ్ కార్ట్\u200cల నుండి కూడా తొలగించబడుతుంది.')).toBeTruthy();
+        expect(getByText('ఈ ఐటెమ్ ఏవైనా యాక్టివ్ ఆర్డర్\u200cల నుండి కూడా తొలగించబడుతుంది.')).toBeTruthy();
       });
     });
 
@@ -85,7 +85,7 @@ describe('DeleteConfirmModal', () => {
 
       await waitFor(() => {
         expect(getByText('రద్దు')).toBeTruthy(); // Cancel
-        expect(getByText('తొలగించు')).toBeTruthy(); // Delete
+        expect(getByText('డిలీట్')).toBeTruthy(); // Delete
       });
     });
 
@@ -147,7 +147,7 @@ describe('DeleteConfirmModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText(/కేటగిరీలో.*వస్తువులు/)).toBeTruthy();
+        expect(getByText(/కేటగిరీలో.*ఐటెమ్లు/)).toBeTruthy();
       });
     });
 
@@ -165,7 +165,7 @@ describe('DeleteConfirmModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('ఈ కేటగిరీలోని అన్ని వస్తువులను తొలగించు')).toBeTruthy();
+        expect(getByText('ఈ కేటగిరీలోని అన్ని ఐటెమ్లను తొలగించు')).toBeTruthy();
       });
     });
 
@@ -183,7 +183,7 @@ describe('DeleteConfirmModal', () => {
       );
 
       await waitFor(() => {
-        expect(getByText('వస్తువులను మరొక కేటగిరీకి తరలించు')).toBeTruthy();
+        expect(getByText('ఐటెమ్లను మరొక కేటగిరీకి తరలించు')).toBeTruthy();
       });
     });
 

@@ -152,6 +152,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   const tenant = useSelector(selectTenant);
   const currentUser = useSelector(selectCurrentUser);
   const todaysMetrics = useSelector(selectTodaysMetrics);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const statusCounts = useSelector(selectCartsByStatus);
   const activeCart = useSelector(selectActiveCart);
   const activeCartItemCount = useSelector(selectActiveCartItemCount);
@@ -305,15 +306,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
 
       {/* Header */}
       <Animated.View
-        style={[
-          {
+        style={{
             paddingTop: theme.spacing.md,
             paddingBottom: theme.spacing.sm,
             paddingHorizontal: responsiveStyles.contentPadding,
             opacity: headerFadeAnim,
             transform: [{ translateY: headerSlideAnim }],
-          },
-        ]}
+          }}
       >
         <View style={styles.headerTop}>
           <View style={styles.headerTextContainer}>

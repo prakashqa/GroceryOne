@@ -90,7 +90,7 @@ const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         ]}
       >
         {t('deleteConfirmModal.confirmDelete')}{' '}
-        <Text style={styles.itemName}>"{itemName}"</Text>?
+        <Text style={styles.itemName}>&quot;{itemName}&quot;</Text>?
       </Text>
 
       {/* Warning for items in carts */}

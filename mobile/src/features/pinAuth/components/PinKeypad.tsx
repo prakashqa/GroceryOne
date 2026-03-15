@@ -73,8 +73,7 @@ const KeyButton: React.FC<KeyButtonProps> = ({
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
         testID={testID}
-        style={[
-          {
+        style={{
             width: keySize,
             height: keySize,
             borderRadius: keySize / 2,
@@ -84,8 +83,7 @@ const KeyButton: React.FC<KeyButtonProps> = ({
             backgroundColor: disabled ? theme.colors.disabled : theme.colors.surface,
             borderColor: theme.colors.border,
             marginHorizontal: theme.spacing.sm,
-          },
-        ]}
+          }}
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -96,13 +94,11 @@ const KeyButton: React.FC<KeyButtonProps> = ({
         accessibilityState={{ disabled }}
       >
         <Text
-          style={[
-            {
+          style={{
               color: disabled ? theme.colors.textLight : theme.colors.text,
               fontSize: isBackspace ? theme.typography.fontSize.xxl : Math.max(18, keySize * 0.39),
               fontWeight: theme.typography.fontWeight.medium,
-            },
-          ]}
+            }}
         >
           {value}
         </Text>

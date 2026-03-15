@@ -97,7 +97,7 @@ describe('SkeletonListItem', () => {
   });
 
   it('renders without avatar when hasAvatar is false', () => {
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId } = render(
       <SkeletonListItem hasAvatar={false} testID="skeleton-list-item" />
     );
 

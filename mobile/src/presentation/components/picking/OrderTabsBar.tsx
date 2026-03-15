@@ -21,6 +21,7 @@ interface CartTabsBarProps {
 
 export const OrderTabsBar: React.FC<CartTabsBarProps> = ({
   activeCartName,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   activeCartItemCount,
   todaysCartCount,
   onCartPress,

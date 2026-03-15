@@ -19,7 +19,7 @@ const mockDispatch = jest.fn();
 const mockUseSelector = jest.fn();
 
 jest.mock('react-redux', () => ({
-  useSelector: (selector: Function) => mockUseSelector(selector),
+  useSelector: (selector: (...args: unknown[]) => unknown) => mockUseSelector(selector),
   useDispatch: () => mockDispatch,
 }));
 
@@ -167,7 +167,7 @@ function setupMockSelectors(overrides: {
     ...overrides,
   };
 
-  mockUseSelector.mockImplementation((selector: Function) => {
+  mockUseSelector.mockImplementation((selector: (...args: unknown[]) => unknown) => {
     const selectorStr = selector.toString();
     if (selectorStr.includes('catalog.categories') || selectorStr.includes('selectCategories')) {
       return defaults.categories;

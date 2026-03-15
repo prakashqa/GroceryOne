@@ -9,7 +9,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../../presentation/theme';
 import { PinInput } from '../components';
-import { PIN_CONFIG } from '../constants';
 
 export const PinSetupScreen: React.FC = () => {
   const theme = useTheme();

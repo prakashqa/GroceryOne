@@ -4,9 +4,6 @@
  */
 
 import { clearAllTenantData, clearTenantDataInMemoryOnly } from '../tenantDataCleaner';
-import { resetMultiCart } from '../../../store/slices/multiCartSlice';
-import { resetCatalog } from '../../../store/slices/catalogSlice';
-import { baseApi } from '../../../data/api/baseApi';
 import * as multiCartStorage from '../multiCartStorage';
 import * as catalogStorage from '../catalogStorage';
 

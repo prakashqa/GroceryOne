@@ -4,7 +4,7 @@
  */
 
 import { TextParser } from '../TextParser';
-import { DetectedLanguage, ItemUnit } from '../../types/scanning.types';
+import type { ItemUnit } from '../../types/scanning.types';
 
 describe('TextParser', () => {
   let parser: TextParser;

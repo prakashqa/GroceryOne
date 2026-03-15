@@ -22,7 +22,6 @@ import {
   selectLockoutUntil,
   selectPinError,
   selectPinLoading,
-  selectRemainingAttempts,
   selectLastVerifiedAt,
 } from '../store/pinSlice';
 import { selectCurrentUser, setCredentials, setTokens, logout } from '../../../store/slices/authSlice';
@@ -49,7 +48,6 @@ export function usePinAuth(): UsePinAuthReturn {
   const lockoutUntil = useAppSelector(selectLockoutUntil);
   const error = useAppSelector(selectPinError);
   const isLoading = useAppSelector(selectPinLoading);
-  const remainingAttempts = useAppSelector(selectRemainingAttempts);
   const lastVerifiedAt = useAppSelector(selectLastVerifiedAt);
 
   // Auth and tenant selectors for API-based verification

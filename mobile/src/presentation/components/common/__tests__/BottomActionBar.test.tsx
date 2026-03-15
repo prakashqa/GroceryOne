@@ -9,7 +9,7 @@ import { flattenStyle } from '../../../../__test-utils__';
 
 // Mock Button component
 jest.mock('../Button', () => ({
-  Button: ({ title, onPress, testID, variant, disabled }: {
+  Button: ({ title, onPress, testID, variant: _variant, disabled }: {
     title: string;
     onPress: () => void;
     testID?: string;

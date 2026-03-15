@@ -5,8 +5,8 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
-import { useTheme, useIsDarkMode } from '../../theme';
-import { useResponsiveStyles, useDeviceType } from '../../../hooks';
+import { useTheme } from '../../theme';
+import { useDeviceType } from '../../../hooks';
 import { Category } from '../../../domain/types/picking';
 import { getTranslatedCategoryName } from '../../../domain/utils/itemTranslations';
 
@@ -24,8 +24,6 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
   testID,
 }) => {
   const theme = useTheme();
-  const isDarkMode = useIsDarkMode();
-  const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
 
   const renderCategoryItem = useCallback(

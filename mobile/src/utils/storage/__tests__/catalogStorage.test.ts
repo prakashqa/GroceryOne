@@ -9,7 +9,6 @@ import {
   refreshCatalogFromBackend,
   saveCatalogState,
   loadCatalogState,
-  CATALOG_STORAGE_KEY,
   CATALOG_CACHE_VERSION,
   getTenantCatalogKey,
   addToCatalogSyncQueue,
@@ -218,7 +217,7 @@ describe('catalogStorage', () => {
     it('should return fresh data from backend with mrp', async () => {
       (catalogSync.syncBackendToLocal as jest.Mock).mockResolvedValueOnce(mockBackendData);
 
-      const result = await refreshCatalogFromBackend(TEST_TENANT);;
+      const result = await refreshCatalogFromBackend(TEST_TENANT);
 
       expect(result).not.toBeNull();
       expect(result!.items[0].mrp).toBe(440);
@@ -241,7 +240,7 @@ describe('catalogStorage', () => {
         new Error('Network request failed')
       );
 
-      const result = await refreshCatalogFromBackend(TEST_TENANT);;
+      const result = await refreshCatalogFromBackend(TEST_TENANT);
 
       expect(result).toBeNull();
     });
@@ -252,7 +251,7 @@ describe('catalogStorage', () => {
         items: [],
       });
 
-      const result = await refreshCatalogFromBackend(TEST_TENANT);;
+      const result = await refreshCatalogFromBackend(TEST_TENANT);
 
       expect(result).toBeNull();
     });
@@ -260,7 +259,7 @@ describe('catalogStorage', () => {
     it('should return null when backend returns null', async () => {
       (catalogSync.syncBackendToLocal as jest.Mock).mockResolvedValueOnce(null);
 
-      const result = await refreshCatalogFromBackend(TEST_TENANT);;
+      const result = await refreshCatalogFromBackend(TEST_TENANT);
 
       expect(result).toBeNull();
     });

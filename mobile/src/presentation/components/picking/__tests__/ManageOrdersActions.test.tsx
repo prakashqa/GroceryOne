@@ -406,7 +406,7 @@ describe('ManageOrdersScreen - Edit and Delete Actions', () => {
 
   describe('Order Creation Navigation', () => {
     it('should navigate to Picking screen after creating a new order', async () => {
-      const { getByTestId, getByText } = renderWithProviders(<ManageOrdersScreen />, {
+      const { getByTestId } = renderWithProviders(<ManageOrdersScreen />, {
         preloadedState: defaultCartState,
       });
 

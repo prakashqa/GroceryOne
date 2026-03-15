@@ -2,7 +2,6 @@
  * Reports & Analysis Type Definitions
  */
 
-import { ManagedCart, CartItemState } from '../../../domain/types/picking';
 
 /**
  * Date range preset options

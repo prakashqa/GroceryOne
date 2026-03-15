@@ -5,10 +5,8 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, waitFor } from '@testing-library/react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { renderWithProviders } from '../../../../../__tests__/testUtils';
 import SettingsScreen from '../SettingsScreen';
-import { getTenantCartKey } from '../../../../utils/storage/multiCartStorage';
 
 // Mock usePinAuth hook — logout must call logoutSession() for session-only cleanup
 const mockLogoutSession = jest.fn(() => Promise.resolve());

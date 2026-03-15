@@ -7,10 +7,11 @@
 import { Platform } from 'react-native';
 
 // Conditionally require native module — crashes on web
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+/* eslint-disable @typescript-eslint/no-var-requires */
 const USBPrinter = Platform.OS !== 'web'
   ? require('react-native-thermal-receipt-printer-image-qr').USBPrinter
   : null;
+/* eslint-enable @typescript-eslint/no-var-requires */
 
 // Reuse ESC/POS Base64 constants from BluetoothPrinterService
 import { ESC_POS } from './BluetoothPrinterService';

@@ -3,7 +3,6 @@
  * TDD tests for tracking cart operation lifecycle (loading spinners, sync status)
  */
 
-import { configureStore } from '@reduxjs/toolkit';
 import cartOperationsReducer, {
   operationStarted,
   operationCompleted,

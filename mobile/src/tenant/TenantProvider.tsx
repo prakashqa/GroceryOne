@@ -38,6 +38,7 @@ interface TenantProviderProps {
   initialTenantSlug?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function TenantProvider({ children, initialTenantSlug }: TenantProviderProps) {
   const dispatch = useAppDispatch();
   const tenant = useAppSelector(selectTenant);

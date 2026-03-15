@@ -17,7 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme';
 import { useAppDispatch } from '../../../core/hooks/useAppDispatch';
-import { setSubscription, clearSubscription } from '../../../store/slices/subscriptionSlice';
+import { setSubscription } from '../../../store/slices/subscriptionSlice';
 import { useCreateSubscriptionMutation } from '../../../data/api/subscriptionApi';
 import { SUBSCRIPTION_PLANS } from '@groceryone/shared';
 import type { SubscriptionPlanType } from '@groceryone/shared';

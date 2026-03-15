@@ -2,6 +2,7 @@
  * AuthScreenControls Tests
  * TDD tests for theme toggle and language switch on auth screens
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';

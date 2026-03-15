@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { Text } from 'react-native';
-import { fireEvent, waitFor } from '@testing-library/react-native';
+import { fireEvent } from '@testing-library/react-native';
 import { renderWithProviders } from '../../../../../__tests__/testUtils';
 import AnimatedPressable from '../AnimatedPressable';
 

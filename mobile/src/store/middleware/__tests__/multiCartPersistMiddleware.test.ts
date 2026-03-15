@@ -16,7 +16,6 @@ import multiCartReducer, {
   clearActiveCart,
   setActiveCartStatus,
   markActiveCartAsPaid,
-  updateCartBackendId,
   syncCartsFromBackend,
   refreshActiveCartPrices,
 } from '../../slices/multiCartSlice';

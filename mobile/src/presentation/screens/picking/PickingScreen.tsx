@@ -12,7 +12,6 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
@@ -21,7 +20,6 @@ import type { DashboardStackParamList } from '../../navigation/BottomTabNavigato
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
 
 import {
-  Category,
   Item,
 } from '../../../domain/types/picking';
 import type { ItemUnit } from '../../../domain/utils/unitConversion';
@@ -74,9 +72,11 @@ const PickingScreen: React.FC = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation<NavigationProp>();
   const theme = useTheme();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isDarkMode = useIsDarkMode();
   const { t, i18n } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isTablet } = useDeviceType();
 
   // Catalog selectors

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 // Mock navigation
 const mockNavigate = jest.fn();
@@ -113,7 +113,7 @@ jest.mock('../../../components/management/ItemFormModal', () => {
   const { View, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ visible, onClose, onSubmit, testID, mode, categories }) => {
+    default: ({ visible, onClose: _onClose, onSubmit: _onSubmit, testID, mode, categories }) => {
       mockItemFormVisible = visible;
       mockItemFormMode = mode;
       mockItemFormCategories = categories || [];

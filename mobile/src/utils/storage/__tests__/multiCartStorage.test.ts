@@ -10,8 +10,6 @@ import {
   clearMultiCartState,
   savePendingSyncQueue,
   loadPendingSyncQueue,
-  addToPendingSyncQueue,
-  removeFromPendingSyncQueue,
   clearPendingSyncQueue,
   getTenantCartKey,
   getTenantSyncQueueKey,

@@ -64,6 +64,7 @@ const LegendItem: React.FC<LegendItemProps> = ({ category }) => {
 
 export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
   data,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLoading = false,
   testID,
 }) => {

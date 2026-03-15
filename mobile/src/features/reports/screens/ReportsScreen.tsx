@@ -62,6 +62,7 @@ export const ReportsScreen: React.FC = () => {
   const { t } = useTranslation('common');
   const dispatch = useDispatch();
   const responsiveStyles = useResponsiveStyles();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isTablet } = useDeviceType();
   const tenant = useSelector(selectTenant);
 

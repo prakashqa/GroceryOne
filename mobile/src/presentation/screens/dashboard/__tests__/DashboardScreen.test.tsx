@@ -21,7 +21,7 @@ const mockDispatch = jest.fn();
 const mockUseSelector = jest.fn();
 
 jest.mock('react-redux', () => ({
-  useSelector: (selector: Function) => mockUseSelector(selector),
+  useSelector: (selector: (...args: unknown[]) => unknown) => mockUseSelector(selector),
   useDispatch: () => mockDispatch,
   useStore: () => ({}),
 }));
@@ -135,12 +135,10 @@ import {
   selectActiveCartCategoryCount,
   selectActiveCartTotalQuantity,
   selectActiveCartGrandTotal,
-  selectRecentCarts,
   selectTodaysCarts,
   selectCartsSortedByDate,
   selectMostRecentDraftCart,
   selectAllCarts,
-  setActiveCart,
 } from '../../../../store/slices/multiCartSlice';
 
 import { selectTenant } from '../../../../store/slices/tenantSlice';

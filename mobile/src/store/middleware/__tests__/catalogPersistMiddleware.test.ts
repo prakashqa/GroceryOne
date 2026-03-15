@@ -10,8 +10,6 @@ import catalogReducer, {
   updateItem,
   deleteItem,
   addCategory,
-  updateCategory,
-  deleteCategory,
 } from '../../slices/catalogSlice';
 import { catalogPersistMiddleware } from '../catalogPersistMiddleware';
 import * as catalogStorage from '../../../utils/storage/catalogStorage';

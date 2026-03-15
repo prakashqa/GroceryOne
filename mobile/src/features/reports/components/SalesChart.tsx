@@ -24,6 +24,7 @@ const formatCurrency = (value: number): string => {
 
 export const SalesChart: React.FC<SalesChartProps> = ({
   data,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLoading = false,
   testID,
 }) => {
@@ -32,6 +33,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
   const { t } = useTranslation('common');
 
   // Transform data for chart
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const chartData = data.map((point, index) => ({
     value: point.sales,
     label: point.label,

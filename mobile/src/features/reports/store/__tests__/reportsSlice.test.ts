@@ -16,16 +16,6 @@ import reportsReducer, {
 import { DateRange } from '../../types/reports.types';
 
 describe('reportsSlice', () => {
-  const initialState: ReportsState = {
-    selectedDateRange: {
-      startDate: expect.any(String),
-      endDate: expect.any(String),
-      preset: 'today',
-    },
-    isLoading: false,
-    error: null,
-  };
-
   describe('reducers', () => {
     describe('setDateRange', () => {
       it('should update selected date range', () => {

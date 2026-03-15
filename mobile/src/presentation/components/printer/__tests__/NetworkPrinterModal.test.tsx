@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-import { Alert } from 'react-native';
 import { waitFor } from '@testing-library/react-native';
 import { renderWithProviders } from '../../../../../__tests__/testUtils';
 import NetworkPrinterModal from '../NetworkPrinterModal';

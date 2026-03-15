@@ -22,7 +22,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useIsDarkMode } from '../../theme';
 import { useResponsiveStyles, useDeviceType } from '../../../hooks';
-import { Item, Category, ManagedCart } from '../../../domain/types/picking';
+import { Item, ManagedCart } from '../../../domain/types/picking';
 import { normalizeToBaseUnit, type ItemUnit } from '../../../domain/utils/unitConversion';
 import { getTranslatedItemName } from '../../../domain/utils/itemTranslations';
 import { findCategoryByIdOrUuid } from '../../../domain/utils/categoryLookup';
@@ -214,6 +214,7 @@ const ItemsScreen: React.FC = () => {
   const theme = useTheme();
   const isDark = useIsDarkMode();
   const { t } = useTranslation('common');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
   const dispatch = useDispatch();

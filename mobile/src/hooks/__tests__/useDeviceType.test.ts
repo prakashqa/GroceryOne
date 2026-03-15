@@ -3,7 +3,7 @@
  * TDD tests for device type and orientation detection
  */
 
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook } from '@testing-library/react-native';
 import { useDeviceType } from '../useDeviceType';
 
 // Mock useWindowDimensions without spreading the entire react-native module

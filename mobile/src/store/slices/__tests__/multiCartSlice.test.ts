@@ -53,7 +53,6 @@ import multiCartReducer, {
 } from '../multiCartSlice';
 import { Item } from '../../../domain/types/picking';
 import {
-  PaymentInfo,
   createCashPaymentInfo,
   createUpiPaymentInfo,
   createCardPaymentInfo,
@@ -335,6 +334,7 @@ describe('multiCartSlice', () => {
     it('should update updatedAt timestamp when setting backendId', () => {
       let state = multiCartReducer(initialState, createCart({ name: 'Cart 1' }));
       const localId = state.carts[0].id;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const originalUpdatedAt = state.carts[0].updatedAt;
 
       const { updateCartBackendId } = require('../multiCartSlice');

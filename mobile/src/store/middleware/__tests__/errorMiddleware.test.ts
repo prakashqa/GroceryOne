@@ -3,7 +3,7 @@
  * Verifies error handling and logging behavior for API errors
  */
 
-import { configureStore, createSlice, createAction } from '@reduxjs/toolkit';
+import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { errorMiddleware } from '../errorMiddleware';
 
 // Mock showToast and logout actions
