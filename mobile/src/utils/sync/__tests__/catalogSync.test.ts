@@ -80,6 +80,7 @@ describe('catalogSync', () => {
     });
 
     it('should fall back to price when compareAtPrice is undefined', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { compareAtPrice, ...itemWithoutMrp } = mockBackendItem;
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
@@ -93,6 +94,7 @@ describe('catalogSync', () => {
     });
 
     it('should default mrp to 0 when both compareAtPrice and price are missing', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { compareAtPrice, price, ...itemWithoutPrices } = mockBackendItem;
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

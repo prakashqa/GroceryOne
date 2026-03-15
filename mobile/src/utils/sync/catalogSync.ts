@@ -100,6 +100,7 @@ export async function fetchCategoriesFromBackend(options?: {
   if (params.length > 0) {
     url += `?${params.join('&')}`;
   }
+  // eslint-disable-next-line no-console
   console.log('[CatalogSync] Fetching categories from:', url);
 
   const controller = new AbortController();
@@ -120,6 +121,7 @@ export async function fetchCategoriesFromBackend(options?: {
   }
   clearTimeout(timeoutId);
 
+  // eslint-disable-next-line no-console
   console.log('[CatalogSync] Categories response status:', response.status);
 
   if (!response.ok) {
@@ -420,22 +422,15 @@ export async function syncBackendToLocal(options?: {
   accessToken?: string;
 }): Promise<{ categories: Category[]; items: Item[] } | null> {
   try {
-    console.log('[CatalogSync] Starting sync from backend...');
-    console.log('[CatalogSync] API URL:', API_CONFIG.BASE_URL);
-    console.log('[CatalogSync] Options:', JSON.stringify(options));
-
     const categories = await fetchCategoriesFromBackend({ ...options, trackInventory: false });
-    console.log(`[CatalogSync] Fetched ${categories.length} order categories`);
 
     const allItems = await fetchItemsFromBackend(options);
-    console.log(`[CatalogSync] Fetched ${allItems.length} total items from backend`);
 
     // Defense-in-depth: Only include items belonging to fetched order categories.
     // This prevents inventory items from leaking into the order Redux store even if
     // the backend response is missing the trackInventory field (e.g. old deployment).
     const orderCategoryIds = new Set(categories.map(c => c.id));
     const items = allItems.filter(item => orderCategoryIds.has(item.categoryId));
-    console.log(`[CatalogSync] Filtered to ${items.length} order items (excluded ${allItems.length - items.length} inventory items)`);
 
     return { categories, items };
   } catch (error) {
