@@ -540,7 +540,7 @@ const ItemsScreen: React.FC = () => {
         </View>
       ) : viewMode === 'grid' ? (
         <FlatList
-          key="grid"
+          key={`grid-${numColumns}`}
           data={filteredItems}
           renderItem={renderGridItem}
           keyExtractor={(item) => item.id}

@@ -53,9 +53,10 @@ jest.mock('react-i18next', () => ({
 }));
 
 // Mock responsive hooks
+const mockDeviceType = { isTablet: false, isPhone: true };
 jest.mock('../../../../hooks', () => ({
   useResponsiveStyles: require('../../../../__test-utils__/mocks/responsive.mock').mockUseResponsiveStyles,
-  useDeviceType: () => ({ isTablet: false, isPhone: true }),
+  useDeviceType: () => mockDeviceType,
 }));
 
 // Mock react-native-vector-icons
@@ -550,6 +551,49 @@ describe('ItemsScreen', () => {
 
       expect(getByText('Aashirvaad Atta')).toBeTruthy();
       expect(getByText('Sunflower Oil')).toBeTruthy();
+    });
+  });
+
+  describe('Landscape Orientation — FlatList numColumns', () => {
+    it('grid renders correctly in phone mode (numColumns=2)', () => {
+      mockDeviceType.isTablet = false;
+      setupMockSelectors();
+      const { getByTestId, getByText } = render(<ItemsScreen />);
+
+      expect(getByTestId('items-grid')).toBeTruthy();
+      expect(getByText('Aashirvaad Atta')).toBeTruthy();
+    });
+
+    it('grid renders correctly in tablet/landscape mode (numColumns=4)', () => {
+      mockDeviceType.isTablet = true;
+      setupMockSelectors();
+      const { getByTestId, getByText } = render(<ItemsScreen />);
+
+      expect(getByTestId('items-grid')).toBeTruthy();
+      expect(getByText('Aashirvaad Atta')).toBeTruthy();
+
+      // Restore
+      mockDeviceType.isTablet = false;
+    });
+
+    it('grid renders in both phone and tablet modes without crash', () => {
+      // Simulates orientation change: phone → tablet → phone
+      mockDeviceType.isTablet = false;
+      setupMockSelectors();
+      const { getByTestId, unmount } = render(<ItemsScreen />);
+      expect(getByTestId('items-grid')).toBeTruthy();
+      unmount();
+
+      mockDeviceType.isTablet = true;
+      setupMockSelectors();
+      const { getByTestId: getById2, unmount: unmount2 } = render(<ItemsScreen />);
+      expect(getById2('items-grid')).toBeTruthy();
+      unmount2();
+
+      mockDeviceType.isTablet = false;
+      setupMockSelectors();
+      const { getByTestId: getById3 } = render(<ItemsScreen />);
+      expect(getById3('items-grid')).toBeTruthy();
     });
   });
 
