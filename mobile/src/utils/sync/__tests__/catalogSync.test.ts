@@ -465,24 +465,114 @@ describe('catalogSync', () => {
   });
 
   describe('syncBackendToLocal', () => {
-    it('should return null and log error when backend sync fails', async () => {
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      const errorSpy = jest.spyOn(console, 'error').mockImplementation();
-      const logSpy = jest.spyOn(console, 'log').mockImplementation();
+    beforeEach(() => {
+      jest.spyOn(console, 'log').mockImplementation();
+      jest.spyOn(console, 'warn').mockImplementation();
+      jest.spyOn(console, 'error').mockImplementation();
+    });
 
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should return null and log error when backend sync fails', async () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new TypeError('Network request failed'));
 
       const result = await syncBackendToLocal({ tenantId: 'test' });
 
       expect(result).toBeNull();
-      expect(errorSpy).toHaveBeenCalledWith(
+      expect(console.error).toHaveBeenCalledWith(
         expect.stringContaining('[CatalogSync]'),
         expect.any(String)
       );
+    });
 
-      warnSpy.mockRestore();
-      errorSpy.mockRestore();
-      logSpy.mockRestore();
+    it('should filter items to only those belonging to fetched order categories', async () => {
+      // Categories endpoint: returns only order categories (trackInventory: false)
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'uuid-1', slug: 'chicken-items', name: 'Chicken Items', icon: '🍗', trackInventory: false },
+          { id: 'uuid-2', slug: 'veg-items', name: 'Veg Items', icon: '🥬', trackInventory: false },
+        ] }),
+      });
+
+      // Items endpoint: returns ALL items (both order and inventory)
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'i1', slug: 'chicken-fry', name: 'Chicken Fry', category: { slug: 'chicken-items' }, categoryId: 'uuid-1', unit: 'pcs', defaultQuantity: 1 },
+          { id: 'i2', slug: 'veg-curry', name: 'Veg Curry', category: { slug: 'veg-items' }, categoryId: 'uuid-2', unit: 'pcs', defaultQuantity: 1 },
+          { id: 'i3', slug: 'salt', name: 'Salt', category: { slug: 'inv-basic' }, categoryId: 'uuid-inv', unit: 'kg', defaultQuantity: 1, trackInventory: true },
+          { id: 'i4', slug: 'rice', name: 'Sona Masoori Rice', category: { slug: 'inv-rice' }, categoryId: 'uuid-inv2', unit: 'kg', defaultQuantity: 25, trackInventory: true },
+        ] }),
+      });
+
+      const result = await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
+
+      expect(result).not.toBeNull();
+      expect(result!.categories).toHaveLength(2);
+      expect(result!.items).toHaveLength(2);
+      expect(result!.items.map(i => i.name)).toEqual(['Chicken Fry', 'Veg Curry']);
+    });
+
+    it('should exclude inventory items even when trackInventory is undefined in response', async () => {
+      // Simulates old backend that doesn't return trackInventory field
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'uuid-1', slug: 'chicken-items', name: 'Chicken Items', icon: '🍗' },
+        ] }),
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'i1', slug: 'chicken-fry', name: 'Chicken Fry', category: { slug: 'chicken-items' }, categoryId: 'uuid-1', unit: 'pcs', defaultQuantity: 1 },
+          { id: 'i2', slug: 'salt', name: 'Salt', category: { slug: 'inv-basic' }, categoryId: 'uuid-inv', unit: 'kg', defaultQuantity: 1 },
+        ] }),
+      });
+
+      const result = await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
+
+      expect(result).not.toBeNull();
+      // Only items whose categoryId matches fetched order categories should be included
+      expect(result!.items).toHaveLength(1);
+      expect(result!.items[0].name).toBe('Chicken Fry');
+    });
+
+    it('should fetch categories with trackInventory=false query parameter', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
+
+      await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
+
+      const categoriesCall = (global.fetch as jest.Mock).mock.calls[0];
+      expect(categoriesCall[0]).toContain('trackInventory=false');
+    });
+
+    it('should pass tenant header for both categories and items requests', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [] }),
+      });
+
+      await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
+
+      const categoriesCall = (global.fetch as jest.Mock).mock.calls[0];
+      const itemsCall = (global.fetch as jest.Mock).mock.calls[1];
+      expect(categoriesCall[1].headers['X-Tenant-ID']).toBe('vijayparcelpos');
+      expect(itemsCall[1].headers['X-Tenant-ID']).toBe('vijayparcelpos');
     });
   });
 

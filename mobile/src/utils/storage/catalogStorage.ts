@@ -28,8 +28,10 @@ export const getTenantCatalogSyncQueueKey = (tenantId: string): string =>
  * Cache version - bump when schema changes to invalidate stale data.
  * v2: Added mrp field mapping from compareAtPrice
  * v3: Added trackInventory, stockQuantity, lowStockThreshold fields to item mapping
+ * v4: Force invalidation — old v3 cache may contain inventory categories that leak
+ *     into order screens via mergeCatalogFromBackend's local-only preservation
  */
-export const CATALOG_CACHE_VERSION = 3;
+export const CATALOG_CACHE_VERSION = 4;
 
 /**
  * Persisted state shape
