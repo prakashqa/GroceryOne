@@ -455,6 +455,7 @@ describe('receiptGenerator - pricing', () => {
       const itemAmts: number[] = [];
       lines.forEach(line => {
         // Skip format markers, dividers, and non-tab lines
+        // eslint-disable-next-line no-control-regex
         const stripped = line.replace(/[\x02\x03]/g, '');
         if (!stripped.includes('\t') || stripped.includes('GRAND TOTAL')) return;
         const parts = stripped.split('\t');
@@ -467,6 +468,7 @@ describe('receiptGenerator - pricing', () => {
       // Find GRAND TOTAL value
       const grandTotalLine = lines.find(l => l.includes('GRAND TOTAL'));
       expect(grandTotalLine).toBeDefined();
+      // eslint-disable-next-line no-control-regex
       const gtParts = grandTotalLine!.replace(/[\x03]/g, '').split('\t');
       const grandTotalValue = parseInt(gtParts[gtParts.length - 1].replace(/,/g, ''), 10);
 

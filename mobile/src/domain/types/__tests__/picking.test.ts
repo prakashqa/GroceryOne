@@ -7,7 +7,7 @@
  * Use useCatalog hook or Redux selectors to access catalog data.
  */
 
-import type { Category, Item, CartItem, ManagedCart, CartStatus } from '../picking';
+import type { Category, Item, ManagedCart, CartStatus } from '../picking';
 
 describe('Picking Domain Types', () => {
   describe('Category type', () => {

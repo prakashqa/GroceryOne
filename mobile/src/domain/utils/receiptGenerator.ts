@@ -104,14 +104,6 @@ const QTY_COL_WIDTH: Record<string, number> = {
   '80mm': 12,
 };
 
-// Column layout config (only used for 58mm character-based padding)
-// 80mm uses tab-separated format — native module handles pixel-based alignment
-// 58mm: two-line format (Line 1 = item name, Line 2 = values)
-const COLUMNS: Record<'58mm' | '80mm', { sno: number; name: number; qty: number; rate: number; amt: number }> = {
-  '58mm': { sno: 0, name: 23, qty: 5, rate: 8, amt: 8 },  // two-line format
-  '80mm': { sno: 3, name: 17, qty: 7, rate: 7, amt: 8 },  // not used for tab format
-};
-
 // Column widths for 58mm value lines (second line of two-line format)
 const COLUMNS_58MM_VALUES = { indent: 2, qty: 5, rate: 8, amt: 8 };  // 2+5+8+8 = 23
 
@@ -267,8 +259,6 @@ const formatFiveColumnHeader = (
   width: number,
   paperSize: '58mm' | '80mm'
 ): string => {
-  const col = COLUMNS[paperSize];
-
   if (paperSize === '58mm') {
     // Two-line format for 58mm: just show "ITEM" header (items will span full width on line 1)
     // Then show column headers for values on separate line
@@ -298,8 +288,6 @@ const formatFiveColumnItemRow = (
   width: number,
   paperSize: '58mm' | '80mm'
 ): string => {
-  const col = COLUMNS[paperSize];
-
   // Item name without unit for display (unit shown in QTY column)
   const fullName = name.trim();
 
@@ -596,7 +584,9 @@ export const stripFormatMarkers = (text: string): string => {
   // Remove ESC/POS escape sequences: ESC (0x1b) followed by command byte and parameter byte
   // Also remove CENTER_MARKER (U+0002) used for native pixel-based centering
   return text
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b[\x20-\x7e][\x00-\xff]/g, '')
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x02\x03]/g, '');
 };
 
@@ -676,6 +666,7 @@ export const formatForPreview = (text: string): string => {
 export const sanitizeForPrinter = (text: string): string => {
   // Replace any character outside printable ASCII (0x20-0x7E) and common control chars
   // (newline 0x0A, carriage return 0x0D, tab 0x09) with '?'
+  // eslint-disable-next-line no-control-regex
   return text.replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?');
 };
 

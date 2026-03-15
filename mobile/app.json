@@ -28,7 +28,8 @@
         "android.permission.BLUETOOTH_SCAN",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -67,6 +68,12 @@
     "web": {
       "bundler": "metro"
     },
-    "owner": "nanirestro"
+    "owner": "nanirestro",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c789090c-d24b-470a-8e91-7e06d38ff195"
+    }
   }
 }

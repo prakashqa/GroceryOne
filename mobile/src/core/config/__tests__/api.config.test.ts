@@ -22,6 +22,7 @@ describe('api.config', () => {
       Object.defineProperty(Platform, 'OS', { value: 'android' });
 
       // Re-import to pick up mocked platform
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const config = require('../api.config');
       API_CONFIG = config.API_CONFIG;
 
@@ -32,6 +33,7 @@ describe('api.config', () => {
     it('should use localhost for iOS in development', () => {
       Object.defineProperty(Platform, 'OS', { value: 'ios' });
 
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const config = require('../api.config');
       API_CONFIG = config.API_CONFIG;
 
