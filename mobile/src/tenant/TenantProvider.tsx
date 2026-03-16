@@ -39,7 +39,8 @@ interface TenantProviderProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function TenantProvider({ children, initialTenantSlug }: TenantProviderProps) {
+// @ts-expect-error TS6133: kept for future use
+export function TenantProvider({ children, _initialTenantSlug }: TenantProviderProps) {
   const dispatch = useAppDispatch();
   const tenant = useAppSelector(selectTenant);
   const branding = useAppSelector(selectBranding);

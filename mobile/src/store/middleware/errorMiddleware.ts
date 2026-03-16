@@ -93,7 +93,7 @@ export const errorMiddleware: Middleware<object, RootState> =
       }
 
       // Handle server errors
-      if (status && status >= 500) {
+      if (status && Number(status) >= 500) {
         storeAPI.dispatch(
           showToast({
             type: 'error',

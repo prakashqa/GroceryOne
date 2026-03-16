@@ -68,14 +68,14 @@ const InventoryItemDetailScreen: React.FC = () => {
   const {
     data: txnData,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    isLoading: txnLoading,
+    isLoading: _txnLoading,
   } = useGetTransactionHistoryQuery({ itemId, limit: 20, offset: 0 }, { skip: skipQuery });
 
   // Mutations
   const [adjustStock, { isLoading: adjusting }] = useAdjustStockMutation();
   const [setStock, { isLoading: settingStock }] = useSetStockMutation();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [updateSettings, { isLoading: updatingSettings }] = useUpdateInventorySettingsMutation();
+  const [updateSettings, { isLoading: _updatingSettings }] = useUpdateInventorySettingsMutation();
 
   // Local state for adjustment modal
   const [showAdjustModal, setShowAdjustModal] = useState(false);

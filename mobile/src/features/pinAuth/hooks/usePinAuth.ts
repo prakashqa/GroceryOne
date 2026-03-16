@@ -91,6 +91,7 @@ export function usePinAuth(): UsePinAuthReturn {
         dispatch(setTokens({
           accessToken,
           refreshToken,
+          expiresIn: 3600,
         }));
 
         // Restore user credentials
@@ -100,13 +101,14 @@ export function usePinAuth(): UsePinAuthReturn {
             email: (user.email as string) || '',
             firstName: (user.firstName as string) || '',
             lastName: (user.lastName as string) || '',
-            role: ((user.role as string) || 'merchant') as 'merchant',
-            tenantId: (user.tenantId as string) || '',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            role: ((user.role as string) || 'cashier') as 'cashier',
+            status: 'active' as const,
+            preferredLanguage: 'en',
+            notificationPreferences: { push: true, email: true, sms: false, orderUpdates: true, promotions: true },
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
-          tokens: { accessToken, refreshToken },
+          tokens: { accessToken, refreshToken, expiresIn: 3600 },
           requiresPinSetup: false,
         }));
 
@@ -266,15 +268,17 @@ export function usePinAuth(): UsePinAuthReturn {
             email: data.user.email || '',
             firstName: data.user.firstName || '',
             lastName: data.user.lastName || '',
-            role: (data.user.role || 'merchant') as 'merchant',
-            tenantId: data.user.tenantId || '',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            role: (data.user.role || 'cashier') as 'cashier',
+            status: 'active' as const,
+            preferredLanguage: 'en',
+            notificationPreferences: { push: true, email: true, sms: false, orderUpdates: true, promotions: true },
+            createdAt: new Date(),
+            updatedAt: new Date(),
           },
           tokens: {
             accessToken: data.accessToken,
             refreshToken: data.refreshToken,
+            expiresIn: 3600,
           },
           requiresPinSetup: false,
         }));

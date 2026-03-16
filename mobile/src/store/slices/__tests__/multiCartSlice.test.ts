@@ -178,7 +178,7 @@ describe('multiCartSlice', () => {
     status: 'draft' as const,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    items: [] as unknown[],
+    items: [] as Array<{itemId: string; quantity: number; priceSnapshot?: number; addedAt: string; item?: Item}>,
     ...overrides,
   });
 
@@ -334,8 +334,7 @@ describe('multiCartSlice', () => {
     it('should update updatedAt timestamp when setting backendId', () => {
       let state = multiCartReducer(initialState, createCart({ name: 'Cart 1' }));
       const localId = state.carts[0].id;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const originalUpdatedAt = state.carts[0].updatedAt;
+      void state.carts[0].updatedAt; // capture original updatedAt
 
       const { updateCartBackendId } = require('../multiCartSlice');
 
@@ -1190,6 +1189,7 @@ describe('multiCartSlice', () => {
         }],
         activeCartId: 'cart-1',
         lastSyncedAt: new Date().toISOString(),
+        deletedCartIds: [],
       };
 
       const action = hydrateMultiCart(persistedState);
@@ -1236,6 +1236,7 @@ describe('multiCartSlice', () => {
         activeCartId: 'cart-1',
         isHydrated: true,
         lastSyncedAt: new Date().toISOString(),
+        deletedCartIds: [],
       },
     };
 
@@ -1401,6 +1402,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1425,6 +1427,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1449,6 +1452,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1471,6 +1475,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1485,6 +1490,7 @@ describe('multiCartSlice', () => {
             activeCartId: null,
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1520,6 +1526,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1554,6 +1561,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1587,6 +1595,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1630,6 +1639,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1672,6 +1682,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1700,6 +1711,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1723,6 +1735,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1747,6 +1760,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1768,6 +1782,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1791,6 +1806,7 @@ describe('multiCartSlice', () => {
             activeCartId: 'cart-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -1828,6 +1844,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         // Catalog has the same item with price
@@ -1874,6 +1891,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         // Catalog has item with different ID but matching name
@@ -1919,6 +1937,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         const catalogItems: Item[] = [{
@@ -1961,6 +1980,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         // Catalog has item with same ID (price 48) and another with same name (price 100)
@@ -2016,6 +2036,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         const catalogItems: Item[] = [{
@@ -2063,6 +2084,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         // Catalog items WITHOUT prices (simulating backend not seeded)
@@ -2115,6 +2137,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         const catalogItems: Item[] = [
@@ -2223,6 +2246,7 @@ describe('multiCartSlice', () => {
             activeCartId: '1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         };
 
@@ -2708,6 +2732,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         const action = markActiveCartAsPaid({ amount: 325, paymentInfo: mockCashPaymentInfo });
@@ -2801,6 +2826,7 @@ describe('multiCartSlice', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         };
 
         const rootState = { multiCart: stateWithCart };
@@ -3075,7 +3101,7 @@ describe('multiCartSlice', () => {
           {
             id: 'cart-1',
             name: 'Test Cart',
-            items: [{ itemId: 'atta-1', quantity: 5 }],
+            items: [{ item: mockItem, quantity: 5, addedAt: new Date().toISOString() }],
             status: 'draft',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -3084,6 +3110,7 @@ describe('multiCartSlice', () => {
         activeCartId: 'cart-1',
         isHydrated: true,
         lastSyncedAt: new Date().toISOString(),
+        deletedCartIds: [],
       };
 
       const action = resetMultiCart();
@@ -3118,6 +3145,7 @@ describe('multiCartSlice', () => {
         activeCartId: 'cart-1',
         isHydrated: true,
         lastSyncedAt: new Date().toISOString(),
+        deletedCartIds: [],
       };
 
       const action = clearMultiCartInMemory();
@@ -3564,7 +3592,7 @@ describe('multiCartSlice', () => {
               item: {
                 id: 'item-uuid-1',
                 categoryId: 'category-uuid-123',
-                category: { slug: 'atta-rice' },
+                category: { id: 'cat-1', slug: 'atta-rice', name: 'Atta Rice', icon: 'grain' },
                 name: 'Atta',
                 unit: 'kg' as const,
                 defaultQuantity: 5,
@@ -3834,6 +3862,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -3858,6 +3887,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -3885,6 +3915,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -3918,6 +3949,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -3942,6 +3974,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -3968,6 +4001,7 @@ describe('multiCartSlice', () => {
           activeCartId: null,
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 

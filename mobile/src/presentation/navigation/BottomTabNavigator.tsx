@@ -595,7 +595,7 @@ export function BottomTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('DashboardTab', { screen: 'Dashboard' });
+            navigation.navigate('DashboardTab' as any, { screen: 'Dashboard' });
           },
         })}
       />
@@ -611,7 +611,7 @@ export function BottomTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('ItemsTab', { screen: 'Items' });
+            navigation.navigate('ItemsTab' as any, { screen: 'Items' });
           },
         })}
       />
@@ -627,7 +627,7 @@ export function BottomTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('OrdersTab', { screen: 'ManageOrders' });
+            navigation.navigate('OrdersTab' as any, { screen: 'ManageOrders' });
           },
         })}
       />
@@ -643,7 +643,7 @@ export function BottomTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('ReportsTab', { screen: 'Reports' });
+            navigation.navigate('ReportsTab' as any, { screen: 'Reports' });
           },
         })}
       />
@@ -659,7 +659,7 @@ export function BottomTabNavigator() {
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            navigation.navigate('MoreTab', { screen: 'More' });
+            navigation.navigate('MoreTab' as any, { screen: 'More' });
           },
         })}
       />

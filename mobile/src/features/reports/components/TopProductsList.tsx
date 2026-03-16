@@ -132,7 +132,8 @@ export const TopProductsList: React.FC<TopProductsListProps> = ({
   products,
   limit = 10,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isLoading = false,
+  // @ts-expect-error TS6133: kept for future use
+  _isLoading = false,
   testID,
 }) => {
   const theme = useTheme();

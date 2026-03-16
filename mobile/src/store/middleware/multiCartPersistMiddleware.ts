@@ -515,7 +515,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
         const preState = storeAPI.getState();
 
         if (DELETE_CART_ACTIONS.includes(actionType)) {
-          const cartId = (action as { payload: string }).payload;
+          const cartId = (action as unknown as { payload: string }).payload;
           const cart = preState.multiCart.carts.find((c) => c.id === cartId);
           if (cart?.backendId) {
             preDispatchData = { cartBackendId: cart.backendId };
@@ -524,7 +524,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
 
         if (REMOVE_ITEM_ACTIONS.includes(actionType)) {
           if (actionType === 'multiCart/removeItemFromActiveCart') {
-            const itemId = (action as { payload: string }).payload;
+            const itemId = (action as unknown as { payload: string }).payload;
             const activeCart = preState.multiCart.carts.find(
               (c) => c.id === preState.multiCart.activeCartId
             );
@@ -535,7 +535,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
               preDispatchData = { activeCartBackendId: activeCart.backendId, itemId: resolvedItemId };
             }
           } else if (actionType === 'multiCart/removeItemFromCart') {
-            const { cartId, itemId } = (action as { payload: { cartId: string; itemId: string } }).payload;
+            const { cartId, itemId } = (action as unknown as { payload: { cartId: string; itemId: string } }).payload;
             const cart = preState.multiCart.carts.find((c) => c.id === cartId);
             if (cart?.backendId) {
               // Resolve backendId before dispatch (item will be removed from state)
@@ -623,7 +623,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
                     status: newCart.status,
                     createdAt: newCart.createdAt,
                   },
-                  storeAPI.dispatch,
+                  storeAPI.dispatch as (action: unknown) => void,
                   storeAPI.getState
                 );
                 storeAPI.dispatch(operationCompleted({ type: 'cart', id: newCart.id }));
@@ -720,7 +720,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
       // Handle backend sync for cart deletion (uses pre-dispatch data)
       if (DELETE_CART_ACTIONS.includes(actionType) && preDispatchData?.cartBackendId) {
         const backendId = preDispatchData.cartBackendId;
-        const deletedCartId = (action as { payload: string }).payload;
+        const deletedCartId = (action as unknown as { payload: string }).payload;
         storeAPI.dispatch(operationStarted({ type: 'cart', id: deletedCartId, operation: 'deleting' }));
         setTimeout(async () => {
           try {
@@ -745,7 +745,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
           const state = storeAPI.getState();
 
           if (actionType === 'multiCart/renameCart') {
-            const { cartId, name } = (action as { payload: { cartId: string; name: string } }).payload;
+            const { cartId, name } = (action as unknown as { payload: { cartId: string; name: string } }).payload;
             const cart = state.multiCart.carts.find((c) => c.id === cartId);
             if (cart?.backendId) {
               await updateCartOnBackend(cart.backendId, { name }, storeAPI.getState);
@@ -753,7 +753,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
           }
 
           if (actionType === 'multiCart/setActiveCartStatus') {
-            const status = (action as { payload: string }).payload;
+            const status = (action as unknown as { payload: string }).payload;
             const activeCart = state.multiCart.carts.find(
               (c) => c.id === state.multiCart.activeCartId
             );
@@ -790,9 +790,9 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
         // Extract itemId for lifecycle tracking
         let updatedItemId: string | undefined;
         if (actionType === 'multiCart/updateItemQuantityInActiveCart') {
-          updatedItemId = (action as { payload: { itemId: string } }).payload.itemId;
+          updatedItemId = (action as unknown as { payload: { itemId: string } }).payload.itemId;
         } else {
-          updatedItemId = (action as { payload: string }).payload;
+          updatedItemId = (action as unknown as { payload: string }).payload;
         }
         if (updatedItemId) {
           storeAPI.dispatch(operationStarted({ type: 'item', id: updatedItemId, operation: 'updating' }));
@@ -813,7 +813,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             }
 
             if (actionType === 'multiCart/updateItemQuantityInActiveCart') {
-              const { itemId, quantity } = (action as { payload: { itemId: string; quantity: number } }).payload;
+              const { itemId, quantity } = (action as unknown as { payload: { itemId: string; quantity: number } }).payload;
               const itemExists = activeCart.items.find((i) => i.item.id === itemId);
               const resolvedId = itemExists ? resolveBackendItemId(itemExists.item) : itemId;
               if (itemExists) {
@@ -824,7 +824,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             }
 
             if (actionType === 'multiCart/incrementItemInActiveCart') {
-              const itemId = (action as { payload: string }).payload;
+              const itemId = (action as unknown as { payload: string }).payload;
               const item = activeCart.items.find((i) => i.item.id === itemId);
               if (item) {
                 const resolvedId = resolveBackendItemId(item.item);
@@ -833,7 +833,7 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             }
 
             if (actionType === 'multiCart/decrementItemInActiveCart') {
-              const itemId = (action as { payload: string }).payload;
+              const itemId = (action as unknown as { payload: string }).payload;
               const item = activeCart.items.find((i) => i.item.id === itemId);
               if (item) {
                 const resolvedId = resolveBackendItemId(item.item);

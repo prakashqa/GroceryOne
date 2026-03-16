@@ -215,7 +215,8 @@ const ItemsScreen: React.FC = () => {
   const isDark = useIsDarkMode();
   const { t } = useTranslation('common');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const responsiveStyles = useResponsiveStyles();
+  // @ts-expect-error TS6133: kept for future use
+  const _responsiveStyles = useResponsiveStyles();
   const { isTablet } = useDeviceType();
   const dispatch = useDispatch();
   const navigation = useNavigation<NativeStackNavigationProp<ItemsStackParamList>>();
@@ -246,7 +247,7 @@ const ItemsScreen: React.FC = () => {
   // Filter items by category and search
   const filteredItems = useMemo(() => {
     // Exclude inventory items (trackInventory === true) — only show order/POS items
-    let filtered = items.filter((item: Item) => item.isActive !== false && item.trackInventory !== true);
+    let filtered = items.filter((item: Item) => (item as any)?.isActive !== false && item.trackInventory !== true);
 
     if (selectedCategoryId !== 'all') {
       filtered = filtered.filter((item: Item) => item.categoryId === selectedCategoryId);

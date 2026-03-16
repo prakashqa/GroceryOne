@@ -38,11 +38,11 @@ jest.mock('../../data/api/productApi', () => ({
 }));
 
 // Helper to create test store
-const createTestStore = (initialCatalog = { categories: [], items: [], isInitialized: false }) => {
+const createTestStore = (initialCatalog = { categories: [] as any[], items: [] as any[], isInitialized: false }) => {
   return configureStore({
     reducer: {
-      catalog: catalogReducer,
-      tenant: tenantSlice.reducer,
+      catalog: catalogReducer as any,
+      tenant: tenantSlice.reducer as any,
     },
     preloadedState: {
       catalog: initialCatalog,
@@ -69,11 +69,11 @@ const createWrapper = (store: ReturnType<typeof createTestStore>) => {
 const createNoTenantStore = () => {
   return configureStore({
     reducer: {
-      catalog: catalogReducer,
-      tenant: tenantSlice.reducer,
+      catalog: catalogReducer as any,
+      tenant: tenantSlice.reducer as any,
     },
     preloadedState: {
-      catalog: { categories: [], items: [], isInitialized: false },
+      catalog: { categories: [] as any[], items: [] as any[], isInitialized: false },
       tenant: {
         tenant: null,
         config: null,

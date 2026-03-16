@@ -181,7 +181,7 @@ export const calculateTopProducts = (
   // Convert to array and add category info
   const products: TopProduct[] = Array.from(productMap.values()).map(
     (product) => {
-      const category = findCategoryByIdOrUuid(categories, product.categoryId);
+      const category = findCategoryByIdOrUuid(categories, product.categoryId ?? '');
 
       return {
         itemId: product.itemId,

@@ -32,7 +32,7 @@ jest.mock('../../../../hooks', () => ({
 }));
 
 const createMockItem = (id: string, overrides: Record<string, any> = {}) => ({
-  item: { id, categoryId: 'cat-1', name: `Item ${id}`, unit: 'kg', defaultQuantity: 1, ...overrides },
+  item: { id, categoryId: 'cat-1', name: `Item ${id}`, unit: 'kg' as const, defaultQuantity: 1, ...overrides },
   quantity: 1, addedAt: new Date().toISOString(),
 });
 
@@ -41,7 +41,7 @@ describe('OrderListItem', () => {
     id: 'cart-1', name: 'Morning Order',
     items: [
       { ...createMockItem('item-1'), quantity: 5 },
-      { ...createMockItem('item-2', { categoryId: 'cat-2', name: 'Item 2', unit: 'pcs' }), quantity: 3 },
+      { ...createMockItem('item-2', { categoryId: 'cat-2', name: 'Item 2', unit: 'pcs' as const }), quantity: 3 },
     ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),

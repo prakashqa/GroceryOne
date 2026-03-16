@@ -54,7 +54,7 @@ describe('useResponsiveStyles', () => {
     'on %s, %s should be %s',
     (device, property, expected) => {
       setupMock(device);
-      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+      expect((getStyles() as unknown as Record<string, unknown>)[property]).toBe(expected);
     }
   );
 
@@ -80,7 +80,7 @@ describe('useResponsiveStyles', () => {
     'on %s, %s should be %s',
     (device, property, expected) => {
       setupMock(device);
-      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+      expect((getStyles() as unknown as Record<string, unknown>)[property]).toBe(expected);
     }
   );
 
@@ -98,7 +98,7 @@ describe('useResponsiveStyles', () => {
     'on %s, %s should be %s',
     (device, property, expected) => {
       setupMock(device);
-      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+      expect((getStyles() as unknown as Record<string, unknown>)[property]).toBe(expected);
     }
   );
 
@@ -114,7 +114,7 @@ describe('useResponsiveStyles', () => {
     'on %s, %s should be %s',
     (device, property, expected) => {
       setupMock(device);
-      expect((getStyles() as Record<string, unknown>)[property]).toBe(expected);
+      expect((getStyles() as unknown as Record<string, unknown>)[property]).toBe(expected);
     }
   );
 

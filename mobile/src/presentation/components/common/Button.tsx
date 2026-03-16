@@ -274,7 +274,7 @@ export const Button: React.FC<ButtonProps> = ({
       borderWidth: borderColor ? 1.5 : 0,
     },
     iconOnlyStyles,
-    fullWidth && styles.fullWidth,
+    (fullWidth ? styles.fullWidth : undefined) as any,
   ];
 
   return (

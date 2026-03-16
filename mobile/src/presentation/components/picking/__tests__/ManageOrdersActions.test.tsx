@@ -92,6 +92,7 @@ describe('ManageOrdersScreen - Edit and Delete Actions', () => {
       activeCartId: 'cart-1',
       isHydrated: true,
       lastSyncedAt: null,
+      deletedCartIds: [],
     },
   };
 

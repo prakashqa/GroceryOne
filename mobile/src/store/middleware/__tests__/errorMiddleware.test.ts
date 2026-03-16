@@ -54,7 +54,7 @@ describe('errorMiddleware', () => {
       reducer: {
         dummy: dummySlice.reducer,
       },
-      middleware: (getDefaultMiddleware) =>
+      middleware: (getDefaultMiddleware: any) =>
         getDefaultMiddleware({
           serializableCheck: false,
           immutableCheck: false,

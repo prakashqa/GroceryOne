@@ -148,14 +148,15 @@ describe('ItemManagementScreen - Category Filter Chips', () => {
 
     const allStyle = StyleSheet.flatten(allChip.props.style);
     const riceStyle = StyleSheet.flatten(riceChip.props.style);
-    const vegStyle = StyleSheet.flatten(vegChip.props.style);
+    
+    const _vegStyle = StyleSheet.flatten(vegChip.props.style);
 
     // All chips must have the same borderRadius
     expect(allStyle.borderRadius).toBeDefined();
     expect(riceStyle.borderRadius).toBeDefined();
-    expect(vegStyle.borderRadius).toBeDefined();
+    expect(_vegStyle.borderRadius).toBeDefined();
     expect(allStyle.borderRadius).toBe(riceStyle.borderRadius);
-    expect(riceStyle.borderRadius).toBe(vegStyle.borderRadius);
+    expect(riceStyle.borderRadius).toBe(_vegStyle.borderRadius);
   });
 
   it('should apply consistent padding to All chip and category chips', () => {
@@ -170,7 +171,9 @@ describe('ItemManagementScreen - Category Filter Chips', () => {
     const allStyle = StyleSheet.flatten(allChip.props.style);
     const riceStyle = StyleSheet.flatten(riceChip.props.style);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const vegStyle = StyleSheet.flatten(vegChip.props.style);
+    
+    // @ts-expect-error TS6133: kept for future use
+    const _vegStyle = StyleSheet.flatten(vegChip.props.style);
 
     // All chips must have the same vertical padding
     expect(allStyle.paddingVertical).toBeDefined();

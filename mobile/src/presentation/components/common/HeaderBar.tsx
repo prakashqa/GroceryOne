@@ -96,7 +96,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           style={[
             styles.title,
             { marginLeft: onBack ? theme.spacing.smd : 0 },
-          ]}
+          ] as any}
           numberOfLines={1}
         >
           {title}

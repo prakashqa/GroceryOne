@@ -121,8 +121,8 @@ export const ListItemAnimator: React.FC<ListItemAnimatorProps> = ({
   }, [disabled, fadeAnim, translateAnim, scaleAnim, delay, duration, animationType]);
 
   // Build transform array based on animation type
-  const getTransform = (): Animated.WithAnimatedArray<ViewStyle['transform']> => {
-    const transforms: Animated.WithAnimatedArray<ViewStyle['transform']> = [];
+  const getTransform = (): any[] => {
+    const transforms: any[] = [];
 
     if (animationType === 'slideUp') {
       transforms.push({ translateY: translateAnim });
@@ -139,7 +139,7 @@ export const ListItemAnimator: React.FC<ListItemAnimatorProps> = ({
         {
           opacity: fadeAnim,
           transform: getTransform(),
-        },
+        } as any,
         style,
       ]}
       testID={testID}

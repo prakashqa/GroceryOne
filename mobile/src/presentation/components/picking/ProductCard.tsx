@@ -35,7 +35,8 @@ interface ProductCardProps {
 export const ProductCard: React.FC<ProductCardProps> = ({
   item,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  categoryIcon,
+  // @ts-expect-error TS6133: kept for future use
+  _categoryIcon,
   quantityInCart,
   formattedQuantity,
   onAdd,

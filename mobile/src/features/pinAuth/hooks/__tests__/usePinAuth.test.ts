@@ -139,7 +139,7 @@ describe('usePinAuth', () => {
   const PIN_SET_STATE = { pin: { isPinSet: true }, auth: { user: { id: 'user123', email: 'admin@freshmart.com' } }, tenant: { tenant: { slug: 'freshmart' } } };
 
   function wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(Provider, { store }, children);
+    return React.createElement(Provider as any, { store }, children);
   }
 
   beforeEach(() => {
@@ -963,7 +963,7 @@ describe('usePinAuth', () => {
     it.each([
       ['SecureStore PIN data', () => expect(mockPinSecureStorage.clearPin).not.toHaveBeenCalled()],
       ['@tenant_id from AsyncStorage', () => expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('@tenant_id')],
-      ['tenant from Redux', () => { const s = store.getState(); expect(s.tenant.tenant).not.toBeNull(); expect(s.tenant.tenant.slug).toBe('freshmart'); }],
+      ['tenant from Redux', () => { const s = store.getState(); expect(s.tenant.tenant).not.toBeNull(); expect(s.tenant.tenant!.slug).toBe('freshmart'); }],
     ] as [string, () => void][])('should NOT clear %s', async (_label, assertion) => {
       const { result } = renderHook(() => usePinAuth(), { wrapper });
       await act(async () => { await result.current.logoutSession(); });

@@ -19,6 +19,7 @@ jest.mock('../../../theme', () => ({
 // Mock i18n
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
+    // @ts-expect-error TS6133: kept for future use
     t: (key: string, defaultValue: string) => defaultValue,
   }),
 }));

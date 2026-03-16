@@ -53,7 +53,7 @@ describe('multiCartPersistMiddleware', () => {
         tenant: () => ({ tenant: { id: 'tenant-uuid-123', slug: 'test-tenant' } }),
         auth: () => ({ accessToken: 'test-token' }),
       },
-      middleware: (getDefaultMiddleware) =>
+      middleware: (getDefaultMiddleware: any) =>
         getDefaultMiddleware({
           serializableCheck: false,
         }).concat(multiCartPersistMiddleware),
@@ -277,7 +277,7 @@ describe('multiCartPersistMiddleware', () => {
 
       mockApiSuccess({ id: 'backend-cart-uuid', name: 'Payment Cart', status: 'paid' });
       store.dispatch(markActiveCartAsPaid({
-        amount: 80, paymentInfo: { method: 'cash', receivedAmount: 100, changeGiven: 20 },
+        amount: 80, paymentInfo: { method: 'cash', details: { method: 'cash' }, confirmedAt: new Date().toISOString() },
       }));
       await advanceAndFlush();
 
@@ -299,7 +299,7 @@ describe('multiCartPersistMiddleware', () => {
 
       mockApiSuccess({ id: 'backend-cart-uuid', status: 'paid' });
       store.dispatch(markActiveCartAsPaid({
-        amount: 40, paymentInfo: { method: 'cash', receivedAmount: 50, changeGiven: 10 },
+        amount: 40, paymentInfo: { method: 'cash', details: { method: 'cash' }, confirmedAt: new Date().toISOString() },
       }));
       await advanceAndFlush();
 

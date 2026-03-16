@@ -30,7 +30,7 @@ jest.mock('../../../../hooks', () => ({
 // Mock useTranslation
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, fallback) => {
+    t: (key: string, fallback?: string) => {
       const translations = {
         'more.title': 'More',
         'more.settings': 'Settings',
@@ -47,7 +47,7 @@ jest.mock('react-i18next', () => ({
         'more.logoutConfirm': 'Are you sure you want to logout?',
         'common:cancel': 'Cancel',
       };
-      return translations[key] || (typeof fallback === 'string' ? fallback : key);
+      return (translations as Record<string, string>)[key] || (typeof fallback === 'string' ? fallback : key);
     },
     i18n: { language: 'en' },
   }),
@@ -63,7 +63,7 @@ let mockCurrentUser = {
 };
 
 jest.mock('react-redux', () => ({
-  useSelector: (selector) => {
+  useSelector: (selector: any) => {
     if (selector.mockName === 'selectTenant') return mockTenant;
     if (selector.mockName === 'selectCurrentUser') return mockCurrentUser;
     return undefined;
@@ -72,13 +72,13 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('../../../../store/slices/tenantSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectTenant';
   return { selectTenant: fn };
 });
 
 jest.mock('../../../../store/slices/authSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectCurrentUser';
   return { selectCurrentUser: fn };
 });
@@ -93,12 +93,12 @@ jest.mock('../../../../features/pinAuth/hooks/usePinAuth', () => ({
 
 // Mock formatUserRole
 jest.mock('../../../../utils/formatters/userFormatters', () => ({
-  formatUserRole: (role) => role.charAt(0).toUpperCase() + role.slice(1),
+  formatUserRole: (role: string) => role.charAt(0).toUpperCase() + role.slice(1),
 }));
 
 // Mock SettingsSection and SettingsRow to make testing easier
 jest.mock('../../../components/settings', () => ({
-  SettingsSection: ({ children, title }) => {
+  SettingsSection: ({ children, title }: any) => {
     const { View, Text } = require('react-native');
     return (
       <View>
@@ -107,7 +107,7 @@ jest.mock('../../../components/settings', () => ({
       </View>
     );
   },
-  SettingsRow: ({ label, onPress, hasChevron, testID, value, variant, disabled }) => {
+  SettingsRow: ({ label, onPress, hasChevron, testID, value, variant, disabled }: any) => {
     const { TouchableOpacity, Text } = require('react-native');
     return (
       <TouchableOpacity onPress={onPress} testID={testID} accessibilityRole="button" disabled={disabled}>
@@ -173,7 +173,7 @@ describe('MoreScreen', () => {
     });
 
     it('hides tenant info when tenant is null', () => {
-      mockTenant = null;
+      mockTenant = null as any;
       const { queryByText } = render(<MoreScreen />);
       expect(queryByText('FreshMart')).toBeNull();
     });

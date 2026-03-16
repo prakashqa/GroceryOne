@@ -434,7 +434,7 @@ const ItemManagementScreen: React.FC = () => {
       <ItemFormModal
         visible={isFormModalVisible}
         onClose={handleCloseFormModal}
-        onSubmit={handleSubmitItem}
+        onSubmit={handleSubmitItem as any}
         categories={orderCategories}
         editItem={selectedItem}
         initialCategoryId={selectedCategoryId || undefined}

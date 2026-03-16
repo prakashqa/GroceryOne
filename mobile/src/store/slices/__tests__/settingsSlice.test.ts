@@ -46,6 +46,11 @@ describe('settingsSlice', () => {
       connectionStatus: 'disconnected',
       lastConnectedAt: null,
       autoPrint: false,
+    imageWidthDots: 384,
+    },
+    payment: {
+      merchantUpiId: '',
+      merchantName: '',
     },
     isHydrated: false,
     lastUpdated: null,
@@ -254,6 +259,7 @@ describe('settingsSlice', () => {
           connectionStatus: 'disconnected',
           lastConnectedAt: null,
           autoPrint: false,
+        imageWidthDots: 384,
         },
       };
       const state = settingsReducer(initialState, hydrateSettings(savedSettings));

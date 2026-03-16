@@ -83,7 +83,7 @@ export type {
   TabParamList,
   DashboardStackParamList,
   OrdersStackParamList,
-  SettingsStackParamList,
+  MoreStackParamList,
 } from './BottomTabNavigator';
 
 // Legacy MainStackParamList type for backward compatibility

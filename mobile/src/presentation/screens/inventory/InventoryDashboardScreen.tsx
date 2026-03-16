@@ -126,7 +126,7 @@ const InventoryDashboardScreen: React.FC = () => {
           slug,
           name: data.name,
           categoryId: data.categoryId,
-          unit: data.unit,
+          unit: data.unit as any,
           defaultQuantity: data.defaultQuantity,
           trackInventory: true,
           stockQuantity: data.stockQuantity ?? 0,

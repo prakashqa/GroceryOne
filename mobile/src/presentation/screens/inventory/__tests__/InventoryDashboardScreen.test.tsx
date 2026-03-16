@@ -29,7 +29,7 @@ jest.mock('../../../../hooks', () => ({
 // Mock useTranslation
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key, fallback) => {
+    t: (key: string, fallback?: string) => {
       const translations = {
         'inventory.title': 'Inventory',
         'inventory.lowStock': 'Low Stock Items',
@@ -49,7 +49,7 @@ jest.mock('react-i18next', () => ({
         'inventory.noResults': 'No items match your search',
         'inventory.lowBadge': 'LOW',
       };
-      return translations[key] || fallback || key;
+      return (translations as Record<string, string>)[key] || fallback || key;
     },
     i18n: { language: 'en' },
   }),
@@ -57,7 +57,7 @@ jest.mock('react-i18next', () => ({
 
 // Mock item translations
 jest.mock('../../../../domain/utils/itemTranslations', () => ({
-  getTranslatedItemName: (item) => item.name,
+  getTranslatedItemName: (item: any) => item.name,
 }));
 
 // Mock tenant and auth state
@@ -68,7 +68,7 @@ let mockCategories = [{ id: 'cat-1', name: 'Rice & Atta', icon: '🌾', trackInv
 let mockCategoriesLoading = false;
 
 jest.mock('react-redux', () => ({
-  useSelector: (selector) => {
+  useSelector: (selector: any) => {
     if (selector.mockName === 'selectTenant') return mockTenant;
     if (selector.mockName === 'selectIsAuthenticated') return mockIsAuthenticated;
     return undefined;
@@ -84,20 +84,20 @@ jest.mock('../../../../data/api/categoryApi', () => ({
 }));
 
 jest.mock('../../../../store/slices/tenantSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectTenant';
   return { selectTenant: fn };
 });
 
 jest.mock('../../../../store/slices/authSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectIsAuthenticated';
   return { selectIsAuthenticated: fn };
 });
 
 // Mock inventory API hooks
-const mockLowStockData = [];
-const mockStockReportData = [];
+const mockLowStockData: any[] = [];
+const mockStockReportData: any[] = [];
 let mockLowStockLoading = false;
 let mockLowStockError = false;
 let mockStockReportLoading = false;
@@ -113,7 +113,7 @@ jest.mock('../../../components/management/ItemFormModal', () => {
   const { View, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ visible, onClose: _onClose, onSubmit: _onSubmit, testID, mode, categories }) => {
+    default: ({ visible, onClose: _onClose, onSubmit: _onSubmit, testID, mode, categories }: any) => {
       mockItemFormVisible = visible;
       mockItemFormMode = mode;
       mockItemFormCategories = categories || [];
@@ -308,7 +308,7 @@ describe('InventoryDashboardScreen', () => {
 
   describe('Frontend Validations - Auth & Tenant Guards', () => {
     it('shows loading state when tenant context is unavailable (skips API calls)', () => {
-      mockTenant = null;
+      mockTenant = null as any;
       const { getByTestId, queryByText } = render(<InventoryDashboardScreen />);
       // Should show loading, not error
       expect(getByTestId('inventory-loading')).toBeTruthy();
@@ -326,14 +326,14 @@ describe('InventoryDashboardScreen', () => {
 
   describe('Multi-Tenant Isolation', () => {
     it('does not fire API calls without tenant context', () => {
-      mockTenant = null;
+      mockTenant = null as any;
       const { getByTestId } = render(<InventoryDashboardScreen />);
       // Shows loading (skipped), not error — queries never fired
       expect(getByTestId('inventory-loading')).toBeTruthy();
     });
 
     it('does not navigate without tenant context', () => {
-      mockTenant = null;
+      mockTenant = null as any;
       render(<InventoryDashboardScreen />);
       expect(mockNavigate).not.toHaveBeenCalled();
     });

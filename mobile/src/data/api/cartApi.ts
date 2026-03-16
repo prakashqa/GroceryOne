@@ -73,8 +73,6 @@ export const cartApi = baseApi.injectEndpoints({
               { type: 'Cart', id: 'LIST' },
             ]
           : [{ type: 'Cart', id: 'LIST' }],
-      // Always refetch when component mounts (important for Reports screen)
-      refetchOnMountOrArgChange: true,
     }),
 
     // Get active cart

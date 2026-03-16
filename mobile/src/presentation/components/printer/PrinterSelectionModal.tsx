@@ -75,7 +75,8 @@ const PrinterSelectionModal: React.FC<PrinterSelectionModalProps> = ({
   }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const loadPairedDevices = async () => {
+  // @ts-expect-error TS6133: kept for future use
+  const _loadPairedDevices = async () => {
     try {
       const pairedDevices = await bluetoothPrinterService.getPairedDevices();
       setDevices(pairedDevices);

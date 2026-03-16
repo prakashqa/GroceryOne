@@ -94,7 +94,7 @@ describe('PinLoginScreen', () => {
     return configureStore({
       reducer: {
         pin: pinReducer,
-        auth: authReducer,
+        auth: authReducer as any,
         tenant: tenantReducer,
       },
       preloadedState: {

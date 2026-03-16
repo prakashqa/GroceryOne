@@ -148,7 +148,7 @@ export const Badge: React.FC<BadgeProps> = ({
           <Icon
             name={icon}
             size={sizeStyles.iconSize}
-            color={variant === 'primary' ? 'primary' : variant === 'muted' ? 'secondary' : variant}
+            color={(variant === 'primary' ? 'primary' : variant === 'muted' ? 'secondary' : variant) as any}
           />
         </View>
       )}

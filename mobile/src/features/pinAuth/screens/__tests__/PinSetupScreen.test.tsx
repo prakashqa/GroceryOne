@@ -53,7 +53,7 @@ describe('PinSetupScreen', () => {
     return configureStore({
       reducer: {
         pin: pinReducer,
-        auth: authReducer,
+        auth: authReducer as any,
       },
       preloadedState: {
         auth: {

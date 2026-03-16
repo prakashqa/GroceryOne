@@ -466,21 +466,21 @@ describe('BluetoothPrinterService', () => {
       const device = devices[0];
       await service.connect(device);
 
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImage('base64ImageData');
 
       // Should send ESC d 4 (feed 4 lines) as Base64 via printRawData
-      expect(BLEPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
     });
 
-    it('should complete print job even when paper feed printRawData throws', async () => {
+    it('should complete print job even when paper feed printRaw throws', async () => {
       const devices = await service.getPairedDevices();
       const device = devices[0];
       await service.connect(device);
 
       // Paper feed fails (BLE socket degraded after image transfer)
-      (BLEPrinter.printRawData as jest.Mock).mockRejectedValueOnce(
+      ((BLEPrinter as any).printRawData as jest.Mock).mockRejectedValueOnce(
         new Error('BLE write failed')
       );
 
@@ -495,12 +495,12 @@ describe('BluetoothPrinterService', () => {
       const device = devices[0];
       await service.connect(device);
 
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImage('base64ImageData');
 
       // GS V 1 = [0x1D, 0x56, 0x01] sent as Base64 'HVYB' via printRawData
-      expect(BLEPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
     });
 
     it('should not fail print job if auto-cut command fails', async () => {
@@ -509,7 +509,7 @@ describe('BluetoothPrinterService', () => {
       await service.connect(device);
 
       // Auto-cut fails (printer has no cutter)
-      (BLEPrinter.printRawData as jest.Mock).mockRejectedValueOnce(
+      ((BLEPrinter as any).printRawData as jest.Mock).mockRejectedValueOnce(
         new Error('Cut command not supported')
       );
 
@@ -776,20 +776,20 @@ describe('BluetoothPrinterService', () => {
     it('should send paper feed command after printing last chunk', async () => {
       const chunks = ['base64Chunk1', 'base64Chunk2'];
 
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages(chunks, 576);
 
       // After all image chunks, should send ESC d 4 (feed 4 lines) as Base64 via printRawData
-      expect(BLEPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
     });
 
     it('should not send paper feed for empty chunks array', async () => {
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages([], 576);
 
-      expect(BLEPrinter.printRawData).not.toHaveBeenCalled();
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalled();
     });
 
     it('should retry a failed chunk once and succeed', async () => {
@@ -830,11 +830,11 @@ describe('BluetoothPrinterService', () => {
       expect(BLEPrinter.printImageBase64).toHaveBeenCalledTimes(2);
     });
 
-    it('should complete chunked print job even when paper feed printRawData throws', async () => {
+    it('should complete chunked print job even when paper feed printRaw throws', async () => {
       const chunks = ['chunk1'];
 
       // Paper feed fails (BLE socket degraded after image transfer)
-      (BLEPrinter.printRawData as jest.Mock).mockRejectedValueOnce(
+      ((BLEPrinter as any).printRawData as jest.Mock).mockRejectedValueOnce(
         new Error('BLE write failed')
       );
 
@@ -847,27 +847,27 @@ describe('BluetoothPrinterService', () => {
     it('should send auto-cut command (GS V 1) after printing chunked images', async () => {
       const chunks = ['chunk1', 'chunk2'];
 
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages(chunks, 576);
 
       // GS V 1 = [0x1D, 0x56, 0x01] sent as Base64 'HVYB' via printRawData
-      expect(BLEPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
     });
 
     it('should not send auto-cut for empty chunks array', async () => {
-      (BLEPrinter.printRawData as jest.Mock).mockClear();
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages([], 576);
 
-      expect(BLEPrinter.printRawData).not.toHaveBeenCalled();
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalled();
     });
 
     it('should not fail chunked print job if auto-cut command fails', async () => {
       const chunks = ['chunk1'];
 
       // Auto-cut fails (printer has no cutter)
-      (BLEPrinter.printRawData as jest.Mock).mockRejectedValueOnce(
+      ((BLEPrinter as any).printRawData as jest.Mock).mockRejectedValueOnce(
         new Error('Cut command not supported')
       );
 

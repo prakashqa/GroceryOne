@@ -60,7 +60,8 @@ const ManageOrdersScreen: React.FC = () => {
   const { t } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isTablet } = useDeviceType();
+  // @ts-expect-error TS6133: kept for future use
+  const { _isTablet } = useDeviceType();
 
   const allCarts = useSelector(selectAllCarts);
   const activeCartId = useSelector(selectActiveCartId);

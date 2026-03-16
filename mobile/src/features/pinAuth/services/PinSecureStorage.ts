@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * PinSecureStorage
  * Secure storage wrapper for PIN data using expo-secure-store
@@ -7,12 +8,12 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { PIN_STORAGE_KEYS } from '../constants';
 
-// expo-secure-store exports empty object on web — use localStorage as dev fallback
+// expo-secure-store exports empty object on web — use AsyncStorage as dev fallback
 const storage = Platform.OS === 'web'
   ? {
-      setItemAsync: async (k: string, v: string) => { localStorage.setItem(k, v); },
-      getItemAsync: async (k: string): Promise<string | null> => localStorage.getItem(k),
-      deleteItemAsync: async (k: string) => { localStorage.removeItem(k); },
+      setItemAsync: async (k: string, v: string) => { AsyncStorage.setItem(k, v); },
+      getItemAsync: async (k: string): Promise<string | null> => AsyncStorage.getItem(k),
+      deleteItemAsync: async (k: string) => { AsyncStorage.removeItem(k); },
     }
   : SecureStore;
 

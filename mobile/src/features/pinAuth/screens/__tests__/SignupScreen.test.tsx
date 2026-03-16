@@ -81,9 +81,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 const createTestStore = () => {
   return configureStore({
     reducer: {
-      tenant: tenantSlice.reducer,
-      auth: authSlice.reducer,
-      settings: settingsReducer,
+      tenant: tenantSlice.reducer as any,
+      auth: authSlice.reducer as any,
+      settings: settingsReducer as any,
     },
     preloadedState: {
       tenant: {

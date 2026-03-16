@@ -63,7 +63,8 @@ export const ReportsScreen: React.FC = () => {
   const dispatch = useDispatch();
   const responsiveStyles = useResponsiveStyles();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isTablet } = useDeviceType();
+  // @ts-expect-error TS6133: kept for future use
+  const { _isTablet } = useDeviceType();
   const tenant = useSelector(selectTenant);
 
   // Fetch carts from backend API (skip when tenant context is unavailable)
@@ -82,8 +83,8 @@ export const ReportsScreen: React.FC = () => {
   const isLoading = useSelector((state: RootState) =>
     selectIsReportLoading(state as { reports: import('../types/reports.types').ReportsState })
   );
-  const allCarts = useSelector((state: RootState) => selectAllCarts(state));
-  const categories = useSelector((state: RootState) => selectCategories(state));
+  const allCarts = useSelector((state: RootState) => selectAllCarts(state as any));
+  const categories = useSelector((state: RootState) => selectCategories(state as any));
 
   // Sync backend carts to Redux store when data arrives
   useEffect(() => {

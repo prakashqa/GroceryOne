@@ -160,8 +160,8 @@ function createTestStore(overrides: {
   return configureStore({
     reducer: {
       multiCart: multiCartReducer,
-      scan: scanReducer,
-      catalog: catalogReducer,
+      scan: scanReducer as any,
+      catalog: catalogReducer as any,
     },
     preloadedState: {
       multiCart: {
@@ -169,6 +169,7 @@ function createTestStore(overrides: {
         activeCartId,
         isHydrated: true,
         lastSyncedAt: null,
+        deletedCartIds: [],
       },
       scan: {
         currentSession: {

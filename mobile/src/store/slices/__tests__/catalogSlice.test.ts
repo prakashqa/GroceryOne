@@ -273,12 +273,7 @@ describe('catalogSlice', () => {
         isInitialized: true,
       };
 
-      const action = addItem({
-        name: 'New Item',
-        categoryId: 'test-cat-1',
-        unit: 'kg',
-        defaultQuantity: 2,
-      });
+      const action = addItem({ name: 'New Item', categoryId: 'test-cat-1', unit: 'kg', defaultQuantity: 2, mrp: 0 });
       const state = catalogReducer(stateWithCat, action);
 
       expect(state.items).toHaveLength(1);
@@ -295,18 +290,8 @@ describe('catalogSlice', () => {
         isInitialized: true,
       };
 
-      let state = catalogReducer(stateWithCat, addItem({
-        name: 'Item 1',
-        categoryId: 'test-cat-1',
-        unit: 'kg',
-        defaultQuantity: 1,
-      }));
-      state = catalogReducer(state, addItem({
-        name: 'Item 2',
-        categoryId: 'test-cat-1',
-        unit: 'kg',
-        defaultQuantity: 1,
-      }));
+      let state = catalogReducer(stateWithCat, addItem({ name: 'Item 1', categoryId: 'test-cat-1', unit: 'kg', defaultQuantity: 1, mrp: 0 }));
+      state = catalogReducer(state, addItem({ name: 'Item 2', categoryId: 'test-cat-1', unit: 'kg', defaultQuantity: 1, mrp: 0 }));
 
       expect(state.items[0].id).not.toBe(state.items[1].id);
     });
@@ -318,12 +303,7 @@ describe('catalogSlice', () => {
         isInitialized: true,
       };
 
-      const action = addItem({
-        name: 'Orphan Item',
-        categoryId: 'non-existent-cat',
-        unit: 'pcs',
-        defaultQuantity: 1,
-      });
+      const action = addItem({ name: 'Orphan Item', categoryId: 'non-existent-cat', unit: 'pcs', defaultQuantity: 1, mrp: 0 });
       const state = catalogReducer(stateWithCat, action);
 
       expect(state.items).toHaveLength(0);

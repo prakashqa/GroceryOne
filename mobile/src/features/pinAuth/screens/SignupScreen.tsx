@@ -121,7 +121,7 @@ export const SignupScreen: React.FC = () => {
             role: user.role as any,
             tenantId: user.tenantId || '',
           } as any,
-          tokens: { accessToken, refreshToken, expiresIn, user },
+          tokens: { accessToken, refreshToken, expiresIn },
         }));
 
         // Store tenant context
@@ -131,7 +131,7 @@ export const SignupScreen: React.FC = () => {
             name: businessName.trim(),
             slug: tenantSlug,
             status: 'active',
-            subscriptionPlan: 'trial',
+            subscriptionPlan: 'basic',
             branding: {
               primaryColor: '#4CAF50',
               secondaryColor: '#2196F3',

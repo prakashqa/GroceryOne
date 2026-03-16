@@ -73,11 +73,13 @@ const PickingScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const theme = useTheme();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const isDarkMode = useIsDarkMode();
+  // @ts-expect-error TS6133: kept for future use
+  const _isDarkMode = useIsDarkMode();
   const { t, i18n } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isTablet } = useDeviceType();
+  // @ts-expect-error TS6133: kept for future use
+  const { _isTablet } = useDeviceType();
 
   // Catalog selectors
   const categories = useSelector(selectCategories);

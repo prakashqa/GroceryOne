@@ -103,7 +103,7 @@ describe('Icon', () => {
 
     it('applies warning color', () => {
       const { getByTestId } = render(
-        <Icon name="alert" color="warning" testID="icon" />
+        <Icon name="warning" color="warning" testID="icon" />
       );
 
       const icon = getByTestId('icon');

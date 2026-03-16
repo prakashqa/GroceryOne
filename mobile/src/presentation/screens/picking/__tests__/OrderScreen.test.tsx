@@ -23,7 +23,7 @@ const createCart = (name: string, items: any[], overrides: Record<string, any> =
 });
 
 const createMultiCartState = (cart: any, extras: Record<string, any> = {}) => ({
-  multiCart: { carts: [cart], activeCartId: cart.id, isHydrated: true, lastSyncedAt: null },
+  multiCart: { carts: [cart], activeCartId: cart.id, isHydrated: true, lastSyncedAt: null, deletedCartIds: [] },
   ...extras,
 });
 
@@ -232,6 +232,7 @@ describe('OrderScreen', () => {
               { id: 'staples', name: 'Staples', icon: '🥫', displayOrder: 2, isActive: true },
             ],
             isHydrated: true, lastSyncedAt: null,
+            deletedCartIds: [],
           },
         }),
       });
@@ -258,7 +259,7 @@ describe('OrderScreen', () => {
   describe('tenant name translation in receipt', () => {
     const i18n = require('../../../../i18n/i18n.config').default;
 
-    const FRESHMART_TENANT = {
+    const FRESHMART_TENANT: any = {
       tenant: {
         id: 'tenant-1',
         name: 'FreshMart Groceries',

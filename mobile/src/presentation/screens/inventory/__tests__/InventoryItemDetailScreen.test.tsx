@@ -82,13 +82,13 @@ jest.mock('react-redux', () => ({
 }));
 
 jest.mock('../../../../store/slices/tenantSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectTenant';
   return { selectTenant: fn };
 });
 
 jest.mock('../../../../store/slices/authSlice', () => {
-  const fn = jest.fn();
+  const fn: any = jest.fn();
   fn.mockName = 'selectIsAuthenticated';
   return { selectIsAuthenticated: fn };
 });

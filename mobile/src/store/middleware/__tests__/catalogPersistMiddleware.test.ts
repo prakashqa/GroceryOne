@@ -48,7 +48,7 @@ describe('catalogPersistMiddleware', () => {
         catalog: catalogReducer,
         tenant: () => ({ tenant: { id: 'tenant-uuid-123', slug: 'test-tenant' } }),
       },
-      middleware: (getDefaultMiddleware) =>
+      middleware: (getDefaultMiddleware: any) =>
         getDefaultMiddleware({
           serializableCheck: false,
         }).concat(catalogPersistMiddleware),
@@ -62,7 +62,7 @@ describe('catalogPersistMiddleware', () => {
         tenant: () => ({ tenant: { id: 'tenant-uuid-123', slug: 'test-tenant' } }),
         auth: () => ({ accessToken: 'test-jwt-token' }),
       },
-      middleware: (getDefaultMiddleware) =>
+      middleware: (getDefaultMiddleware: any) =>
         getDefaultMiddleware({
           serializableCheck: false,
         }).concat(catalogPersistMiddleware),
@@ -275,7 +275,7 @@ describe('catalogPersistMiddleware', () => {
           catalog: catalogReducer,
           tenant: () => ({ tenant: null }),
         },
-        middleware: (getDefaultMiddleware) =>
+        middleware: (getDefaultMiddleware: any) =>
           getDefaultMiddleware({
             serializableCheck: false,
           }).concat(catalogPersistMiddleware),

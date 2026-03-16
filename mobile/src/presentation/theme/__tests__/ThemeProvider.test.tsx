@@ -27,7 +27,7 @@ const ThemeConsumer = () => {
 
 const createTestStore = (themeMode: 'light' | 'dark' | 'system' = 'system') =>
   configureStore({
-    reducer: { settings: settingsReducer },
+    reducer: { settings: settingsReducer as any },
     preloadedState: {
       settings: {
         themeMode,

@@ -90,7 +90,7 @@ const PrinterSettingsScreen: React.FC = () => {
     description: t(`settings.printer.paperSize${value}Description`, ''),
   })), [t]);
 
-  const imageWidthOptions = useMemo(() => imageWidthValues.map((value) => ({
+  const _imageWidthOptions = useMemo(() => imageWidthValues.map((value) => ({
     value,
     label: value === 576 ? 'Standard (203 DPI) (Recommended)' : 'HD (300 DPI)',
     description: value === 576
@@ -249,7 +249,7 @@ const PrinterSettingsScreen: React.FC = () => {
     [dispatch, printer, tenant?.slug]
   );
 
-  const handleImageWidthSelect = useCallback(
+  const _handleImageWidthSelect = useCallback(
     async (value: number) => {
       dispatch(setImageWidthDots(value));
       if (tenant?.slug) {
@@ -824,10 +824,10 @@ const PrinterSettingsScreen: React.FC = () => {
             <SettingsSection
               title="Print Width"
             >
-              <SettingsRadioGroup<number>
-                options={imageWidthOptions}
+              <SettingsRadioGroup<any>
+                options={_imageWidthOptions}
                 selectedValue={printer.imageWidthDots || 832}
-                onSelect={handleImageWidthSelect}
+                onSelect={_handleImageWidthSelect}
                 testID="image-width"
               />
             </SettingsSection>

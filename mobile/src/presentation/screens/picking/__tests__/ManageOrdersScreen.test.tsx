@@ -146,12 +146,13 @@ describe('ManageOrdersScreen', () => {
             activeCartId: null,
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
 
       await waitFor(() => {
-        const carts = store.getState().multiCart.carts;
+        const carts = ((store.getState() as any).multiCart).carts;
         expect(carts.length).toBeGreaterThanOrEqual(2);
         expect(carts.find((c: any) => c.name === 'Yesterday Cart')).toBeTruthy();
         expect(carts.find((c: any) => c.name === 'Today Cart')).toBeTruthy();
@@ -175,13 +176,14 @@ describe('ManageOrdersScreen', () => {
             activeCartId: null,
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
 
       // After sync, the cart should be in Redux store
       await waitFor(() => {
-        const carts = store.getState().multiCart.carts;
+        const carts = ((store.getState() as any).multiCart).carts;
         expect(carts.length).toBe(1);
         expect(carts[0].id).toBe('uuid-1');
       });
@@ -198,6 +200,7 @@ describe('ManageOrdersScreen', () => {
             activeCartId: null,
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
@@ -227,6 +230,7 @@ describe('ManageOrdersScreen', () => {
             activeCartId: 'uuid-1',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
@@ -268,12 +272,13 @@ describe('ManageOrdersScreen', () => {
             activeCartId: 'uuid-delayed',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
 
       await waitFor(() => {
-        const carts = store.getState().multiCart.carts;
+        const carts = ((store.getState() as any).multiCart).carts;
         const cart = carts.find((c: any) => c.id === 'uuid-delayed');
         expect(cart).toBeTruthy();
         // createdAt should be the EARLIER timestamp (yesterday), not today's backend timestamp
@@ -301,12 +306,13 @@ describe('ManageOrdersScreen', () => {
             activeCartId: null,
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
 
       await waitFor(() => {
-        const carts = store.getState().multiCart.carts;
+        const carts = ((store.getState() as any).multiCart).carts;
         const cart = carts.find((c: any) => c.id === 'uuid-fresh');
         expect(cart).toBeTruthy();
         // No local cart — use backend's createdAt as-is
@@ -344,12 +350,13 @@ describe('ManageOrdersScreen', () => {
             activeCartId: 'cart-local-456',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
 
       await waitFor(() => {
-        const carts = store.getState().multiCart.carts;
+        const carts = ((store.getState() as any).multiCart).carts;
         // Cart should now have backend UUID as id
         const cart = carts.find((c: any) => c.id === 'backend-uuid-123');
         expect(cart).toBeTruthy();
@@ -404,6 +411,7 @@ describe('ManageOrdersScreen', () => {
             activeCartId: 'uuid-today',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });
@@ -458,6 +466,7 @@ describe('ManageOrdersScreen', () => {
             activeCartId: 'uuid-yesterday',
             isHydrated: true,
             lastSyncedAt: null,
+            deletedCartIds: [],
           },
         } as any,
       });

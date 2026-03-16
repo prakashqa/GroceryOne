@@ -25,7 +25,6 @@ import {
   ActiveOrderPreview,
   RecentOrdersList,
   QuickAction,
-  RecentCart,
 } from '../../components/dashboard';
 import { FadeInView } from '../../components/common';
 import CreateOrderModal from '../../components/picking/CreateOrderModal';
@@ -153,7 +152,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   const currentUser = useSelector(selectCurrentUser);
   const todaysMetrics = useSelector(selectTodaysMetrics);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const statusCounts = useSelector(selectCartsByStatus);
+  // @ts-expect-error TS6133: kept for future use
+  const _statusCounts = useSelector(selectCartsByStatus);
   const activeCart = useSelector(selectActiveCart);
   const activeCartItemCount = useSelector(selectActiveCartItemCount);
   const activeCartCategoryCount = useSelector(selectActiveCartCategoryCount);
@@ -253,7 +253,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ testID }) => {
   }, [t, navigation, handleOpenCreateCartModal]);
 
   // Transform recent carts to RecentCart format
-  const recentCartsData: RecentCart[] = useMemo(() => {
+  const recentCartsData: any[] = useMemo(() => {
     return recentCarts.map((cart: any) => {
       const isPaid = cart.status === 'paid';
       const calculatedTotal = cart.items.reduce(

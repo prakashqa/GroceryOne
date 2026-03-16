@@ -30,7 +30,7 @@ const seedCatalogState = {
       { id: 'atta-2', name: 'Fortune Chakki Atta', categoryId: 'atta-rice', unit: 'kg' as const, defaultQuantity: 5, mrp: 240 },
       { id: 'rice-1', name: 'India Gate Basmati', categoryId: 'atta-rice', unit: 'kg' as const, defaultQuantity: 1, mrp: 180 },
       { id: 'dal-1', name: 'Toor Dal', categoryId: 'dal-pulses', unit: 'kg' as const, defaultQuantity: 1, mrp: 150 },
-      { id: 'oil-1', name: 'Fortune Sunflower Oil', categoryId: 'oils', unit: 'l' as const, defaultQuantity: 1, mrp: 180 },
+      { id: 'oil-1', name: 'Fortune Sunflower Oil', categoryId: 'oils', unit: 'L' as const, defaultQuantity: 1, mrp: 180 },
     ],
     isInitialized: true,
   },
@@ -264,6 +264,7 @@ describe('PickingScreen', () => {
         activeCartId: 'cart-1',
         isHydrated: true,
         lastSyncedAt: null,
+        deletedCartIds: [],
       },
     };
 
@@ -382,6 +383,7 @@ describe('PickingScreen', () => {
           activeCartId: 'cart-1',
           isHydrated: true,
           lastSyncedAt: null,
+          deletedCartIds: [],
         },
       };
 
@@ -406,7 +408,7 @@ describe('PickingScreen', () => {
       },
     };
 
-    const tenantState = {
+    const tenantState: any = {
       tenant: { id: 'test-tenant', slug: 'test-tenant', name: 'Test Tenant', domain: 'test.com', isActive: true, defaultLanguage: 'en', supportedLanguages: ['en'], branding: { primaryColor: '#000', secondaryColor: '#fff', accentColor: '#f00', logoUrl: '', faviconUrl: '' } },
       config: null,
       branding: null,

@@ -60,6 +60,7 @@ describe('multiCartStorage', () => {
       activeCartId: 'cart-1',
       isHydrated: true,
       lastSyncedAt: null,
+      deletedCartIds: [],
     };
 
     it('should save to tenant-scoped key', async () => {
@@ -103,6 +104,7 @@ describe('multiCartStorage', () => {
         carts: [{ id: 'cart-1', name: 'Cart' }],
         activeCartId: 'cart-1',
         lastSyncedAt: '2026-01-30T00:00:00.000Z',
+        deletedCartIds: [],
       };
       (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(
         JSON.stringify(mockPersisted)
@@ -150,6 +152,7 @@ describe('multiCartStorage', () => {
         activeCartId: 'cart-a',
         isHydrated: true,
         lastSyncedAt: null,
+        deletedCartIds: [],
       };
       await saveMultiCartState(tenantAState, TENANT_A);
 
