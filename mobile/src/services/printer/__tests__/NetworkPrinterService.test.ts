@@ -365,26 +365,26 @@ describe('NetworkPrinterService', () => {
     it('should handle native module unavailable error gracefully in connect', async () => {
       const printer = service.addManualPrinter('192.168.1.100');
 
-      // Mock TcpSocket to throw native module error
+      // Mock TcpSocket.default to throw native module error
       const TcpSocket = jest.requireMock('react-native-tcp-socket');
-      const originalCreateConnection = TcpSocket.createConnection;
-      TcpSocket.createConnection = jest.fn(() => {
+      const originalCreateConnection = TcpSocket.default.createConnection;
+      TcpSocket.default.createConnection = jest.fn(() => {
         throw new TypeError("Cannot read property 'connect' of null");
       });
 
       await expect(service.connect(printer)).rejects.toThrow(/development build/i);
 
       // Restore
-      TcpSocket.createConnection = originalCreateConnection;
+      TcpSocket.default.createConnection = originalCreateConnection;
     });
 
     it('should return false when native module unavailable in testConnection', async () => {
       const printer = service.addManualPrinter('192.168.1.100');
 
-      // Mock TcpSocket to throw native module error
+      // Mock TcpSocket.default to throw native module error
       const TcpSocket = jest.requireMock('react-native-tcp-socket');
-      const originalCreateConnection = TcpSocket.createConnection;
-      TcpSocket.createConnection = jest.fn(() => {
+      const originalCreateConnection = TcpSocket.default.createConnection;
+      TcpSocket.default.createConnection = jest.fn(() => {
         throw new TypeError("Cannot read property 'connect' of null");
       });
 
@@ -392,7 +392,7 @@ describe('NetworkPrinterService', () => {
       expect(result).toBe(false);
 
       // Restore
-      TcpSocket.createConnection = originalCreateConnection;
+      TcpSocket.default.createConnection = originalCreateConnection;
     });
   });
 

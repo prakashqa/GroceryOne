@@ -215,7 +215,7 @@ jest.mock('react-native-tcp-socket', () => {
     }
   }
 
-  return {
+  const mockModule = {
     createConnection: jest.fn((options: unknown, callback?: () => void) => {
       const socket = new MockSocket();
       // Simulate successful connection after short delay
@@ -226,6 +226,10 @@ jest.mock('react-native-tcp-socket', () => {
       return socket;
     }),
     Socket: MockSocket,
+  };
+  return {
+    ...mockModule,
+    default: mockModule,
   };
 });
 

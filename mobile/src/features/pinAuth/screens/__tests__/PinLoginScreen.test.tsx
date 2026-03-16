@@ -81,7 +81,9 @@ jest.mock('react-i18next', () => ({
       };
       return translations[key] || defaultValue || key;
     },
+    i18n: { language: 'en', changeLanguage: jest.fn() },
   }),
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
 }));
 
 // Mock Alert

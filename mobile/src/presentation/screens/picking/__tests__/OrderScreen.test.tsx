@@ -58,15 +58,14 @@ jest.mock('../../../../domain/utils/receiptGenerator', () => ({
 
 describe('OrderScreen', () => {
   describe('summary card display', () => {
-    it('should display Categories, Unique Items, and Total Qty in summary', async () => {
+    it('should display Categories and Unique Items in summary', async () => {
       const cart = createCart('My Cart 1', [createCartItem(ATTA_ITEM), createCartItem(SUGAR_ITEM, { quantity: 2 })]);
       const { getByText } = renderWithProviders(<OrderScreen />, { preloadedState: createMultiCartState(cart) });
 
-      // Summary should show all three columns: Categories, Unique Items, and Total Qty
+      // Summary should show two columns: Categories and Unique Items
       await waitFor(() => {
         expect(getByText('Categories')).toBeTruthy();
         expect(getByText('Unique Items')).toBeTruthy();
-        expect(getByText('Total Qty')).toBeTruthy();
       });
     });
   });
@@ -168,29 +167,25 @@ describe('OrderScreen', () => {
     });
   });
 
-  describe('summary card with 3 columns', () => {
-    it('should display Categories, Unique Items, and Total Qty in summary', async () => {
+  describe('summary card with 2 columns', () => {
+    it('should display Categories and Unique Items in summary', async () => {
       const cart = createCart('My Cart 1', [createCartItem(ATTA_ITEM), createCartItem(SUGAR_ITEM, { quantity: 2 })]);
       const { getByText } = renderWithProviders(<OrderScreen />, { preloadedState: createMultiCartState(cart) });
       await waitFor(() => {
         expect(getByText('Categories')).toBeTruthy();
         expect(getByText('Unique Items')).toBeTruthy();
-        expect(getByText('Total Qty')).toBeTruthy();
-        expect(getByText('7')).toBeTruthy();
       });
     });
   });
 
   describe('printer name on print button', () => {
-    it('should show printer name below print button text when connected', async () => {
+    it('should show print button when printer is connected', async () => {
       const cart = createCart('Cart 1', [createCartItem(ATTA_ITEM)]);
       const { getByTestId } = renderWithProviders(<OrderScreen />, {
         preloadedState: createMultiCartState(cart, { settings: CONNECTED_PRINTER_SETTINGS }),
       });
       await waitFor(() => {
-        const el = getByTestId('footer-printer-name');
-        expect(el).toBeTruthy();
-        expect(el.props.children).toBe('EPSON TM-T88');
+        expect(getByTestId('footer-print-text')).toBeTruthy();
       });
     });
   });

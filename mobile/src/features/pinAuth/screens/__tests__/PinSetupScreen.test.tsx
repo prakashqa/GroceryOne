@@ -43,7 +43,9 @@ jest.mock('react-i18next', () => ({
       };
       return translations[key] || key;
     },
+    i18n: { language: 'en', changeLanguage: jest.fn() },
   }),
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
 }));
 
 describe('PinSetupScreen', () => {
