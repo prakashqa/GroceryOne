@@ -1,6 +1,6 @@
 /**
  * @groceryone/shared
- * Shared types, constants, and utilities for GroceryOne
+ * Shared types, constants, and utilities for GroOne
  */
 
 // Types

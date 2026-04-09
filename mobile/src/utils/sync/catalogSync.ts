@@ -571,6 +571,137 @@ export async function syncItemToBackend(
 }
 
 /**
+ * Update a category on the backend
+ */
+export async function updateCategoryOnBackend(
+  category: Category,
+  backendId: string,
+  options?: { tenantId?: string; accessToken?: string }
+): Promise<SyncResult> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (options?.tenantId) headers['X-Tenant-ID'] = options.tenantId;
+    if (options?.accessToken) headers['Authorization'] = `Bearer ${options.accessToken}`;
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/categories/${backendId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        name: category.name,
+        icon: category.icon,
+      }),
+    });
+
+    if (response.ok) {
+      return { success: true, backendId };
+    }
+
+    return { success: false, error: `Backend returned status ${response.status}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Delete a category on the backend
+ */
+export async function deleteCategoryOnBackend(
+  backendId: string,
+  options?: { tenantId?: string; accessToken?: string }
+): Promise<SyncResult> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (options?.tenantId) headers['X-Tenant-ID'] = options.tenantId;
+    if (options?.accessToken) headers['Authorization'] = `Bearer ${options.accessToken}`;
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/categories/${backendId}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (response.ok) {
+      return { success: true };
+    }
+
+    return { success: false, error: `Backend returned status ${response.status}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Update an item on the backend
+ */
+export async function updateItemOnBackend(
+  item: Item,
+  backendId: string,
+  categoryBackendId: string,
+  options?: { tenantId?: string; accessToken?: string }
+): Promise<SyncResult> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (options?.tenantId) headers['X-Tenant-ID'] = options.tenantId;
+    if (options?.accessToken) headers['Authorization'] = `Bearer ${options.accessToken}`;
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/items/${backendId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        name: item.name,
+        categoryId: categoryBackendId,
+        unit: item.unit,
+        defaultQuantity: item.defaultQuantity,
+        compareAtPrice: item.mrp ?? 0,
+        price: item.price,
+      }),
+    });
+
+    if (response.ok) {
+      return { success: true, backendId };
+    }
+
+    return { success: false, error: `Backend returned status ${response.status}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Delete an item on the backend
+ */
+export async function deleteItemOnBackend(
+  backendId: string,
+  options?: { tenantId?: string; accessToken?: string }
+): Promise<SyncResult> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (options?.tenantId) headers['X-Tenant-ID'] = options.tenantId;
+    if (options?.accessToken) headers['Authorization'] = `Bearer ${options.accessToken}`;
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/items/${backendId}`, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (response.ok) {
+      return { success: true };
+    }
+
+    return { success: false, error: `Backend returned status ${response.status}` };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
  * Check if backend is available
  */
 export async function isBackendAvailable(): Promise<boolean> {

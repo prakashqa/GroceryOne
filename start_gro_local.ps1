@@ -1,5 +1,5 @@
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Starting GroceryOne (Local Setup)" -ForegroundColor Cyan
+Write-Host "   Starting GroOne (Local Setup)" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 

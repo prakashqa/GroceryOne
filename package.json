@@ -1,12 +1,13 @@
 {
   "name": "groceryone",
   "version": "1.0.0",
-  "description": "Multi-tenant grocery mobile application",
+  "description": "GroOne - Multi-tenant store management platform",
   "private": true,
   "workspaces": [
     "packages/*",
     "mobile",
-    "backend"
+    "backend",
+    "web"
   ],
   "scripts": {
     "mobile": "npm run --workspace=mobile",

@@ -1,5 +1,5 @@
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Starting GroceryOne Services" -ForegroundColor Cyan
+Write-Host "   Starting GroOne Services" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -54,7 +54,7 @@ Write-Host ""
 Write-Host "[2/3] Starting Metro Bundler..." -ForegroundColor Yellow
 
 $metroJob = Start-Job -ScriptBlock {
-    Set-Location "D:\my app\application-grocery\GroceryOne\mobile"
+    Set-Location "D:\my app\application-grocery\GroOne\mobile"
     npx expo start --clear
 }
 
@@ -84,7 +84,7 @@ if ($devices -match "device$") {
     Write-Host "  Starting app on device..." -ForegroundColor Gray
     Set-Location "$projectRoot\mobile"
     $buildJob = Start-Job -ScriptBlock {
-        Set-Location "D:\my app\application-grocery\GroceryOne\mobile"
+        Set-Location "D:\my app\application-grocery\GroOne\mobile"
         npx expo run:android
     }
 

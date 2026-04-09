@@ -1,11 +1,11 @@
 # ================================================
-# GroceryOne - Stop All Services
+# GroOne - Stop All Services
 # ================================================
-# This script stops all GroceryOne services
+# This script stops all GroOne services
 # ================================================
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Stopping GroceryOne Services" -ForegroundColor Cyan
+Write-Host "   Stopping GroOne Services" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 

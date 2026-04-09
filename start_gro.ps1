@@ -1,7 +1,7 @@
 # ================================================
-# GroceryOne - Start All Services
+# GroOne - Start All Services
 # ================================================
-# This script starts all required services for GroceryOne:
+# This script starts all required services for GroOne:
 # - PostgreSQL Database
 # - Redis Cache
 # - Backend API (NestJS)
@@ -9,7 +9,7 @@
 # ================================================
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Starting GroceryOne Services" -ForegroundColor Cyan
+Write-Host "   Starting GroOne Services" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -77,7 +77,7 @@ Write-Host ""
 # Write-Host "  Note: Make sure PostgreSQL and Redis are running" -ForegroundColor Gray
 #
 # $backendJob = Start-Job -ScriptBlock {
-#     Set-Location "D:\my app\application-grocery\GroceryOne\backend"
+#     Set-Location "D:\my app\application-grocery\GroOne\backend"
 #     npm run start:dev
 # }
 #
@@ -91,7 +91,7 @@ Write-Host ""
 Write-Host "[2/3] Starting Metro Bundler (React Native)..." -ForegroundColor Yellow
 
 $metroJob = Start-Job -ScriptBlock {
-    Set-Location "D:\my app\application-grocery\GroceryOne\mobile"
+    Set-Location "D:\my app\application-grocery\GroOne\mobile"
     npx expo start --clear
 }
 
@@ -126,7 +126,7 @@ if ($devices -match "device$") {
 
     Set-Location "$projectRoot\mobile"
     $buildJob = Start-Job -ScriptBlock {
-        Set-Location "D:\my app\application-grocery\GroceryOne\mobile"
+        Set-Location "D:\my app\application-grocery\GroOne\mobile"
         npx expo run:android
     }
 

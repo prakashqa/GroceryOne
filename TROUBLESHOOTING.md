@@ -1,4 +1,4 @@
-# GroceryOne Troubleshooting Guide
+# GroOne Troubleshooting Guide
 
 ## 🔴 "Failed to connect" Error in Mobile App
 
@@ -237,7 +237,7 @@ npx expo run:android
 
 **Check device logs:**
 ```powershell
-adb logcat | Select-String "GroceryOne|ReactNative|ERROR"
+adb logcat | Select-String "GroOne|ReactNative|ERROR"
 ```
 
 **Common causes:**
@@ -278,7 +278,7 @@ docker-compose logs -f postgres
 docker-compose logs -f redis
 
 # Device logs (filtered)
-adb logcat -s ReactNative:* ReactNativeJS:* GroceryOne:*
+adb logcat -s ReactNative:* ReactNativeJS:* GroOne:*
 
 # Metro bundler logs
 Receive-Job <MetroJobId> -Keep

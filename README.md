@@ -1,4 +1,4 @@
-# GroceryOne - Multi-Tenant Grocery Mobile Application
+# GroOne - Multi-Tenant Grocery Mobile Application
 
 A scalable, multi-tenant grocery management mobile application supporting Android, iOS, and future web compatibility with multi-language support (English and Telugu).
 
@@ -19,7 +19,7 @@ A scalable, multi-tenant grocery management mobile application supporting Androi
 ## Project Structure
 
 ```
-GroceryOne/
+GroOne/
 ├── mobile/                    # React Native App
 │   ├── src/
 │   │   ├── core/             # Config, hooks, utils
@@ -63,7 +63,7 @@ GroceryOne/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd GroceryOne
+   cd GroOne
    ```
 
 2. **Install dependencies**

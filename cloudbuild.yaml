@@ -1,5 +1,5 @@
 # ================================
-# GroceryOne — Cloud Build Pipeline
+# GroOne — Cloud Build Pipeline
 # ================================
 # Triggered on push to main branch.
 # Builds the NestJS backend Docker image and deploys to Cloud Run.

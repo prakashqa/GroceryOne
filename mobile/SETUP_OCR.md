@@ -8,7 +8,7 @@ This guide walks you through setting up the OCR functionality for the Paper Orde
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click **"Select a project"** → **"New Project"**
-3. Enter project name: `GroceryOne-OCR`
+3. Enter project name: `GroOne-OCR`
 4. Click **"Create"**
 5. Wait for the project to be created (you'll see a notification)
 

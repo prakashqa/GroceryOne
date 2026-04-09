@@ -1,7 +1,7 @@
 {
   "name": "groceryone-mobile",
   "version": "1.0.0",
-  "description": "GroceryOne Mobile Application",
+  "description": "GroOne Mobile Application",
   "main": "./index.js",
   "scripts": {
     "start": "expo start",

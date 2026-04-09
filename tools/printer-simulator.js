@@ -2,7 +2,7 @@
  * Network Printer Simulator
  *
  * Simulates a thermal receipt printer by listening on TCP port 9100 (RAW/JetDirect).
- * Receives UTF-8 text from the GroceryOne mobile app's NetworkPrinterService and
+ * Receives UTF-8 text from the GroOne mobile app's NetworkPrinterService and
  * displays the formatted receipt in the terminal.
  *
  * Usage:

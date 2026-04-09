@@ -1,5 +1,5 @@
 # ================================
-# GroceryOne Backend Dockerfile
+# GroOne Backend Dockerfile
 # Multi-stage build for monorepo structure
 # ================================
 

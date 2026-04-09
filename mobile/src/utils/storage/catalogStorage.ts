@@ -223,6 +223,7 @@ export const refreshCatalogFromBackend = async (
 export interface PendingCatalogSync {
   type: 'category' | 'item';
   localId: string;
+  action?: 'create' | 'update';
   retryCount: number;
   lastAttempt: string;
 }
@@ -253,7 +254,7 @@ const savePendingCatalogSyncQueue = async (queue: PendingCatalogSync[], tenantId
  * Increments retryCount if the entry already exists
  */
 export const addToCatalogSyncQueue = async (
-  entry: { type: 'category' | 'item'; localId: string },
+  entry: { type: 'category' | 'item'; localId: string; action?: 'create' | 'update' },
   tenantId: string
 ): Promise<void> => {
   try {
@@ -263,10 +264,12 @@ export const addToCatalogSyncQueue = async (
     if (existingIndex >= 0) {
       queue[existingIndex].retryCount++;
       queue[existingIndex].lastAttempt = new Date().toISOString();
+      if (entry.action) queue[existingIndex].action = entry.action;
     } else {
       queue.push({
         type: entry.type,
         localId: entry.localId,
+        action: entry.action,
         retryCount: 0,
         lastAttempt: new Date().toISOString(),
       });

@@ -1,0 +1,44 @@
+{
+  "title": "Order",
+  "items": "{{count}} item",
+  "items_plural": "{{count}} items",
+  "empty": {
+    "title": "Your Order is Empty",
+    "description": "Looks like you haven't added anything to your order yet",
+    "shopNow": "Start Shopping"
+  },
+  "item": {
+    "remove": "Remove",
+    "moveToWishlist": "Move to Wishlist",
+    "outOfStock": "Out of Stock",
+    "limitedStock": "Only {{count}} left"
+  },
+  "summary": {
+    "title": "Order Summary",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "deliveryFee": "Delivery Fee",
+    "free": "FREE",
+    "tax": "Tax",
+    "total": "Total",
+    "savings": "You're saving ₹{{amount}}"
+  },
+  "coupon": {
+    "title": "Have a coupon?",
+    "placeholder": "Enter coupon code",
+    "apply": "Apply",
+    "applied": "Coupon Applied",
+    "remove": "Remove",
+    "invalid": "Invalid coupon code",
+    "expired": "This coupon has expired",
+    "minOrder": "Minimum order of ₹{{amount}} required",
+    "saved": "You saved ₹{{amount}} with this coupon"
+  },
+  "checkout": "Proceed to Checkout",
+  "continueShopping": "Continue Shopping",
+  "updateCart": "Update Order",
+  "clearCart": "Clear Order",
+  "confirmClear": "Are you sure you want to clear your order?",
+  "stockWarning": "Some items in your order have limited stock",
+  "priceChanged": "Price updated for some items"
+}

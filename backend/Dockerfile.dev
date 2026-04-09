@@ -1,5 +1,5 @@
 # ================================
-# GroceryOne Backend - Development Dockerfile
+# GroOne Backend - Development Dockerfile
 # Supports hot-reload for development
 # Handles monorepo structure with @groceryone/shared
 # ================================

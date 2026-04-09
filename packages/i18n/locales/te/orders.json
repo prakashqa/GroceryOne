@@ -1,0 +1,93 @@
+{
+  "title": "నా ఆర్డర్లు",
+  "empty": {
+    "title": "ఇంకా ఆర్డర్లు లేవు",
+    "description": "మీరు ఇంకా ఏ ఆర్డర్లు చేయలేదు",
+    "shopNow": "షాపింగ్ ప్రారంభించండి"
+  },
+  "status": {
+    "pending": "పెండింగ్",
+    "confirmed": "నిర్ధారించబడింది",
+    "processing": "ప్రాసెసింగ్",
+    "out_for_delivery": "డెలివరీకి బయలుదేరింది",
+    "delivered": "డెలివరీ అయింది",
+    "cancelled": "రద్దు చేయబడింది"
+  },
+  "payment": {
+    "pending": "చెల్లింపు పెండింగ్",
+    "paid": "చెల్లించబడింది",
+    "failed": "చెల్లింపు విఫలమైంది",
+    "refunded": "రీఫండ్ చేయబడింది",
+    "cod": "క్యాష్ ఆన్ డెలివరీ"
+  },
+  "detail": {
+    "title": "ఆర్డర్ వివరాలు",
+    "orderNumber": "ఆర్డర్ #{{number}}",
+    "placedOn": "{{date}} న ఇచ్చబడింది",
+    "items": "ఆర్డర్ వస్తువులు",
+    "deliveryAddress": "డెలివరీ చిరునామా",
+    "paymentMethod": "చెల్లింపు విధానం",
+    "orderSummary": "ఆర్డర్ సారాంశం",
+    "trackOrder": "ఆర్డర్ ట్రాక్ చేయండి",
+    "reorder": "మళ్ళీ ఆర్డర్ చేయండి",
+    "cancelOrder": "ఆర్డర్ రద్దు చేయండి",
+    "needHelp": "సహాయం కావాలా?",
+    "contactSupport": "సపోర్ట్‌ను సంప్రదించండి"
+  },
+  "tracking": {
+    "title": "ఆర్డర్ ట్రాక్ చేయండి",
+    "orderPlaced": "ఆర్డర్ ఇచ్చబడింది",
+    "confirmed": "ఆర్డర్ నిర్ధారించబడింది",
+    "processing": "మీ ఆర్డర్ సిద్ధం చేయబడుతోంది",
+    "dispatched": "డెలివరీకి బయలుదేరింది",
+    "delivered": "డెలివరీ అయింది",
+    "estimatedDelivery": "అంచనా డెలివరీ",
+    "deliveryPerson": "డెలివరీ పార్ట్‌నర్",
+    "call": "కాల్ చేయండి",
+    "liveTracking": "లైవ్ ట్రాకింగ్"
+  },
+  "cancel": {
+    "title": "ఆర్డర్ రద్దు చేయండి",
+    "confirm": "మీరు ఈ ఆర్డర్‌ను రద్దు చేయాలనుకుంటున్నారా?",
+    "reason": "రద్దు కారణం",
+    "reasons": {
+      "changed_mind": "మనసు మార్చుకున్నాను",
+      "found_cheaper": "మరొక చోట చౌకగా దొరికింది",
+      "wrong_item": "తప్పు వస్తువు ఆర్డర్ చేసాను",
+      "delivery_delay": "డెలివరీ చాలా ఆలస్యమవుతోంది",
+      "other": "ఇతర కారణం"
+    },
+    "button": "ఆర్డర్ రద్దు చేయండి",
+    "success": "ఆర్డర్ విజయవంతంగా రద్దు చేయబడింది",
+    "refundNote": "రీఫండ్ 5-7 వ్యాపార రోజులలో ప్రాసెస్ చేయబడుతుంది"
+  },
+  "checkout": {
+    "title": "చెక్‌అవుట్",
+    "deliveryAddress": "డెలివరీ చిరునామా",
+    "changeAddress": "మార్చు",
+    "addAddress": "కొత్త చిరునామా జోడించండి",
+    "deliverySlot": "డెలివరీ స్లాట్",
+    "selectSlot": "డెలివరీ సమయం ఎంచుకోండి",
+    "paymentMethod": "చెల్లింపు విధానం",
+    "instructions": "డెలివరీ సూచనలు",
+    "instructionsPlaceholder": "డెలివరీ కోసం ఏవైనా ప్రత్యేక సూచనలు?",
+    "placeOrder": "ఆర్డర్ ఇవ్వండి",
+    "orderTotal": "ఆర్డర్ మొత్తం"
+  },
+  "success": {
+    "title": "ఆర్డర్ ఇవ్వబడింది!",
+    "message": "మీ ఆర్డర్ విజయవంతంగా ఇవ్వబడింది",
+    "orderNumber": "ఆర్డర్ నంబర్",
+    "estimatedDelivery": "అంచనా డెలివరీ",
+    "viewOrder": "ఆర్డర్ చూడండి",
+    "continueShopping": "షాపింగ్ కొనసాగించండి"
+  },
+  "deliverySlots": {
+    "today": "ఈరోజు",
+    "tomorrow": "రేపు",
+    "morning": "ఉదయం (8 AM - 12 PM)",
+    "afternoon": "మధ్యాహ్నం (12 PM - 4 PM)",
+    "evening": "సాయంత్రం (4 PM - 8 PM)",
+    "notAvailable": "అందుబాటులో లేదు"
+  }
+}

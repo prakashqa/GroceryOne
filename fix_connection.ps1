@@ -1,12 +1,12 @@
 # ================================================
-# GroceryOne - Fix "Failed to connect" Error
+# GroOne - Fix "Failed to connect" Error
 # ================================================
 # This script diagnoses and fixes the connection
 # issue between mobile app and backend API
 # ================================================
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   GroceryOne Connection Troubleshooter" -ForegroundColor Cyan
+Write-Host "   GroOne Connection Troubleshooter" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 

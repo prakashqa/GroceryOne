@@ -1,7 +1,7 @@
 /**
  * Catalog Persist Middleware
  * Automatically persists catalog changes to AsyncStorage
- * and syncs new categories/items to the backend
+ * and syncs new/updated/deleted categories/items to the backend
  * All persistence is tenant-scoped for data isolation
  */
 
@@ -17,6 +17,10 @@ import {
   syncCategoryToBackend,
   syncItemToBackend,
   resolveCategoryBackendId,
+  updateCategoryOnBackend,
+  deleteCategoryOnBackend,
+  updateItemOnBackend,
+  deleteItemOnBackend,
 } from '../../utils/sync/catalogSync';
 
 // Actions that should trigger persistence
@@ -36,6 +40,10 @@ const PERSIST_ACTIONS = [
 const SYNC_TO_BACKEND_ACTIONS = [
   'catalog/addCategory',
   'catalog/addItem',
+  'catalog/updateCategory',
+  'catalog/updateItem',
+  'catalog/deleteCategory',
+  'catalog/deleteItem',
 ];
 
 // Debounce timer reference
@@ -44,6 +52,9 @@ const DEBOUNCE_MS = 500;
 
 export const catalogPersistMiddleware: Middleware<object, RootState> =
   (storeAPI) => (next) => (action) => {
+    // Capture state before action for delete operations (need to find entity before it's removed)
+    const stateBefore = storeAPI.getState();
+
     const result = next(action);
 
     // Check if this action should trigger persistence or sync
@@ -53,6 +64,7 @@ export const catalogPersistMiddleware: Middleware<object, RootState> =
       'type' in action
     ) {
       const actionType = (action as { type: string }).type;
+      const payload = (action as { payload?: any }).payload;
 
       // Handle persistence to AsyncStorage
       if (PERSIST_ACTIONS.includes(actionType)) {
@@ -75,7 +87,7 @@ export const catalogPersistMiddleware: Middleware<object, RootState> =
         }, DEBOUNCE_MS);
       }
 
-      // Handle backend sync for catalog creation
+      // Handle backend sync for catalog CRUD
       if (SYNC_TO_BACKEND_ACTIONS.includes(actionType)) {
         setTimeout(async () => {
           const state = storeAPI.getState();
@@ -89,6 +101,7 @@ export const catalogPersistMiddleware: Middleware<object, RootState> =
           const accessToken = state.auth?.accessToken;
           const options = { tenantId: tenantSlug, accessToken: accessToken ?? undefined };
 
+          // --- CREATE CATEGORY ---
           if (actionType === 'catalog/addCategory') {
             const categories = state.catalog.categories;
             const newCategory = categories[categories.length - 1];
@@ -106,6 +119,7 @@ export const catalogPersistMiddleware: Middleware<object, RootState> =
             }
           }
 
+          // --- CREATE ITEM ---
           if (actionType === 'catalog/addItem') {
             const items = state.catalog.items;
             const newItem = items[items.length - 1];
@@ -129,6 +143,95 @@ export const catalogPersistMiddleware: Middleware<object, RootState> =
             } else {
               console.warn(`[CatalogSync] Item sync failed: ${syncResult.error}`);
               await addToCatalogSyncQueue({ type: 'item', localId: newItem.id }, tenantSlug);
+            }
+          }
+
+          // --- UPDATE CATEGORY ---
+          if (actionType === 'catalog/updateCategory' && payload?.id) {
+            const category = state.catalog.categories.find(c => c.id === payload.id);
+            if (!category?.backendId) {
+              console.warn(`[CatalogSync] No backendId for category ${payload.id}, skipping update sync`);
+              return;
+            }
+
+            console.log(`[CatalogSync] Updating category: ${category.name}`);
+            const syncResult = await updateCategoryOnBackend(category, category.backendId, options);
+
+            if (syncResult.success) {
+              console.log(`[CatalogSync] Category updated: ${category.name}`);
+            } else {
+              console.warn(`[CatalogSync] Category update failed: ${syncResult.error}`);
+              await addToCatalogSyncQueue({ type: 'category', localId: category.id, action: 'update' }, tenantSlug);
+            }
+          }
+
+          // --- UPDATE ITEM ---
+          if (actionType === 'catalog/updateItem' && payload?.id) {
+            const item = state.catalog.items.find(i => i.id === payload.id);
+            if (!item?.backendId) {
+              console.warn(`[CatalogSync] No backendId for item ${payload.id}, skipping update sync`);
+              return;
+            }
+
+            const categoryBackendId = await resolveCategoryBackendId(item.categoryId, options);
+            if (!categoryBackendId) {
+              console.warn(`[CatalogSync] Category UUID not found for ${item.categoryId}, queuing update`);
+              await addToCatalogSyncQueue({ type: 'item', localId: item.id, action: 'update' }, tenantSlug);
+              return;
+            }
+
+            console.log(`[CatalogSync] Updating item: ${item.name}`);
+            const syncResult = await updateItemOnBackend(item, item.backendId, categoryBackendId, options);
+
+            if (syncResult.success) {
+              console.log(`[CatalogSync] Item updated: ${item.name}`);
+            } else {
+              console.warn(`[CatalogSync] Item update failed: ${syncResult.error}`);
+              await addToCatalogSyncQueue({ type: 'item', localId: item.id, action: 'update' }, tenantSlug);
+            }
+          }
+
+          // --- DELETE CATEGORY ---
+          if (actionType === 'catalog/deleteCategory') {
+            const deletedId = payload?.id;
+            if (!deletedId) return;
+
+            // Find the category from state BEFORE the delete action removed it
+            const category = stateBefore.catalog.categories.find(c => c.id === deletedId);
+            if (!category?.backendId) {
+              console.warn(`[CatalogSync] No backendId for deleted category ${deletedId}, skipping delete sync`);
+              return;
+            }
+
+            console.log(`[CatalogSync] Deleting category: ${category.name}`);
+            const syncResult = await deleteCategoryOnBackend(category.backendId, options);
+
+            if (syncResult.success) {
+              console.log(`[CatalogSync] Category deleted: ${category.name}`);
+            } else {
+              console.warn(`[CatalogSync] Category delete failed: ${syncResult.error}`);
+            }
+          }
+
+          // --- DELETE ITEM ---
+          if (actionType === 'catalog/deleteItem') {
+            const deletedId = typeof payload === 'string' ? payload : payload?.id;
+            if (!deletedId) return;
+
+            // Find the item from state BEFORE the delete action removed it
+            const item = stateBefore.catalog.items.find(i => i.id === deletedId);
+            if (!item?.backendId) {
+              console.warn(`[CatalogSync] No backendId for deleted item ${deletedId}, skipping delete sync`);
+              return;
+            }
+
+            console.log(`[CatalogSync] Deleting item: ${item.name}`);
+            const syncResult = await deleteItemOnBackend(item.backendId, options);
+
+            if (syncResult.success) {
+              console.log(`[CatalogSync] Item deleted: ${item.name}`);
+            } else {
+              console.warn(`[CatalogSync] Item delete failed: ${syncResult.error}`);
             }
           }
         }, DEBOUNCE_MS);
@@ -168,7 +271,14 @@ export const processPendingCatalogSyncQueue = async (
         await removeFromCatalogSyncQueue(entry.localId, tenantSlug);
         continue;
       }
-      const result = await syncCategoryToBackend(category, options);
+
+      let result;
+      if (entry.action === 'update' && category.backendId) {
+        result = await updateCategoryOnBackend(category, category.backendId, options);
+      } else {
+        result = await syncCategoryToBackend(category, options);
+      }
+
       if (result.success) {
         await removeFromCatalogSyncQueue(entry.localId, tenantSlug);
         console.log(`[CatalogSync] Retried category synced: ${category.name}`);
@@ -184,7 +294,14 @@ export const processPendingCatalogSyncQueue = async (
       }
       const categoryBackendId = await resolveCategoryBackendId(item.categoryId, options);
       if (!categoryBackendId) continue; // Category not synced yet, skip for now
-      const result = await syncItemToBackend(item, categoryBackendId, options);
+
+      let result;
+      if (entry.action === 'update' && item.backendId) {
+        result = await updateItemOnBackend(item, item.backendId, categoryBackendId, options);
+      } else {
+        result = await syncItemToBackend(item, categoryBackendId, options);
+      }
+
       if (result.success) {
         await removeFromCatalogSyncQueue(entry.localId, tenantSlug);
         console.log(`[CatalogSync] Retried item synced: ${item.name}`);

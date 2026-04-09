@@ -23,6 +23,9 @@ import { TokenBlacklistService } from './token-blacklist.service';
           password: redisPassword || undefined,
           tls: redisTls ? {} : undefined,
           lazyConnect: true,
+          maxRetriesPerRequest: 1,
+          connectTimeout: 3000,
+          enableOfflineQueue: false,
         });
       },
       inject: [ConfigService],

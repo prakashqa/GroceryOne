@@ -1,4 +1,4 @@
-# GroceryOne — Cloud Build Ignore
+# GroOne — Cloud Build Ignore
 # Only backend/ and packages/shared/ are needed for Docker build
 
 .git

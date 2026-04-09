@@ -1,7 +1,7 @@
 ﻿# ================================================
-# GroceryOne - Start All Services
+# GroOne - Start All Services
 # ================================================
-# This script starts all required services for GroceryOne:
+# This script starts all required services for GroOne:
 # - PostgreSQL Database
 # - Redis Cache
 # - Backend API (NestJS)
@@ -9,7 +9,7 @@
 # ================================================
 
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Starting GroceryOne Services" -ForegroundColor Cyan
+Write-Host "   Starting GroOne Services" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 

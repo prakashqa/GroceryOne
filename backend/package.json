@@ -1,7 +1,7 @@
 {
   "name": "groceryone-backend",
   "version": "1.0.0",
-  "description": "GroceryOne Backend API",
+  "description": "GroOne Backend API",
   "main": "dist/main.js",
   "scripts": {
     "prebuild": "rimraf dist",

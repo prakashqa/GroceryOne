@@ -1,5 +1,5 @@
 # ================================
-# Docker Ignore for GroceryOne Monorepo
+# Docker Ignore for GroOne Monorepo
 # ================================
 
 # Dependencies (will be installed fresh in container)

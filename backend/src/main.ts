@@ -43,7 +43,7 @@ async function bootstrap() {
   if (configService.get<string>('NODE_ENV') !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('GroOne API')
-      .setDescription('Multi-tenant grocery application API')
+      .setDescription('GroOne - Multi-tenant store management API')
       .setVersion('1.0')
       .addBearerAuth()
       .addApiKey({ type: 'apiKey', name: 'X-Tenant-ID', in: 'header' }, 'tenant-id')

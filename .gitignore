@@ -86,3 +86,6 @@ nul
 # The API keys are restricted by Firebase and safe to commit
 # **/google-services.json
 **/GoogleService-Info.plist
+
+# Next.js build output
+web/.next/

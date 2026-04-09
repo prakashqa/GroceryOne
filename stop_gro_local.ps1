@@ -1,5 +1,5 @@
 Write-Host "================================================" -ForegroundColor Cyan
-Write-Host "   Stopping GroceryOne (Local Mode)" -ForegroundColor Cyan
+Write-Host "   Stopping GroOne (Local Mode)" -ForegroundColor Cyan
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 

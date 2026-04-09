@@ -1,0 +1,73 @@
+{
+  "title": "ఉత్పత్తులు",
+  "featured": "ప్రత్యేక ఉత్పత్తులు",
+  "categories": "కేటగిరీస్",
+  "newArrivals": "కొత్త రాకలు",
+  "bestSellers": "బెస్ట్ సెల్లర్లు",
+  "filters": {
+    "title": "ఫిల్టర్లు",
+    "sortBy": "క్రమబద్ధీకరించు",
+    "priceRange": "ధర పరిధి",
+    "minPrice": "కనీస ధర",
+    "maxPrice": "గరిష్ట ధర",
+    "brand": "బ్రాండ్",
+    "rating": "రేటింగ్",
+    "availability": "లభ్యత",
+    "inStockOnly": "స్టాక్‌లో ఉన్నవి మాత్రమే",
+    "clear": "అన్నీ తొలగించు",
+    "apply": "ఫిల్టర్లు వర్తింపజేయి",
+    "results": "{{count}} ఫలితం",
+    "results_plural": "{{count}} ఫలితాలు"
+  },
+  "sort": {
+    "relevance": "సంబంధితం",
+    "priceLowHigh": "ధర: తక్కువ నుండి ఎక్కువ",
+    "priceHighLow": "ధర: ఎక్కువ నుండి తక్కువ",
+    "newest": "కొత్తవి మొదట",
+    "rating": "రేటింగ్",
+    "popularity": "ప్రాచుర్యం"
+  },
+  "details": {
+    "description": "వివరణ",
+    "specifications": "స్పెసిఫికేషన్లు",
+    "reviews": "సమీక్షలు",
+    "similarProducts": "సారూప్య ఉత్పత్తులు",
+    "youMayAlsoLike": "మీకు ఇవి కూడా నచ్చవచ్చు",
+    "inStock": "స్టాక్‌లో ఉంది",
+    "outOfStock": "స్టాక్ అయిపోయింది",
+    "lowStock": "కేవలం {{count}} మిగిలి ఉన్నాయి",
+    "sku": "SKU",
+    "brand": "బ్రాండ్",
+    "unit": "యూనిట్",
+    "origin": "మూల దేశం"
+  },
+  "addToCart": "కార్ట్‌కు జోడించు",
+  "addedToCart": "కార్ట్‌కు జోడించబడింది",
+  "goToCart": "కార్ట్‌కు వెళ్ళండి",
+  "buyNow": "ఇప్పుడే కొనండి",
+  "quantity": "పరిమాణం",
+  "selectVariant": "{{name}} ఎంచుకోండి",
+  "reviews": {
+    "title": "కస్టమర్ సమీక్షలు",
+    "writeReview": "సమీక్ష రాయండి",
+    "rating": "5లో {{rating}}",
+    "basedOn": "{{count}} సమీక్ష ఆధారంగా",
+    "basedOn_plural": "{{count}} సమీక్షల ఆధారంగా",
+    "verifiedPurchase": "వెరిఫైడ్ కొనుగోలు",
+    "helpful": "సహాయకరం ({{count}})",
+    "noReviews": "ఇంకా సమీక్షలు లేవు",
+    "beFirst": "ఈ ఉత్పత్తిని మొదట సమీక్షించండి"
+  },
+  "wishlist": {
+    "add": "విష్‌లిస్ట్‌కు జోడించు",
+    "remove": "విష్‌లిస్ట్ నుండి తొలగించు",
+    "added": "విష్‌లిస్ట్‌కు జోడించబడింది",
+    "removed": "విష్‌లిస్ట్ నుండి తొలగించబడింది"
+  },
+  "share": "షేర్ చేయండి",
+  "empty": {
+    "title": "ఉత్పత్తులు కనుగొనబడలేదు",
+    "description": "మీ ఫిల్టర్లు లేదా శోధన పదాలను సర్దుబాటు చేయడానికి ప్రయత్నించండి",
+    "browseCategories": "కేటగిరీస్ బ్రౌజ్ చేయండి"
+  }
+}

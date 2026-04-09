@@ -1,8 +1,8 @@
-# GroceryOne Quick Start Guide
+# GroOne Quick Start Guide
 
 ## 🚀 Starting All Services
 
-To start all GroceryOne services (Database, Redis, Backend API, and Mobile App), simply run:
+To start all GroOne services (Database, Redis, Backend API, and Mobile App), simply run:
 
 ```powershell
 .\start_gro.ps1

@@ -1,7 +1,7 @@
 {
   "name": "@groceryone/shared",
   "version": "1.0.0",
-  "description": "Shared types, constants, and utilities for GroceryOne",
+  "description": "Shared types, constants, and utilities for GroOne",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

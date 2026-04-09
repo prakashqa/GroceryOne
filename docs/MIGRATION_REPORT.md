@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-Successfully implemented persistent database storage for the GroceryOne backend. All hardcoded data and Local Storage data structures have been migrated to a PostgreSQL database schema with corresponding backend APIs and mobile integration.
+Successfully implemented persistent database storage for the GroOne backend. All hardcoded data and Local Storage data structures have been migrated to a PostgreSQL database schema with corresponding backend APIs and mobile integration.
 
 ---
 

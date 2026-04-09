@@ -1,0 +1,15 @@
+{
+  "name": "@groceryone/i18n",
+  "version": "1.0.0",
+  "description": "Shared internationalization resources for GroOne",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "locales",
+    "index.js",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "echo 'No tests yet'"
+  }
+}
