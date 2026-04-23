@@ -272,9 +272,24 @@ export const PinAuthApi = {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // Differentiate client vs server failures so the UI doesn't tell a
+        // user "No account found" when the backend is actually unreachable
+        // or 5xx'ing. The previous catch-all wording led users to retype
+        // valid emails and assume their account was gone.
+        const serverMessage: string | undefined = errorData?.message;
+        let fallback: string;
+        if (response.status >= 500) {
+          fallback = 'Server unavailable. Please try again in a moment.';
+        } else if (response.status === 401 || response.status === 404) {
+          fallback = 'No account found for this email';
+        } else if (response.status === 400) {
+          fallback = 'Invalid email format.';
+        } else {
+          fallback = `Unexpected error (${response.status}). Please try again.`;
+        }
         return {
           success: false,
-          error: errorData.message || 'No account found for this email',
+          error: serverMessage || fallback,
         };
       }
 
