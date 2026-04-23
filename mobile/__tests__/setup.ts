@@ -4,6 +4,22 @@
 
 import '@testing-library/react-native/extend-expect';
 
+// Mock expo-camera — the real module imports expo-modules-core which reaches
+// into native EventEmitter bindings that don't exist under Jest. Tests only
+// need CameraView to render as a stub View and a no-op permissions hook.
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    CameraView: (props: any) => React.createElement(View, props, props.children),
+    useCameraPermissions: () => [
+      { granted: true, status: 'granted', canAskAgain: true, expires: 'never' },
+      jest.fn().mockResolvedValue({ granted: true, status: 'granted' }),
+    ],
+    Camera: { requestCameraPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }) },
+  };
+});
+
 // Mock react-native-reanimated
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
