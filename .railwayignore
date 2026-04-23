@@ -1,0 +1,24 @@
+# Railway build context ignore — mirrors .gcloudignore so the Docker build
+# context on Railway is small and matches what we already ship to Cloud Run.
+# The Dockerfile only needs `backend/` + `packages/shared/`; everything else
+# is waste (or outright unwanted).
+.git
+**/node_modules
+**/node_modules_old
+**/dist
+mobile/
+admin/
+web/
+.expo/
+**/coverage
+*.log
+**/*.log
+.env*
+.claude/
+GroceryOne/
+.idea/
+.vscode/
+*.swp
+*.swo
+# One-off data migration artifacts — also excluded by .gitignore
+sync_to_prod*.sql

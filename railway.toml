@@ -1,0 +1,37 @@
+# Railway deploy config for the GroOne backend service.
+#
+# Build:
+#   - Context = repo root (so `COPY packages/shared` and `COPY backend/` in the
+#     Dockerfile resolve correctly; this is a Turborepo-style monorepo).
+#   - Dockerfile path is repo-relative.
+#
+# Runtime:
+#   - main.ts reads PORT from env and binds 0.0.0.0; Railway injects $PORT.
+#   - Health check is GET /api/v1/health (see health.controller.ts).
+#   - If the healthcheck fails twice in a row, Railway will roll back.
+#
+# Required environment variables (set in Railway → Variables, not in this file):
+#   DB_HOST           ep-billowing-bush-a11deizd-pooler.ap-southeast-1.aws.neon.tech
+#   DB_PORT           5432
+#   DB_USERNAME       neondb_owner
+#   DB_PASSWORD       <from Neon connection string>
+#   DB_NAME           neondb
+#   DB_SSL            true
+#   JWT_SECRET        <rotate before go-live>
+#   JWT_EXPIRES_IN    1h
+#   JWT_REFRESH_EXPIRES_IN  7d
+#   CORS_ORIGIN       *
+#   NODE_ENV          production
+#   REDIS_HOST        <optional — attach Railway Redis addon or leave unset>
+#   REDIS_PORT        6379
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+startCommand = "node dist/main.js"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
