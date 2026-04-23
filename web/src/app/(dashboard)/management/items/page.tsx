@@ -25,7 +25,7 @@ export default function ItemManagementPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', categoryId: '', unit: 'pcs' as any, price: '', mrp: '', defaultQuantity: '1' });
+  const [form, setForm] = useState({ name: '', barcode: '', categoryId: '', unit: 'pcs' as any, price: '', mrp: '', defaultQuantity: '1' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,6 +62,7 @@ export default function ItemManagementPage() {
           id: item.backendId,
           data: {
             name: form.name.trim(),
+            barcode: form.barcode.trim() || undefined,
             categoryId: categoryBackendId,
             unit: form.unit,
             defaultQuantity: parseFloat(form.defaultQuantity) || 1,
@@ -74,6 +75,7 @@ export default function ItemManagementPage() {
         await createItem({
           slug,
           name: form.name.trim(),
+          barcode: form.barcode.trim() || undefined,
           categoryId: categoryBackendId,
           unit: form.unit,
           defaultQuantity: parseFloat(form.defaultQuantity) || 1,
@@ -92,7 +94,7 @@ export default function ItemManagementPage() {
 
   const handleEdit = (item: typeof allItems[0]) => {
     setEditId(item.id);
-    setForm({ name: item.name, categoryId: item.categoryId, unit: item.unit, price: item.price?.toString() || '', mrp: item.mrp?.toString() || '', defaultQuantity: item.defaultQuantity.toString() });
+    setForm({ name: item.name, barcode: item.barcode || '', categoryId: item.categoryId, unit: item.unit, price: item.price?.toString() || '', mrp: item.mrp?.toString() || '', defaultQuantity: item.defaultQuantity.toString() });
     setError(null);
     setShowForm(true);
   };
@@ -110,7 +112,7 @@ export default function ItemManagementPage() {
     }
   };
 
-  const resetForm = () => { setShowForm(false); setEditId(null); setForm({ name: '', categoryId: categories[0]?.id || '', unit: 'pcs', price: '', mrp: '', defaultQuantity: '1' }); setError(null); };
+  const resetForm = () => { setShowForm(false); setEditId(null); setForm({ name: '', barcode: '', categoryId: categories[0]?.id || '', unit: 'pcs', price: '', mrp: '', defaultQuantity: '1' }); setError(null); };
 
   return (
     <div>
@@ -122,15 +124,15 @@ export default function ItemManagementPage() {
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-2 overflow-x-auto">
-          <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100'}`}>{t('manageItems.all')}</button>
+          <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{t('manageItems.all')}</button>
           {categories.map((c) => (
             <button key={c.id} onClick={() => setSelectedCategory(c.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === c.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100'}`}>{c.icon} {c.name}</button>
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === c.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{c.icon} {c.name}</button>
           ))}
         </div>
         <div className="relative w-full sm:w-auto sm:ml-auto">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('search')} className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('search')} className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
       </div>
 
@@ -147,7 +149,7 @@ export default function ItemManagementPage() {
                   {item.price !== undefined && <p className="text-sm font-semibold text-primary">₹{item.price}</p>}
                   {item.mrp !== undefined && <p className="text-xs text-gray-400 line-through">₹{item.mrp}</p>}
                 </div>
-                <button onClick={() => handleEdit(item)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><Edit2 size={14} /></button>
+                <button onClick={() => handleEdit(item)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><Edit2 size={14} /></button>
                 <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
               </div>
             ))}
@@ -163,6 +165,8 @@ export default function ItemManagementPage() {
             <div className="space-y-3">
               <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('manageItems.enterItemName')}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" autoFocus />
+              <input value={form.barcode} onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))} placeholder="Barcode (optional)"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
               <select value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
                 <option value="">{t('manageItems.selectCategory')}</option>

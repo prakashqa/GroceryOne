@@ -190,8 +190,8 @@ export function RootNavigator() {
           supportedLanguages: ['en', 'te'],
           currency: 'INR',
           timezone: 'Asia/Kolkata',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
       }
 

@@ -5,7 +5,6 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { Item, ManagedCart, MultiCartState, CartItemState, CartStatus } from '../types/picking';
 import type { PaymentInfo, MarkPaidPayload, MarkCartPaidPayload } from '../types/payment';
-import { getHardcodedItemPrice } from '../utils/priceUtils';
 import type { ItemUnit } from '../utils/unitConversion';
 import { normalizeToBaseUnit } from '../utils/unitConversion';
 import { logout } from './authSlice';
@@ -142,14 +141,9 @@ const multiCartSlice = createSlice({
           const nameMatch = catalogItems.find((item) => item.name.toLowerCase() === cartItem.item.name.toLowerCase() && item.price !== undefined);
           if (nameMatch) catalogItem = nameMatch;
         }
-        if (!catalogItem || catalogItem.price === undefined) {
-          const hardcodedPrice = getHardcodedItemPrice(cartItem.item.id, cartItem.item.name);
-          if (hardcodedPrice !== undefined) {
-            cartItem.priceSnapshot = hardcodedPrice;
-            cartItem.item.price = hardcodedPrice;
-            return;
-          }
-        }
+        // No hardcoded fallback — prices must come from the tenant-scoped
+        // catalog passed in. If both id and name misses, leave priceSnapshot
+        // untouched so the UI can surface "price unavailable".
         if (catalogItem && catalogItem.price !== undefined) {
           cartItem.priceSnapshot = catalogItem.price;
           cartItem.item.price = catalogItem.price;
@@ -204,7 +198,13 @@ const multiCartSlice = createSlice({
     ) => {
       const { carts: backendCarts, replaceAll = false } = action.payload;
       const convertedCarts: ManagedCart[] = backendCarts.map((bc) => ({
-        id: bc.id, name: bc.name, status: bc.status, createdAt: bc.createdAt, updatedAt: bc.updatedAt,
+        id: bc.id, name: bc.name,
+        // Status normalization: paidAt is load-bearing proof of payment. If the
+        // backend says draft but has a paidAt timestamp, the payment-sync PUT
+        // was never persisted (common failure when backendId was missing at
+        // mark-paid time). Trust paidAt.
+        status: (bc.paidAt && bc.status !== 'paid' && bc.status !== 'completed') ? 'paid' : bc.status,
+        createdAt: bc.createdAt, updatedAt: bc.updatedAt,
         paidAt: bc.paidAt, paidAmount: bc.paidAmount,
         items: bc.items.filter((i) => i.item).map((i) => ({
           item: { id: i.item!.id, categoryId: i.item!.category?.slug || i.item!.categoryId, name: i.item!.name, nameTe: i.item!.nameTe, unit: i.item!.unit, defaultQuantity: i.item!.defaultQuantity, price: i.item!.price },
@@ -217,8 +217,11 @@ const multiCartSlice = createSlice({
           const lc = state.carts.find((c) => c.id === bc.id || c.backendId === bc.id);
           if (lc) {
             const preservedCreatedAt = lc.createdAt && bc.createdAt ? (new Date(lc.createdAt) < new Date(bc.createdAt) ? lc.createdAt : bc.createdAt) : bc.createdAt;
-            if (lc.status === 'paid' || lc.status === 'completed') {
-              return { ...bc, createdAt: preservedCreatedAt, status: lc.status, paidAt: lc.paidAt ?? bc.paidAt, paidAmount: lc.paidAmount ?? bc.paidAmount, paidItemCount: lc.paidItemCount ?? bc.paidItemCount, paymentInfo: lc.paymentInfo ?? bc.paymentInfo, items: lc.items.length > bc.items.length ? lc.items : bc.items };
+            if (lc.status === 'paid' || lc.status === 'completed' || lc.paidAt) {
+              // Normalize: if we entered this branch via lc.paidAt (not lc.status), the
+              // local status may be stale ('draft'). paidAt is authoritative → force 'paid'.
+              const resolvedStatus: CartStatus = (lc.status === 'paid' || lc.status === 'completed') ? lc.status : 'paid';
+              return { ...bc, createdAt: preservedCreatedAt, status: resolvedStatus, paidAt: lc.paidAt ?? bc.paidAt, paidAmount: lc.paidAmount ?? bc.paidAmount, paidItemCount: lc.paidItemCount ?? bc.paidItemCount, paymentInfo: lc.paymentInfo ?? bc.paymentInfo, items: lc.items.length > bc.items.length ? lc.items : bc.items };
             }
             return { ...bc, createdAt: preservedCreatedAt };
           }
@@ -237,16 +240,18 @@ const multiCartSlice = createSlice({
           const bc = convertedCarts.find((c) => c.id === cart.id);
           if (bc) {
             const preservedCreatedAt = cart.createdAt && bc.createdAt ? (new Date(cart.createdAt) < new Date(bc.createdAt) ? cart.createdAt : bc.createdAt) : bc.createdAt;
-            if (cart.status === 'paid' || cart.status === 'completed') {
-              return { ...bc, createdAt: preservedCreatedAt, status: cart.status, paidAt: cart.paidAt ?? bc.paidAt, paidAmount: cart.paidAmount ?? bc.paidAmount, paidItemCount: cart.paidItemCount ?? bc.paidItemCount, paymentInfo: cart.paymentInfo ?? bc.paymentInfo, items: cart.items.length > bc.items.length ? cart.items : bc.items };
+            if (cart.status === 'paid' || cart.status === 'completed' || cart.paidAt) {
+              const resolvedStatus: CartStatus = (cart.status === 'paid' || cart.status === 'completed') ? cart.status : 'paid';
+              return { ...bc, createdAt: preservedCreatedAt, status: resolvedStatus, paidAt: cart.paidAt ?? bc.paidAt, paidAmount: cart.paidAmount ?? bc.paidAmount, paidItemCount: cart.paidItemCount ?? bc.paidItemCount, paymentInfo: cart.paymentInfo ?? bc.paymentInfo, items: cart.items.length > bc.items.length ? cart.items : bc.items };
             }
             return { ...bc, createdAt: preservedCreatedAt };
           }
           const matchByBackendId = convertedCarts.find((c) => c.id === cart.backendId);
           if (matchByBackendId) {
             const preservedCreatedAt = cart.createdAt && matchByBackendId.createdAt ? (new Date(cart.createdAt) < new Date(matchByBackendId.createdAt) ? cart.createdAt : matchByBackendId.createdAt) : matchByBackendId.createdAt;
-            if (cart.status === 'paid' || cart.status === 'completed') {
-              return { ...matchByBackendId, id: cart.id, backendId: cart.backendId, createdAt: preservedCreatedAt, status: cart.status, paidAt: cart.paidAt ?? matchByBackendId.paidAt, paidAmount: cart.paidAmount ?? matchByBackendId.paidAmount, paidItemCount: cart.paidItemCount ?? matchByBackendId.paidItemCount, paymentInfo: cart.paymentInfo ?? matchByBackendId.paymentInfo, items: cart.items.length > matchByBackendId.items.length ? cart.items : matchByBackendId.items };
+            if (cart.status === 'paid' || cart.status === 'completed' || cart.paidAt) {
+              const resolvedStatus: CartStatus = (cart.status === 'paid' || cart.status === 'completed') ? cart.status : 'paid';
+              return { ...matchByBackendId, id: cart.id, backendId: cart.backendId, createdAt: preservedCreatedAt, status: resolvedStatus, paidAt: cart.paidAt ?? matchByBackendId.paidAt, paidAmount: cart.paidAmount ?? matchByBackendId.paidAmount, paidItemCount: cart.paidItemCount ?? matchByBackendId.paidItemCount, paymentInfo: cart.paymentInfo ?? matchByBackendId.paymentInfo, items: cart.items.length > matchByBackendId.items.length ? cart.items : matchByBackendId.items };
             }
             return { ...matchByBackendId, id: cart.id, backendId: cart.backendId, createdAt: preservedCreatedAt };
           }

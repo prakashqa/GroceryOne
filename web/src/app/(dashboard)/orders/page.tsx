@@ -132,7 +132,7 @@ export default function ManageOrdersPage() {
                     <input
                       value={renameName}
                       onChange={(e) => setRenameName(e.target.value)}
-                      className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/30"
                       autoFocus
                       onKeyDown={(e) => { if (e.key === 'Enter') handleRename(cart.id); if (e.key === 'Escape') setRenameId(null); }}
                     />
@@ -143,7 +143,7 @@ export default function ManageOrdersPage() {
                   <>
                     <p className="font-medium truncate">{cart.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {cart.items.length} {t('picking.items')} &middot; {new Date(cart.createdAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
+                      {cart.paidItemCount ?? cart.items.length} {t('picking.items')} &middot; {new Date(cart.createdAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
                       {cart.paidAmount ? ` &middot; ₹${cart.paidAmount.toFixed(0)}` : ''}
                     </p>
                   </>

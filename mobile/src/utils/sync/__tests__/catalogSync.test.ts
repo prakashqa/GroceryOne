@@ -489,37 +489,34 @@ describe('catalogSync', () => {
       );
     });
 
-    it('should filter items to only those belonging to fetched order categories', async () => {
-      // Categories endpoint: returns only order categories (trackInventory: false)
+    it('should return all tenant categories (both ordering and inventory) for parity with the web Items page', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: [
           { id: 'uuid-1', slug: 'chicken-items', name: 'Chicken Items', icon: '🍗', trackInventory: false },
           { id: 'uuid-2', slug: 'veg-items', name: 'Veg Items', icon: '🥬', trackInventory: false },
+          { id: 'uuid-inv', slug: 'inv-basic', name: 'Basic', icon: '🧂', trackInventory: true },
         ] }),
       });
 
-      // Items endpoint: returns ALL items (both order and inventory)
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: [
           { id: 'i1', slug: 'chicken-fry', name: 'Chicken Fry', category: { slug: 'chicken-items' }, categoryId: 'uuid-1', unit: 'pcs', defaultQuantity: 1 },
           { id: 'i2', slug: 'veg-curry', name: 'Veg Curry', category: { slug: 'veg-items' }, categoryId: 'uuid-2', unit: 'pcs', defaultQuantity: 1 },
           { id: 'i3', slug: 'salt', name: 'Salt', category: { slug: 'inv-basic' }, categoryId: 'uuid-inv', unit: 'kg', defaultQuantity: 1, trackInventory: true },
-          { id: 'i4', slug: 'rice', name: 'Sona Masoori Rice', category: { slug: 'inv-rice' }, categoryId: 'uuid-inv2', unit: 'kg', defaultQuantity: 25, trackInventory: true },
         ] }),
       });
 
       const result = await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
 
       expect(result).not.toBeNull();
-      expect(result!.categories).toHaveLength(2);
-      expect(result!.items).toHaveLength(2);
-      expect(result!.items.map(i => i.name)).toEqual(['Chicken Fry', 'Veg Curry']);
+      expect(result!.categories).toHaveLength(3);
+      expect(result!.items).toHaveLength(3);
+      expect(result!.items.map(i => i.name).sort()).toEqual(['Chicken Fry', 'Salt', 'Veg Curry']);
     });
 
-    it('should exclude inventory items even when trackInventory is undefined in response', async () => {
-      // Simulates old backend that doesn't return trackInventory field
+    it('should drop items whose categoryId does not match any fetched category (prevents orphans in Redux)', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: [
@@ -531,19 +528,18 @@ describe('catalogSync', () => {
         ok: true,
         json: () => Promise.resolve({ data: [
           { id: 'i1', slug: 'chicken-fry', name: 'Chicken Fry', category: { slug: 'chicken-items' }, categoryId: 'uuid-1', unit: 'pcs', defaultQuantity: 1 },
-          { id: 'i2', slug: 'salt', name: 'Salt', category: { slug: 'inv-basic' }, categoryId: 'uuid-inv', unit: 'kg', defaultQuantity: 1 },
+          { id: 'i2', slug: 'orphan', name: 'Orphan', category: { slug: 'deleted-cat' }, categoryId: 'uuid-gone', unit: 'kg', defaultQuantity: 1 },
         ] }),
       });
 
       const result = await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
 
       expect(result).not.toBeNull();
-      // Only items whose categoryId matches fetched order categories should be included
       expect(result!.items).toHaveLength(1);
       expect(result!.items[0].name).toBe('Chicken Fry');
     });
 
-    it('should fetch categories with trackInventory=false query parameter', async () => {
+    it('should NOT filter categories by trackInventory — mobile Items screen must mirror the web', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ data: [] }),
@@ -556,7 +552,52 @@ describe('catalogSync', () => {
       await syncBackendToLocal({ tenantId: 'vijayparcelpos' });
 
       const categoriesCall = (global.fetch as jest.Mock).mock.calls[0];
-      expect(categoriesCall[0]).toContain('trackInventory=false');
+      expect(categoriesCall[0]).not.toContain('trackInventory=');
+    });
+
+    it('should keep tenants isolated — items synced for tenant A must not leak into tenant B (negative multi-tenant test)', async () => {
+      // Tenant A sync
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'uuid-a1', slug: 'cat-a', name: 'Tenant A Cat', icon: '🅰️' },
+        ] }),
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'ia1', slug: 'item-a1', name: 'A Item', category: { slug: 'cat-a' }, categoryId: 'uuid-a1', unit: 'pcs', defaultQuantity: 1 },
+        ] }),
+      });
+
+      const resultA = await syncBackendToLocal({ tenantId: 'tenant-a' });
+
+      // Tenant B sync — unrelated categories and items
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'uuid-b1', slug: 'cat-b', name: 'Tenant B Cat', icon: '🅱️' },
+        ] }),
+      });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ data: [
+          { id: 'ib1', slug: 'item-b1', name: 'B Item', category: { slug: 'cat-b' }, categoryId: 'uuid-b1', unit: 'pcs', defaultQuantity: 1 },
+        ] }),
+      });
+
+      const resultB = await syncBackendToLocal({ tenantId: 'tenant-b' });
+
+      // Each call must carry the correct tenant header and not bleed tenant A data into B.
+      const callA = (global.fetch as jest.Mock).mock.calls[0];
+      const callB = (global.fetch as jest.Mock).mock.calls[2];
+      expect(callA[1].headers['X-Tenant-ID']).toBe('tenant-a');
+      expect(callB[1].headers['X-Tenant-ID']).toBe('tenant-b');
+
+      expect(resultA!.items.map(i => i.name)).toEqual(['A Item']);
+      expect(resultB!.items.map(i => i.name)).toEqual(['B Item']);
+      expect(resultB!.categories.some(c => c.name === 'Tenant A Cat')).toBe(false);
+      expect(resultB!.items.some(i => i.name === 'A Item')).toBe(false);
     });
 
     it('should pass tenant header for both categories and items requests', async () => {

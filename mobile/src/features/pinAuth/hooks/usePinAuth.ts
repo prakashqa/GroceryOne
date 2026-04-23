@@ -105,8 +105,8 @@ export function usePinAuth(): UsePinAuthReturn {
             status: 'active' as const,
             preferredLanguage: 'en',
             notificationPreferences: { push: true, email: true, sms: false, orderUpdates: true, promotions: true },
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
           tokens: { accessToken, refreshToken, expiresIn: 3600 },
           requiresPinSetup: false,
@@ -130,8 +130,8 @@ export function usePinAuth(): UsePinAuthReturn {
             supportedLanguages: ['en', 'te'],
             currency: 'INR',
             timezone: 'Asia/Kolkata',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           }));
         }
       } catch (err) {
@@ -272,8 +272,8 @@ export function usePinAuth(): UsePinAuthReturn {
             status: 'active' as const,
             preferredLanguage: 'en',
             notificationPreferences: { push: true, email: true, sms: false, orderUpdates: true, promotions: true },
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
           tokens: {
             accessToken: data.accessToken,
@@ -311,8 +311,8 @@ export function usePinAuth(): UsePinAuthReturn {
           supportedLanguages: ['en', 'te'],
           currency: 'INR',
           timezone: 'Asia/Kolkata',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
       }
 

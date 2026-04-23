@@ -15,11 +15,14 @@ export interface User {
   status: UserStatus;
   preferredLanguage: string;
   notificationPreferences: NotificationPreferences;
-  lastLoginAt?: Date;
-  emailVerifiedAt?: Date;
-  phoneVerifiedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  lastLoginAt?: string;
+  emailVerifiedAt?: string;
+  phoneVerifiedAt?: string;
+  // ISO-8601 strings — the backend serializes TypeORM @CreateDateColumn as JSON
+  // strings, and Redux-toolkit's serializableCheck flags Date instances. Using
+  // string here keeps dispatches and persisted state clean end-to-end.
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type UserRole = 'cashier' | 'admin' | 'manager' | 'super_admin';

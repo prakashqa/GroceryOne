@@ -66,7 +66,7 @@ export {
   deleteItem as deleteCatalogItem,
   removeItemFromAllCarts, resetCatalog,
   selectCategories, selectItems, selectItemsByCategory,
-  selectCategoryById, selectItemById, selectIsCatalogInitialized,
+  selectCategoryById, selectItemById, selectItemByBarcode, selectIsCatalogInitialized,
 } from './catalogSlice';
 export type { CatalogState } from './catalogSlice';
 export { default as catalogReducer } from './catalogSlice';
@@ -78,13 +78,20 @@ export {
   setNotificationsEnabled, updateNotificationPreference,
   setPrinterEnabled, setPrinterConnectionType, setSelectedPrinter,
   setPrinterConnectionStatus, setAutoPrint, setPaperSize, setImageWidthDots, setPrintFormat,
+  setAutoCut, setCutMode,
   setMerchantUpiId, setMerchantName, setPaymentSettings, hydrateSettings, resetSettings,
   selectThemeMode, selectLanguage, selectNotifications, selectPrinter,
+  selectAutoCut, selectCutMode,
   selectPaymentSettings, selectMerchantUpiId, selectMerchantName,
   selectIsSettingsHydrated, selectSettings,
 } from './settingsSlice';
 export type {
   PrinterConnectionStatus as SettingsPrinterConnectionStatus,
+  // PrinterConnectionType / PaperSize / PrintFormat are also exported from
+  // `./api/userSettingsApi` — re-exporting them here would collide at the
+  // top-level index. Consumers can import those three from either path;
+  // CutMode is new and lives only on the slice side.
+  CutMode,
   PrinterConfig, NotificationPreferences, PaymentSettings, SettingsState,
 } from './settingsSlice';
 export { default as settingsReducer } from './settingsSlice';

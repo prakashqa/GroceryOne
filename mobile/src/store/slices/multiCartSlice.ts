@@ -6,7 +6,6 @@
 import { createSlice, PayloadAction, createSelector } from '@reduxjs/toolkit';
 import { Item, ManagedCart, MultiCartState, CartItemState, CartStatus } from '../../domain/types/picking';
 import type { PaymentInfo, MarkPaidPayload, MarkCartPaidPayload } from '../../domain/types/payment';
-import { getHardcodedItemPrice } from '../../domain/utils/priceUtils';
 import type { ItemUnit } from '../../domain/utils/unitConversion';
 import { normalizeToBaseUnit } from '../../domain/utils/unitConversion';
 import { logout } from './authSlice';
@@ -348,20 +347,9 @@ const multiCartSlice = createSlice({
           }
         }
 
-        // Final fallback: use hardcoded ITEMS if catalog doesn't have prices
-        if (!catalogItem || catalogItem.price === undefined) {
-          const hardcodedPrice = getHardcodedItemPrice(
-            cartItem.item.id,
-            cartItem.item.name
-          );
-
-          if (hardcodedPrice !== undefined) {
-            cartItem.priceSnapshot = hardcodedPrice;
-            cartItem.item.price = hardcodedPrice;
-            return; // Skip the general update below since we've handled it
-          }
-        }
-
+        // No hardcoded fallback — prices must come from the tenant-scoped
+        // catalog (live API or AsyncStorage cache). If both miss, leave
+        // priceSnapshot unchanged and let the UI surface "price unavailable".
         if (catalogItem && catalogItem.price !== undefined) {
           // Update both priceSnapshot and the item's price field
           cartItem.priceSnapshot = catalogItem.price;
@@ -400,6 +388,12 @@ const multiCartSlice = createSlice({
       cart.paidItemCount = cart.items.length;
       cart.paymentInfo = paymentInfo;
       cart.updatedAt = new Date().toISOString();
+
+      // If backendId isn't known yet (createCart POST still in flight), the
+      // middleware cannot sync the payment. Queue for retry on updateCartBackendId.
+      if (!cart.backendId) {
+        state.pendingPaymentSync = [...(state.pendingPaymentSync ?? []), cart.id];
+      }
     },
 
     /**
@@ -432,6 +426,10 @@ const multiCartSlice = createSlice({
       cart.paidItemCount = cart.items.length;
       cart.paymentInfo = paymentInfo;
       cart.updatedAt = new Date().toISOString();
+
+      if (!cart.backendId) {
+        state.pendingPaymentSync = [...(state.pendingPaymentSync ?? []), cart.id];
+      }
     },
 
     /**
@@ -468,6 +466,7 @@ const multiCartSlice = createSlice({
           updatedAt: string;
           paidAt?: string;
           paidAmount?: number;
+          paidItemCount?: number;
           items: Array<{
             itemId: string;
             quantity: number;
@@ -500,11 +499,18 @@ const multiCartSlice = createSlice({
       const convertedCarts: ManagedCart[] = backendCarts.map((backendCart) => ({
         id: backendCart.id,
         name: backendCart.name,
-        status: backendCart.status,
+        // Status normalization: paidAt is load-bearing proof of payment. If the
+        // backend says draft but has paidAt, the payment-sync PUT was never
+        // persisted (common when backendId was missing at mark-paid time).
+        // Trust paidAt — a timestamp is only set by the mark-paid code path.
+        status: (backendCart.paidAt && backendCart.status !== 'paid' && backendCart.status !== 'completed')
+          ? 'paid'
+          : backendCart.status,
         createdAt: backendCart.createdAt,
         updatedAt: backendCart.updatedAt,
         paidAt: backendCart.paidAt,
         paidAmount: backendCart.paidAmount,
+        paidItemCount: backendCart.paidItemCount,
         items: backendCart.items
           .filter((item) => item.item) // Only include items with item data
           .map((item) => ({
@@ -550,13 +556,18 @@ const multiCartSlice = createSlice({
 
             // LOCAL WINS: if local cart is paid/completed, preserve ALL payment state
             // regardless of backend status (handles race condition during payment sync)
-            if (localCart.status === 'paid' || localCart.status === 'completed') {
+            if (localCart.status === 'paid' || localCart.status === 'completed' || localCart.paidAt) {
               const items = localCart.items.length > backendCart.items.length
                 ? localCart.items : backendCart.items;
+              // Normalize: if we entered this branch via localCart.paidAt (not status),
+              // the local status may be stale ('draft'). paidAt is authoritative.
+              const resolvedStatus = (localCart.status === 'paid' || localCart.status === 'completed')
+                ? localCart.status
+                : 'paid';
               return {
                 ...backendCart,
                 createdAt: preservedCreatedAt,
-                status: localCart.status,
+                status: resolvedStatus,
                 paidAt: localCart.paidAt ?? backendCart.paidAt,
                 paidAmount: localCart.paidAmount ?? backendCart.paidAmount,
                 paidItemCount: localCart.paidItemCount ?? backendCart.paidItemCount,
@@ -609,11 +620,13 @@ const multiCartSlice = createSlice({
 
             // LOCAL WINS: preserve paid/completed status and all payment metadata
             // Handles race condition where payment PUT hasn't reached backend yet
-            if (cart.status === 'paid' || cart.status === 'completed') {
+            if (cart.status === 'paid' || cart.status === 'completed' || cart.paidAt) {
+              const resolvedStatus = (cart.status === 'paid' || cart.status === 'completed')
+                ? cart.status : 'paid';
               return {
                 ...backendCart,
                 createdAt: preservedCreatedAt,
-                status: cart.status,
+                status: resolvedStatus,
                 paidAt: cart.paidAt ?? backendCart.paidAt,
                 paidAmount: cart.paidAmount ?? backendCart.paidAmount,
                 paidItemCount: cart.paidItemCount ?? backendCart.paidItemCount,
@@ -636,13 +649,15 @@ const multiCartSlice = createSlice({
                 : matchByBackendId.createdAt;
 
             // LOCAL WINS: preserve paid/completed status and all payment metadata
-            if (cart.status === 'paid' || cart.status === 'completed') {
+            if (cart.status === 'paid' || cart.status === 'completed' || cart.paidAt) {
+              const resolvedStatus = (cart.status === 'paid' || cart.status === 'completed')
+                ? cart.status : 'paid';
               return {
                 ...matchByBackendId,
                 id: cart.id,
                 backendId: cart.backendId,
                 createdAt: preservedCreatedAt,
-                status: cart.status,
+                status: resolvedStatus,
                 paidAt: cart.paidAt ?? matchByBackendId.paidAt,
                 paidAmount: cart.paidAmount ?? matchByBackendId.paidAmount,
                 paidItemCount: cart.paidItemCount ?? matchByBackendId.paidItemCount,
@@ -691,6 +706,12 @@ const multiCartSlice = createSlice({
       if (cart) {
         cart.backendId = backendId;
         cart.updatedAt = new Date().toISOString();
+      }
+
+      // Drain any pending payment sync for this cart — the middleware picks
+      // up on this same action and will retry the PUT now that backendId exists.
+      if (state.pendingPaymentSync?.length) {
+        state.pendingPaymentSync = state.pendingPaymentSync.filter((id) => id !== localId);
       }
     },
 

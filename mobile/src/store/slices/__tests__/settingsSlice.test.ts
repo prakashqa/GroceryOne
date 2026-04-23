@@ -13,6 +13,8 @@ import settingsReducer, {
   setSelectedPrinter,
   setPaperSize,
   setPrintFormat,
+  setAutoCut,
+  setCutMode,
   hydrateSettings,
   resetSettings,
   selectThemeMode,
@@ -46,7 +48,9 @@ describe('settingsSlice', () => {
       connectionStatus: 'disconnected',
       lastConnectedAt: null,
       autoPrint: false,
-    imageWidthDots: 384,
+      imageWidthDots: 384,
+      autoCut: true,
+      cutMode: 'full',
     },
     payment: {
       merchantUpiId: '',
@@ -221,6 +225,81 @@ describe('settingsSlice', () => {
     it('should set print format to compact', () => {
       const state = settingsReducer(initialState, setPrintFormat('compact'));
       expect(state.printer.printFormat).toBe('compact');
+    });
+  });
+
+  describe('auto-cut actions (Bluetooth printer)', () => {
+    it('defaults to autoCut=true in the initial state', () => {
+      const state = settingsReducer(undefined, { type: 'unknown' });
+      expect(state.printer.autoCut).toBe(true);
+    });
+
+    it('defaults to cutMode=full in the initial state (widest printer compatibility)', () => {
+      // Why "full": the prior default was GS V 66 Function B, which some
+      // thermal printers silently ignore. GS V 0 (full cut) is the safest
+      // default and matches what users expect from "auto cut".
+      const state = settingsReducer(undefined, { type: 'unknown' });
+      expect(state.printer.cutMode).toBe('full');
+    });
+
+    it('should disable auto cut', () => {
+      const state = settingsReducer(initialState, setAutoCut(false));
+      expect(state.printer.autoCut).toBe(false);
+      expect(state.lastUpdated).not.toBeNull();
+    });
+
+    it('should re-enable auto cut', () => {
+      const modified = {
+        ...initialState,
+        printer: { ...initialState.printer, autoCut: false },
+      };
+      const state = settingsReducer(modified, setAutoCut(true));
+      expect(state.printer.autoCut).toBe(true);
+    });
+
+    it('should switch cut mode to partial', () => {
+      const state = settingsReducer(initialState, setCutMode('partial'));
+      expect(state.printer.cutMode).toBe('partial');
+    });
+
+    it('should switch cut mode back to full', () => {
+      const modified = {
+        ...initialState,
+        printer: { ...initialState.printer, cutMode: 'partial' as const },
+      };
+      const state = settingsReducer(modified, setCutMode('full'));
+      expect(state.printer.cutMode).toBe('full');
+    });
+
+    it('resetSettings clears per-device cut prefs back to defaults (tenant-switch safety)', () => {
+      // Multi-tenant guard: printer prefs are per-device, not per-tenant.
+      // When a user logs out / switches tenants, resetSettings() must
+      // restore autoCut=true and cutMode='full' so the next tenant's
+      // session starts from a known default.
+      const modified = {
+        ...initialState,
+        printer: {
+          ...initialState.printer,
+          autoCut: false,
+          cutMode: 'partial' as const,
+        },
+      };
+      const state = settingsReducer(modified, resetSettings());
+      expect(state.printer.autoCut).toBe(true);
+      expect(state.printer.cutMode).toBe('full');
+    });
+
+    it('hydrateSettings restores persisted autoCut/cutMode', () => {
+      const savedSettings: Partial<SettingsState> = {
+        printer: {
+          ...initialState.printer,
+          autoCut: false,
+          cutMode: 'partial',
+        },
+      };
+      const state = settingsReducer(initialState, hydrateSettings(savedSettings));
+      expect(state.printer.autoCut).toBe(false);
+      expect(state.printer.cutMode).toBe('partial');
     });
   });
 

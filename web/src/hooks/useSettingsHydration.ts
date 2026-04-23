@@ -20,8 +20,10 @@ export function useSettingsHydration() {
     hasHydrated.current = true;
     try {
       const cached = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (cached) dispatch(hydrateSettings(JSON.parse(cached)));
-    } catch { /* ignore */ }
+      dispatch(hydrateSettings(cached ? JSON.parse(cached) : {}));
+    } catch {
+      dispatch(hydrateSettings({}));
+    }
   }, [dispatch, isHydrated]);
 
   // Sync i18next language with Redux settings

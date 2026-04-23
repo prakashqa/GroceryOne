@@ -102,46 +102,44 @@ describe('priceUtils', () => {
     });
   });
 
-  describe('getHardcodedItemPrice', () => {
-    it('should return price for a known item by ID', () => {
-      const price = getHardcodedItemPrice('gf-001', 'Wheat Flour / Atta');
-      expect(price).toBe(48);
+  describe('getHardcodedItemPrice (tenant-safety stub)', () => {
+    // This function used to carry ~100 hardcoded FreshMart-slug prices and
+    // was a cross-tenant leakage vector: a QuickBasket/VijayParcelPOS user
+    // whose cached catalog was missing a price could be silently served
+    // a FreshMart price by slug/name collision, and backend deletions
+    // (e.g. the Spices purge) could never fully propagate to offline
+    // clients. The function is now a permanent stub — prices MUST come
+    // from the tenant-scoped catalog (API or AsyncStorage cache). These
+    // tests lock the stub shape so hardcoded tables can never be
+    // re-introduced without a deliberate review.
+
+    it('should return undefined for any FreshMart slug (source-of-truth lives in tenant catalog)', () => {
+      expect(getHardcodedItemPrice('gf-001', 'Wheat Flour / Atta')).toBeUndefined();
+      expect(getHardcodedItemPrice('rc-001', 'Basmati Rice')).toBeUndefined();
+      expect(getHardcodedItemPrice('dl-001', 'Toor Dal / Arhar Dal')).toBeUndefined();
+      expect(getHardcodedItemPrice('ol-001', 'Sunflower Oil')).toBeUndefined();
     });
 
-    it('should return price for Cumin Seeds by ID', () => {
-      // Cumin Seeds price stored per-KG (250gm @ 85 → 340/kg)
-      const price = getHardcodedItemPrice('sp-001', 'Cumin Seeds');
-      expect(price).toBe(340);
+    it('should return undefined for other tenants\' slugs (no cross-tenant leakage)', () => {
+      // QuickBasket, VijayParcelPOS, ABTrade slug namespaces must also
+      // miss — the previous fallback only carried freshmart-style slugs,
+      // which meant non-freshmart tenants never benefited AND were at
+      // risk of serving a freshmart price on a name collision.
+      expect(getHardcodedItemPrice('qb-dy-001', 'Full Cream Milk')).toBeUndefined();
+      expect(getHardcodedItemPrice('vp-ch-001', 'Chicken Fry')).toBeUndefined();
+      expect(getHardcodedItemPrice('ab-stp-001', 'Sona Masoori / Ponni Rice')).toBeUndefined();
     });
 
-    it('should fallback to name match when ID does not match', () => {
-      const price = getHardcodedItemPrice('unknown-id', 'Wheat Flour / Atta');
-      expect(price).toBe(48);
+    it('should return undefined for unknown ids and names', () => {
+      expect(getHardcodedItemPrice('unknown-id', 'Unknown Item')).toBeUndefined();
+      expect(getHardcodedItemPrice('', '')).toBeUndefined();
     });
 
-    it('should handle case-insensitive name matching', () => {
-      const price = getHardcodedItemPrice('unknown-id', 'wheat flour / atta');
-      expect(price).toBe(48);
-    });
-
-    it('should return undefined for unknown items', () => {
-      const price = getHardcodedItemPrice('unknown-id', 'Unknown Item');
-      expect(price).toBeUndefined();
-    });
-
-    it('should return price for Basmati Rice', () => {
-      const price = getHardcodedItemPrice('rc-001', 'Basmati Rice');
-      expect(price).toBe(140);
-    });
-
-    it('should return price for Toor Dal', () => {
-      const price = getHardcodedItemPrice('dl-001', 'Toor Dal / Arhar Dal');
-      expect(price).toBe(160);
-    });
-
-    it('should return price for Sunflower Oil', () => {
-      const price = getHardcodedItemPrice('ol-001', 'Sunflower Oil');
-      expect(price).toBe(145);
+    it('should return undefined for previously-removed Spices (regression guard)', () => {
+      // Spices were deleted from all tenants; the hardcoded fallback
+      // used to serve stale sp-* prices even after the backend purge.
+      expect(getHardcodedItemPrice('sp-001', 'Cumin Seeds')).toBeUndefined();
+      expect(getHardcodedItemPrice('sp-025', 'Asafoetida (Hing)')).toBeUndefined();
     });
   });
 });

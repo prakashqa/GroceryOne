@@ -219,7 +219,7 @@ const buildHeaders = (state: RootState, tenantSlug: string): Record<string, stri
  * Sync cart payment status to the backend API via PUT /carts/:backendId
  */
 const syncCartPaymentToBackend = async (
-  cart: { backendId: string; status: string; paidAt?: string; paidAmount?: number },
+  cart: { backendId: string; status: string; paidAt?: string; paidAmount?: number; paidItemCount?: number },
   getState: () => RootState
 ): Promise<void> => {
   try {
@@ -237,6 +237,7 @@ const syncCartPaymentToBackend = async (
       status: cart.status,
       paidAt: cart.paidAt,
       paidAmount: cart.paidAmount,
+      paidItemCount: cart.paidItemCount,
     };
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/carts/${cart.backendId}`, {
@@ -666,8 +667,37 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
                 status: cart.status,
                 paidAt: cart.paidAt,
                 paidAmount: cart.paidAmount,
+                paidItemCount: cart.paidItemCount,
               },
               storeAPI.getState
+            );
+          }
+          // If cart has no backendId yet, the slice will have pushed it into
+          // state.multiCart.pendingPaymentSync — the updateCartBackendId branch
+          // below takes over when the createCart POST returns.
+        })();
+      }
+
+      // Retry payment sync when a cart finally gets its backendId — drains the
+      // pendingPaymentSync queue populated by markCartAsPaid with no backendId.
+      if (actionType === 'multiCart/updateCartBackendId') {
+        (async () => {
+          const state = storeAPI.getState();
+          const typedAction = action as { type: string; payload: { localId: string; backendId: string } };
+          const { localId } = typedAction.payload;
+
+          const cart = state.multiCart.carts.find((c) => c.id === localId);
+          // Only fire if this cart was paid while its backendId was unknown.
+          if (cart && cart.backendId && (cart.status === 'paid' || cart.paidAt)) {
+            await syncCartPaymentToBackend(
+              {
+                backendId: cart.backendId,
+                status: cart.status,
+                paidAt: cart.paidAt,
+                paidAmount: cart.paidAmount,
+                paidItemCount: cart.paidItemCount,
+              },
+              storeAPI.getState,
             );
           }
         })();

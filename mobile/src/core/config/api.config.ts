@@ -16,7 +16,10 @@ import Constants from 'expo-constants';
  *
  * Note: Constants.isDevice can be unreliable in Expo dev builds, so .env is preferred.
  */
-const LOCAL_MACHINE_IP = '192.168.0.102'; // Hardcoded fallback — prefer LOCAL_API_IP in .env
+// Default LAN IP used only when LOCAL_API_IP is absent from .env / app.config.
+// Update .env (LOCAL_API_IP=...) rather than editing this string — run_all.ps1
+// auto-syncs .env to the current machine IP.
+const LOCAL_MACHINE_IP_FALLBACK = '192.168.0.100';
 
 // Cloud Run production API URL
 const CLOUD_API_URL = 'https://groceryone-backend-343826079780.asia-south1.run.app/api/v1';
@@ -53,19 +56,18 @@ const getDevBaseUrl = (): string => {
     return 'http://10.0.2.2:3000/api/v1';
   }
 
-  // Priority 2: Use LOCAL_MACHINE_IP for physical devices.
-  // This takes priority over Constants.expoConfig?.extra?.localApiIp because
-  // app.json values are embedded at native build time and become stale when
-  // the dev machine's IP changes. LOCAL_MACHINE_IP can be updated in code
-  // and picked up immediately on Metro reload without rebuilding.
-  if (LOCAL_MACHINE_IP) {
-    return `http://${LOCAL_MACHINE_IP}:3000/api/v1`;
-  }
-
-  // Priority 3: Fallback to app.json localApiIp (from native build)
+  // Priority 2: LOCAL_API_IP from .env (injected via app.config.js into
+  // Constants.expoConfig.extra.localApiIp). This is the live source of truth —
+  // run_all.ps1 rewrites .env to the current LAN IP on each start, and a Metro
+  // reload picks it up immediately.
   const envIp = Constants.expoConfig?.extra?.localApiIp;
   if (envIp) {
     return `http://${envIp}:3000/api/v1`;
+  }
+
+  // Priority 3: Hard-coded fallback for when .env isn't loaded.
+  if (LOCAL_MACHINE_IP_FALLBACK) {
+    return `http://${LOCAL_MACHINE_IP_FALLBACK}:3000/api/v1`;
   }
 
   // Priority 4: iOS simulator can reach the host via localhost directly.

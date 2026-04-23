@@ -39,9 +39,12 @@ import {
   setPaperSize,
   setImageWidthDots,
   setPrintFormat,
+  setAutoCut,
+  setCutMode,
   PrinterConnectionType,
   PaperSize,
   PrintFormat,
+  CutMode,
 } from '../../../store/slices/settingsSlice';
 import { saveSettings } from '../../../utils/storage/settingsStorage';
 import { selectTenant } from '../../../store/slices/tenantSlice';
@@ -63,6 +66,7 @@ const connectionTypeValues: PrinterConnectionType[] = ['bluetooth', 'network', '
 const paperSizeValues: PaperSize[] = ['80mm', '58mm'];
 const imageWidthValues: number[] = [576, 832];
 const printFormatValues: PrintFormat[] = ['receipt', 'detailed', 'compact'];
+const cutModeValues: CutMode[] = ['full', 'partial'];
 
 const PrinterSettingsScreen: React.FC = () => {
   const theme = useTheme();
@@ -102,6 +106,16 @@ const PrinterSettingsScreen: React.FC = () => {
     value,
     label: t(`settings.printer.format${value}`, value),
     description: t(`settings.printer.format${value}Description`, ''),
+  })), [t]);
+
+  const cutModeOptions = useMemo(() => cutModeValues.map((value) => ({
+    value,
+    label: value === 'full'
+      ? t('settings.printer.cutModeFull', 'Full Cut (Recommended)')
+      : t('settings.printer.cutModePartial', 'Partial Cut'),
+    description: value === 'full'
+      ? t('settings.printer.cutModeFullDescription', 'GS V 0 — widest printer compatibility')
+      : t('settings.printer.cutModePartialDescription', 'GS V 1 — leaves a small connecting strip'),
   })), [t]);
 
   // Connection status indicator colors
@@ -288,6 +302,38 @@ const PrinterSettingsScreen: React.FC = () => {
         try {
           await saveSettings({
             printer: { ...printer, autoPrint: value },
+          }, tenant.slug);
+        } catch (error) {
+          console.error('Failed to save printer settings:', error);
+        }
+      }
+    },
+    [dispatch, printer, tenant?.slug]
+  );
+
+  const handleAutoCutToggle = useCallback(
+    async (value: boolean) => {
+      dispatch(setAutoCut(value));
+      if (tenant?.slug) {
+        try {
+          await saveSettings({
+            printer: { ...printer, autoCut: value },
+          }, tenant.slug);
+        } catch (error) {
+          console.error('Failed to save printer settings:', error);
+        }
+      }
+    },
+    [dispatch, printer, tenant?.slug]
+  );
+
+  const handleCutModeSelect = useCallback(
+    async (value: CutMode) => {
+      dispatch(setCutMode(value));
+      if (tenant?.slug) {
+        try {
+          await saveSettings({
+            printer: { ...printer, cutMode: value },
           }, tenant.slug);
         } catch (error) {
           console.error('Failed to save printer settings:', error);
@@ -859,6 +905,27 @@ const PrinterSettingsScreen: React.FC = () => {
                 onValueChange={handleAutoPrintToggle}
                 testID="auto-print-toggle"
               />
+
+              <SettingsToggle
+                label={t('settings.printer.autoCut', 'Auto Cut')}
+                description={t(
+                  'settings.printer.autoCutDescription',
+                  'Send a cut command to the printer after each print'
+                )}
+                icon="cut"
+                value={printer.autoCut ?? true}
+                onValueChange={handleAutoCutToggle}
+                testID="auto-cut-toggle"
+              />
+
+              {printer.autoCut !== false && (
+                <SettingsRadioGroup<CutMode>
+                  options={cutModeOptions}
+                  selectedValue={printer.cutMode ?? 'full'}
+                  onSelect={handleCutModeSelect}
+                  testID="cut-mode"
+                />
+              )}
             </SettingsSection>
           </>
         )}

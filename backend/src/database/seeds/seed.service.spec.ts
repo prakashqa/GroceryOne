@@ -191,7 +191,7 @@ describe('SeedService', () => {
 
       expect(freshmartSlugs).toContain('grains-flour');
       expect(freshmartSlugs).toContain('rice');
-      expect(freshmartSlugs).toContain('spices');
+      expect(freshmartSlugs).not.toContain('spices');
       expect(freshmartSlugs).not.toContain('dairy-eggs');
       expect(freshmartSlugs).not.toContain('fruits');
     });
@@ -267,8 +267,8 @@ describe('SeedService', () => {
       expect(vpSlugs).toContain('inv-dal');
       expect(vpSlugs).toContain('inv-oil');
       expect(vpSlugs).toContain('inv-basic');
-      expect(vpSlugs).toContain('inv-spices');
       // Should NOT contain removed categories
+      expect(vpSlugs).not.toContain('inv-spices');
       expect(vpSlugs).not.toContain('biryani-items');
       expect(vpSlugs).not.toContain('curry-items');
       expect(vpSlugs).not.toContain('fry-items');
@@ -426,7 +426,7 @@ describe('SeedService', () => {
         'chicken-items', 'veg-items', 'seafood-items', 'rice-items',
       ]);
       const inventoryCategorySlugs = new Set([
-        'inv-rice', 'inv-dal', 'inv-oil', 'inv-basic', 'inv-spices',
+        'inv-rice', 'inv-dal', 'inv-oil', 'inv-basic',
       ]);
 
       // Build a categoryId -> categorySlug map from create calls
@@ -444,6 +444,83 @@ describe('SeedService', () => {
         if (catSlug && inventoryCategorySlugs.has(catSlug)) {
           expect(item.trackInventory).toBe(true);
         }
+      }
+    });
+
+    it('should default FreshMart items to trackInventory=false (matching their categories)', async () => {
+      // Regression: FreshMart categories omit the trackInventory flag, so both
+      // categories and items must default to false. Previously categories
+      // defaulted to false and items to true, producing a mismatch that made
+      // the mobile POS filter (trackInventory !== true) hide every item.
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      categoryRepo.create.mockImplementation((data: any) => data as Category);
+      categoryRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `cat-${data.slug}`, ...data }),
+      );
+
+      const itemCreateCalls: any[] = [];
+      itemRepo.create.mockImplementation((data: any) => {
+        itemCreateCalls.push(data);
+        return data as Item;
+      });
+      itemRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `item-${itemCreateCalls.length}`, ...data }),
+      );
+
+      await service.seed();
+
+      expect(itemCreateCalls.length).toBeGreaterThan(0);
+      for (const item of itemCreateCalls) {
+        expect(item.trackInventory).toBe(false);
+      }
+    });
+
+    it('should heal existing items whose trackInventory drifted from their category (tenant-scoped)', async () => {
+      // A prior seed run with the bug left FreshMart items at trackInventory=true
+      // while their categories stayed at false. Re-seeding must reconcile each
+      // item to its category — without leaking across tenants.
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      categoryRepo.create.mockImplementation((data: any) => data as Category);
+      categoryRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `cat-${data.slug}`, ...data }),
+      );
+
+      // Every seed item "already exists" with drifted trackInventory=true and
+      // a bogus tenantId to verify the tenant-scoped lookup is honoured.
+      itemRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve({
+          id: `existing-${where.slug}`,
+          slug: where.slug,
+          tenantId: where.tenantId,
+          trackInventory: true,
+          compareAtPrice: 999,
+          price: 999,
+        } as any),
+      );
+      const itemSaveCalls: any[] = [];
+      itemRepo.save.mockImplementation((data: any) => {
+        itemSaveCalls.push(data);
+        return Promise.resolve(data);
+      });
+
+      await service.seed();
+
+      expect(itemSaveCalls.length).toBeGreaterThan(0);
+      for (const saved of itemSaveCalls) {
+        expect(saved.trackInventory).toBe(false);
+        expect(saved.tenantId).toBe('tenant-aaa');
+      }
+      // Scoping: every findOne call must carry the tenantId — no cross-tenant reads.
+      for (const call of (itemRepo.findOne as jest.Mock).mock.calls) {
+        expect(call[0].where.tenantId).toBe('tenant-aaa');
       }
     });
 
@@ -474,11 +551,6 @@ describe('SeedService', () => {
       expect(riceItem).toBeDefined();
       expect(riceItem.stockQuantity).toBe(50);
       expect(riceItem.lowStockThreshold).toBe(10);
-
-      const cuminItem = itemCreateCalls.find((i) => i.slug === 'vp-inv-spice-005');
-      expect(cuminItem).toBeDefined();
-      expect(cuminItem.stockQuantity).toBe(1.5);
-      expect(cuminItem.lowStockThreshold).toBe(1);
 
       // POS menu items should still have stockQuantity 0
       const posItem = itemCreateCalls.find((i) => i.slug === 'vp-ch-001');
@@ -791,11 +863,11 @@ describe('Seed Data Isolation', () => {
       }
     });
 
-    it('Inventory categories (5) should have trackInventory set to true', () => {
+    it('Inventory categories (4) should have trackInventory set to true', () => {
       const invCategories = VIJAYPARCELPOS_CATEGORIES.filter((c) =>
-        ['inv-rice', 'inv-dal', 'inv-oil', 'inv-basic', 'inv-spices'].includes(c.slug),
+        ['inv-rice', 'inv-dal', 'inv-oil', 'inv-basic'].includes(c.slug),
       );
-      expect(invCategories).toHaveLength(5);
+      expect(invCategories).toHaveLength(4);
       for (const cat of invCategories) {
         expect(cat.trackInventory).toBe(true);
       }
@@ -812,12 +884,12 @@ describe('Seed Data Isolation', () => {
   });
 
   describe('VijayParcelPOS data counts', () => {
-    it('should have exactly 9 categories (4 POS + 5 inventory)', () => {
-      expect(VIJAYPARCELPOS_CATEGORIES).toHaveLength(9);
+    it('should have exactly 8 categories (4 POS + 4 inventory)', () => {
+      expect(VIJAYPARCELPOS_CATEGORIES).toHaveLength(8);
     });
 
-    it('should have exactly 34 items (18 POS + 16 inventory)', () => {
-      expect(VIJAYPARCELPOS_ITEMS).toHaveLength(34);
+    it('should have exactly 28 items (18 POS + 10 inventory — inv-spices removed)', () => {
+      expect(VIJAYPARCELPOS_ITEMS).toHaveLength(28);
     });
   });
 

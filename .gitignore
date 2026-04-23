@@ -36,7 +36,11 @@ e2e/artifacts/
 .env
 .env.local
 .env.*.local
+.env.*.backup
 *.env
+
+# One-off data-sync dumps (contain hashed credentials / tenant state — never commit)
+sync_to_prod*.sql
 
 # IDE
 .idea/

@@ -97,6 +97,10 @@ export interface MultiCartState {
   isHydrated: boolean;
   lastSyncedAt: string | null;
   deletedCartIds: string[];
+  // Local cart IDs whose payment was marked before the cart had a backendId
+  // assigned (createCart POST hadn't returned yet). Drained by the middleware
+  // when updateCartBackendId arrives — prevents silent /carts/undefined 404s.
+  pendingPaymentSync?: string[];
 }
 
 // =============================================================================

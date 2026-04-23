@@ -300,6 +300,29 @@ describe('CartService', () => {
       await expect(service.update('cart-a-uuid', { name: 'Test' }, undefined as any))
         .rejects.toThrow();
     });
+
+    it('should persist paidItemCount when provided', async () => {
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartRepository.save.mockImplementation((c: any) => Promise.resolve(c));
+
+      const result = await service.update(
+        'cart-a-uuid',
+        { paidItemCount: 7, paidAt: '2026-01-30T11:00:00.000Z', paidAmount: 500, status: 'paid' } as any,
+        TENANT_A_ID,
+      );
+
+      expect(result.paidItemCount).toBe(7);
+      expect(result.status).toBe('paid');
+    });
+
+    it('should reject update where tenant B tries to modify tenant A cart (negative tenant-mismatch)', async () => {
+      // Simulate tenantA has cart, tenantB tries to update it - findOne returns null (scoped)
+      mockCartRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.update('cart-a-uuid', { paidItemCount: 99, status: 'paid' } as any, TENANT_B_ID),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 
   describe('remove', () => {

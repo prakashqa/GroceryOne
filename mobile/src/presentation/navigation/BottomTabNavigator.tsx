@@ -33,6 +33,7 @@ import {
   ScanReviewScreen,
 } from '../../features/orderScanning';
 import { ReportsScreen } from '../../features/reports';
+import { BarcodeScannerScreen } from '../screens/picking/BarcodeScannerScreen';
 import { ItemsScreen } from '../screens/items';
 import { MoreScreen } from '../screens/more';
 import { InventoryDashboardScreen, InventoryItemDetailScreen } from '../screens/inventory';
@@ -62,6 +63,7 @@ export type DashboardStackParamList = {
   ItemManagement: { categoryId?: string } | undefined;
   CameraCapture: undefined;
   ScanReview: undefined;
+  BarcodeScanner: undefined;
   Reports: undefined;
 };
 
@@ -71,6 +73,7 @@ export type OrdersStackParamList = {
   Picking: undefined;
   CameraCapture: undefined;
   ScanReview: undefined;
+  BarcodeScanner: undefined;
   Settings: undefined;
   AppearanceSettings: undefined;
   LanguageSettings: undefined;
@@ -238,6 +241,13 @@ function DashboardStackNavigator() {
           headerShown: false,
         }}
       />
+      <DashboardStack.Screen
+        name="BarcodeScanner"
+        component={BarcodeScannerScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -344,6 +354,11 @@ function OrdersStackNavigator() {
       <OrdersStack.Screen
         name="ScanReview"
         component={ScanReviewScreen}
+        options={{ headerShown: false }}
+      />
+      <OrdersStack.Screen
+        name="BarcodeScanner"
+        component={BarcodeScannerScreen}
         options={{ headerShown: false }}
       />
       <OrdersStack.Screen

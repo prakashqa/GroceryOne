@@ -69,7 +69,7 @@ export default function InventoryPage() {
         ))}
         <div className="relative w-full sm:w-auto sm:ml-auto">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('search')} className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('search')} className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
       </div>
 

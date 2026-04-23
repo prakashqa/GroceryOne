@@ -10,7 +10,7 @@ import Link from 'next/link';
 export default function LanguageSettingsPage() {
   const dispatch = useAppDispatch();
   const currentLang = useAppSelector(selectLanguage);
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation(['common', 'profile']);
 
   const handleChange = (code: string) => {
     dispatch(setSettingsLanguage(code));
@@ -21,7 +21,7 @@ export default function LanguageSettingsPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Link href="/settings" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><ArrowLeft size={20} /></Link>
-        <h1 className="text-xl font-bold">{i18n.t('profile:settings.language.title')}</h1>
+        <h1 className="text-xl font-bold">{t('profile:settings.language.title')}</h1>
       </div>
       <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-800">
         {AVAILABLE_LANGUAGES.map((lang) => (

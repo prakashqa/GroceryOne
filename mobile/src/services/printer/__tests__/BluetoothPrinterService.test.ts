@@ -5,7 +5,13 @@
 
 import { Platform } from 'react-native';
 import { BLEPrinter } from 'react-native-thermal-receipt-printer-image-qr';
-import { BluetoothPrinterService, bytesToBase64, ESC_POS } from '../BluetoothPrinterService';
+import {
+  BluetoothPrinterService,
+  bytesToBase64,
+  ESC_POS,
+  DEFAULT_CUT_OPTIONS,
+  resolveCutCommand,
+} from '../BluetoothPrinterService';
 
 // Helper: override BLEPrinter.getDeviceList mock for specific tests
 const mockDeviceList = (devices: Array<{ device_name: string; inner_mac_address: string }>) => {
@@ -461,7 +467,7 @@ describe('BluetoothPrinterService', () => {
       expect(printListener.mock.calls[0][0]).toHaveProperty('status', 'completed');
     });
 
-    it('should send paper feed command after printing image', async () => {
+    it('should send GS V 0 (full cut) by default after printing image', async () => {
       const devices = await service.getPairedDevices();
       const device = devices[0];
       await service.connect(device);
@@ -470,8 +476,46 @@ describe('BluetoothPrinterService', () => {
 
       await service.printImage('base64ImageData');
 
-      // Should send ESC d 4 (feed 4 lines) as Base64 via printRawData
-      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+      // The default changed from GS V 66 Function B (0x1D 0x56 0x42 0x06) to
+      // GS V 0 full cut (0x1D 0x56 0x00). Several budget Bluetooth thermal
+      // printers silently ignored Function B, which surfaced in the field as
+      // "auto-cut not working". GS V 0 has the widest compatibility.
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+      // And the old default must NOT be sent now.
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_AND_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+    });
+
+    it('should send GS V 1 (partial cut) when cutMode is partial', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData', 576, {
+        autoCut: true,
+        cutMode: 'partial',
+      });
+
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.PARTIAL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+    });
+
+    it('should send NO cut bytes when autoCut is false', async () => {
+      const devices = await service.getPairedDevices();
+      const device = devices[0];
+      await service.connect(device);
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
+
+      await service.printImage('base64ImageData', 576, {
+        autoCut: false,
+        cutMode: 'full',
+      });
+
+      // No cut command of any variant should be written to the printer.
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.PARTIAL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_AND_CUT);
     });
 
     it('should complete print job even when paper feed printRaw throws', async () => {
@@ -490,32 +534,19 @@ describe('BluetoothPrinterService', () => {
       expect(printJob.status).toBe('completed');
     });
 
-    it('should send auto-cut command (GS V 1) after printing a single image', async () => {
+    it('should not fail print job if feed-and-cut command fails', async () => {
       const devices = await service.getPairedDevices();
       const device = devices[0];
       await service.connect(device);
 
-      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
-
-      await service.printImage('base64ImageData');
-
-      // GS V 1 = [0x1D, 0x56, 0x01] sent as Base64 'HVYB' via printRawData
-      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
-    });
-
-    it('should not fail print job if auto-cut command fails', async () => {
-      const devices = await service.getPairedDevices();
-      const device = devices[0];
-      await service.connect(device);
-
-      // Auto-cut fails (printer has no cutter)
+      // Feed-and-cut fails (printer has no cutter)
       ((BLEPrinter as any).printRawData as jest.Mock).mockRejectedValueOnce(
         new Error('Cut command not supported')
       );
 
       const printJob = await service.printImage('base64ImageData');
 
-      // Job should still be completed — auto-cut is best-effort
+      // Job should still be completed — feed-and-cut is best-effort
       expect(printJob.status).toBe('completed');
     });
   });
@@ -773,15 +804,14 @@ describe('BluetoothPrinterService', () => {
       expect(BLEPrinter.printImageBase64).not.toHaveBeenCalled();
     });
 
-    it('should send paper feed command after printing last chunk', async () => {
+    it('should send GS V 0 (full cut) after printing last chunk by default', async () => {
       const chunks = ['base64Chunk1', 'base64Chunk2'];
 
       ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages(chunks, 576);
 
-      // After all image chunks, should send ESC d 4 (feed 4 lines) as Base64 via printRawData
-      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FULL_CUT);
     });
 
     it('should not send paper feed for empty chunks array', async () => {
@@ -844,15 +874,38 @@ describe('BluetoothPrinterService', () => {
       expect(result.status).toBe('completed');
     });
 
-    it('should send auto-cut command (GS V 1) after printing chunked images', async () => {
+    it('should send exactly one cut command after chunked images (full cut by default)', async () => {
       const chunks = ['chunk1', 'chunk2'];
 
       ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
 
       await service.printImages(chunks, 576);
 
-      // GS V 1 = [0x1D, 0x56, 0x01] sent as Base64 'HVYB' via printRawData
-      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+      // Old defaults must not leak into new behaviour.
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_AND_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+    });
+
+    it('should send GS V 1 (partial cut) for chunked images when cutMode=partial', async () => {
+      const chunks = ['chunk1', 'chunk2'];
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
+
+      await service.printImages(chunks, 576, { autoCut: true, cutMode: 'partial' });
+
+      expect((BLEPrinter as any).printRawData).toHaveBeenCalledWith(ESC_POS.PARTIAL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+    });
+
+    it('should send NO cut bytes for chunked images when autoCut=false', async () => {
+      const chunks = ['chunk1', 'chunk2'];
+      ((BLEPrinter as any).printRawData as jest.Mock).mockClear();
+
+      await service.printImages(chunks, 576, { autoCut: false, cutMode: 'full' });
+
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FULL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.PARTIAL_CUT);
+      expect((BLEPrinter as any).printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_AND_CUT);
     });
 
     it('should not send auto-cut for empty chunks array', async () => {
@@ -897,6 +950,40 @@ describe('BluetoothPrinterService', () => {
 
     it('ESC_POS.FEED_4_LINES matches manually computed Base64', () => {
       expect(ESC_POS.FEED_4_LINES).toBe('G2QE');
+    });
+
+    it('ESC_POS.FEED_AND_CUT encodes GS V 66 6 (atomic feed-then-partial-cut, legacy)', () => {
+      // [0x1D, 0x56, 0x42, 0x06] in Base64
+      const expected = bytesToBase64([0x1D, 0x56, 0x42, 0x06]);
+      expect(ESC_POS.FEED_AND_CUT).toBe(expected);
+    });
+
+    it('ESC_POS.FULL_CUT encodes GS V 0 (full cut, current default)', () => {
+      expect(ESC_POS.FULL_CUT).toBe(bytesToBase64([0x1D, 0x56, 0x00]));
+    });
+
+    it('ESC_POS.PARTIAL_CUT encodes GS V 1', () => {
+      expect(ESC_POS.PARTIAL_CUT).toBe(bytesToBase64([0x1D, 0x56, 0x01]));
+    });
+  });
+
+  describe('resolveCutCommand / DEFAULT_CUT_OPTIONS', () => {
+    it('returns FULL_CUT when autoCut is on and mode is full', () => {
+      expect(resolveCutCommand({ autoCut: true, cutMode: 'full' })).toBe(ESC_POS.FULL_CUT);
+    });
+
+    it('returns PARTIAL_CUT when autoCut is on and mode is partial', () => {
+      expect(resolveCutCommand({ autoCut: true, cutMode: 'partial' })).toBe(ESC_POS.PARTIAL_CUT);
+    });
+
+    it('returns null when autoCut is off (no cut bytes emitted to the printer)', () => {
+      expect(resolveCutCommand({ autoCut: false, cutMode: 'full' })).toBeNull();
+      expect(resolveCutCommand({ autoCut: false, cutMode: 'partial' })).toBeNull();
+    });
+
+    it('DEFAULT_CUT_OPTIONS targets the safest cross-printer behaviour', () => {
+      expect(DEFAULT_CUT_OPTIONS.autoCut).toBe(true);
+      expect(DEFAULT_CUT_OPTIONS.cutMode).toBe('full');
     });
 
     it('encodes ESC @ (printer reset) bytes correctly', () => {

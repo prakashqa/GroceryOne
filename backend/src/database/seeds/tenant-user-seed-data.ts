@@ -76,6 +76,22 @@ export const SEED_TENANTS: TenantSeed[] = [
     timezone: 'Asia/Kolkata',
   },
   {
+    name: 'AB Trade',
+    slug: 'abtrade',
+    domain: 'abtrade.groceryone.local',
+    status: 'active',
+    subscriptionPlan: 'standard',
+    contactEmail: 'contact@abtrade.com',
+    contactPhone: '+91-9000000001',
+    businessAddress: '',
+    primaryColor: '#1976D2',
+    secondaryColor: '#42A5F5',
+    defaultLanguage: 'en',
+    supportedLanguages: ['en', 'te'],
+    currency: 'INR',
+    timezone: 'Asia/Kolkata',
+  },
+  {
     name: 'Vijay Parcel POS',
     slug: 'vijayparcelpos',
     domain: 'vijayparcelpos.groceryone.local',
@@ -149,6 +165,19 @@ export const SEED_USERS: UserSeed[] = [
     status: 'active',
     preferredLanguage: 'te',
   },
+  // AB Trade Users
+  {
+    tenantSlug: 'abtrade',
+    email: 'suresh@abtrade.com',
+    phone: '+91-9000000002',
+    password: 'Admin@AB123',
+    pin: '1567',
+    firstName: 'Suresh',
+    lastName: '',
+    role: 'admin',
+    status: 'active',
+    preferredLanguage: 'en',
+  },
   // Vijay Parcel POS Users
   {
     tenantSlug: 'vijayparcelpos',
@@ -194,5 +223,9 @@ export const LOGIN_CREDENTIALS = {
     tenantSlug: 'vijayparcelpos',
     admin: { email: 'admin@vijayparcelpos.com', password: 'Admin@VP123', pin: '2468' },
     cashier: { email: 'customer@vijayparcelpos.com', password: 'Customer@VP123', pin: '1357' },
+  },
+  abtrade: {
+    tenantSlug: 'abtrade',
+    admin: { email: 'suresh@abtrade.com', password: 'Admin@AB123', pin: '1567' },
   },
 };

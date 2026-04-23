@@ -16,6 +16,9 @@ const SUBSCRIPTION_PLANS = {
 } as const;
 
 const TRIAL_DURATION_DAYS = 14;
+// Seed tenants get a long-lived active subscription so demo/seeded data does not
+// silently expire and block the app behind SUBSCRIPTION_EXPIRED errors.
+const SEED_DURATION_DAYS = 3650; // ~10 years
 const CACHE_TTL_SECONDS = 300; // 5 minutes
 
 @Injectable()
@@ -50,6 +53,36 @@ export class SubscriptionService {
     const saved = await this.subscriptionRepository.save(subscription);
     await this.invalidateCache(tenantId);
     this.logger.log(`Created trial subscription for tenant ${tenantId}, expires ${expiresAt.toISOString()}`);
+    return saved;
+  }
+
+  /**
+   * Create a long-lived active subscription for a seeded tenant.
+   * Expires any existing active/trial subscription first so re-seeding safely
+   * replaces an expired trial. Amount is 0 (non-billed demo).
+   */
+  async createSeedSubscription(tenantId: string): Promise<Subscription> {
+    await this.expireExistingSubscriptions(tenantId);
+
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + SEED_DURATION_DAYS);
+
+    const subscription = this.subscriptionRepository.create({
+      tenantId,
+      plan: 'yearly',
+      status: 'active',
+      amount: 0,
+      currency: 'INR',
+      startsAt: now,
+      expiresAt,
+    });
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    await this.invalidateCache(tenantId);
+    this.logger.log(
+      `Created seed subscription for tenant ${tenantId}, expires ${expiresAt.toISOString()}`,
+    );
     return saved;
   }
 

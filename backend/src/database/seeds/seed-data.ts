@@ -40,7 +40,6 @@ export const FRESHMART_CATEGORIES: CategorySeed[] = [
   { slug: 'rice', name: 'Rice', nameTe: 'బియ్యం', icon: '🍚', sortOrder: 2 },
   { slug: 'dals-pulses', name: 'Dals & Pulses', nameTe: 'పప్పులు', icon: '🫘', sortOrder: 3 },
   { slug: 'oils-ghee', name: 'Oils & Ghee', nameTe: 'నూనెలు & నెయ్యి', icon: '🫒', sortOrder: 4 },
-  { slug: 'spices', name: 'Spices & Masalas', nameTe: 'మసాలాలు', icon: '🌶️', sortOrder: 5 },
   { slug: 'vegetables', name: 'Vegetables', nameTe: 'కూరగాయలు', icon: '🥬', sortOrder: 6 },
   { slug: 'beverages', name: 'Tea, Coffee & Beverages', nameTe: 'టీ, కాఫీ & పానీయాలు', icon: '☕', sortOrder: 7 },
   { slug: 'daily-essentials', name: 'Daily Essentials', nameTe: 'రోజువారీ అవసరాలు', icon: '🏪', sortOrder: 8 },
@@ -114,40 +113,6 @@ export const FRESHMART_ITEMS: ItemSeed[] = [
   // Ghee
   { slug: 'ol-008', categorySlug: 'oils-ghee', name: 'Cow Ghee', nameTe: 'ఆవు నెయ్యి', unit: 'kg', defaultQuantity: 1, price: 550, compareAtPrice: 550, sortOrder: 8 },
   { slug: 'ol-009', categorySlug: 'oils-ghee', name: 'Buffalo Ghee', nameTe: 'గేదె నెయ్యి', unit: 'kg', defaultQuantity: 1, price: 480, compareAtPrice: 480, sortOrder: 9 },
-
-  // ========== Spices & Masalas (prices per KG for gm items) ==========
-  // Whole Spices
-  { slug: 'sp-001', categorySlug: 'spices', name: 'Cumin Seeds', nameTe: 'జీలకర్ర', unit: 'gm', defaultQuantity: 250, price: 340, compareAtPrice: 340, sortOrder: 1 },        // 340/kg
-  { slug: 'sp-002', categorySlug: 'spices', name: 'Coriander Seeds', nameTe: 'ధనియాలు', unit: 'gm', defaultQuantity: 250, price: 240, compareAtPrice: 240, sortOrder: 2 },    // 240/kg
-  { slug: 'sp-003', categorySlug: 'spices', name: 'Mustard Seeds', nameTe: 'ఆవాలు', unit: 'gm', defaultQuantity: 250, price: 280, compareAtPrice: 280, sortOrder: 3 },       // 280/kg
-  { slug: 'sp-004', categorySlug: 'spices', name: 'Fenugreek Seeds', nameTe: 'మెంతులు', unit: 'gm', defaultQuantity: 250, price: 260, compareAtPrice: 260, sortOrder: 4 },   // 260/kg
-  { slug: 'sp-005', categorySlug: 'spices', name: 'Black Pepper', nameTe: 'మిరియాలు', unit: 'gm', defaultQuantity: 100, price: 1800, compareAtPrice: 1800, sortOrder: 5 },    // 1800/kg
-  { slug: 'sp-006', categorySlug: 'spices', name: 'Cloves', nameTe: 'లవంగాలు', unit: 'gm', defaultQuantity: 50, price: 6400, compareAtPrice: 6400, sortOrder: 6 },            // 6400/kg
-  { slug: 'sp-007', categorySlug: 'spices', name: 'Cinnamon Sticks', nameTe: 'దాల్చిన చెక్క', unit: 'gm', defaultQuantity: 50, price: 5600, compareAtPrice: 5600, sortOrder: 7 }, // 5600/kg
-  { slug: 'sp-008', categorySlug: 'spices', name: 'Cardamom', nameTe: 'ఏలకులు', unit: 'gm', defaultQuantity: 50, price: 9000, compareAtPrice: 9000, sortOrder: 8 },           // 9000/kg
-  { slug: 'sp-009', categorySlug: 'spices', name: 'Bay Leaves', nameTe: 'బిర్యానీ ఆకు', unit: 'gm', defaultQuantity: 25, price: 4800, compareAtPrice: 4800, sortOrder: 9 },   // 4800/kg
-  { slug: 'sp-010', categorySlug: 'spices', name: 'Star Anise', nameTe: 'స్టార్ యానిస్', unit: 'gm', defaultQuantity: 25, price: 9600, compareAtPrice: 9600, sortOrder: 10 }, // 9600/kg
-
-  // Dried Ingredients
-  { slug: 'sp-011', categorySlug: 'spices', name: 'Dry Red Chillies', nameTe: 'ఎండు మిరపకాయలు', unit: 'gm', defaultQuantity: 250, price: 560, compareAtPrice: 560, sortOrder: 11 },   // 560/kg
-  { slug: 'sp-012', categorySlug: 'spices', name: 'Dry Green Chillies', nameTe: 'ఎండు పచ్చి మిర్చి', unit: 'gm', defaultQuantity: 100, price: 1600, compareAtPrice: 1600, sortOrder: 12 }, // 1600/kg
-  { slug: 'sp-013', categorySlug: 'spices', name: 'Tamarind', nameTe: 'చింతపండు', unit: 'gm', defaultQuantity: 500, price: 170, compareAtPrice: 170, sortOrder: 13 },              // 170/kg
-  { slug: 'sp-014', categorySlug: 'spices', name: 'Dry Curry Leaves', nameTe: 'కరివేపాకు (ఎండు)', unit: 'gm', defaultQuantity: 50, price: 2000, compareAtPrice: 2000, sortOrder: 14 }, // 2000/kg
-  { slug: 'sp-015', categorySlug: 'spices', name: 'Dry Mango Powder (Amchur)', nameTe: 'ఆమ్చూర్ పొడి', unit: 'gm', defaultQuantity: 100, price: 950, compareAtPrice: 950, sortOrder: 15 }, // 950/kg
-
-  // Powdered Spices
-  { slug: 'sp-016', categorySlug: 'spices', name: 'Turmeric Powder', nameTe: 'పసుపు పొడి', unit: 'gm', defaultQuantity: 500, price: 150, compareAtPrice: 150, sortOrder: 16 },   // 150/kg
-  { slug: 'sp-017', categorySlug: 'spices', name: 'Red Chilli Powder', nameTe: 'కారం పొడి', unit: 'gm', defaultQuantity: 500, price: 240, compareAtPrice: 240, sortOrder: 17 },  // 240/kg
-  { slug: 'sp-018', categorySlug: 'spices', name: 'Coriander Powder', nameTe: 'ధనియాల పొడి', unit: 'gm', defaultQuantity: 250, price: 220, compareAtPrice: 220, sortOrder: 18 }, // 220/kg
-  { slug: 'sp-019', categorySlug: 'spices', name: 'Cumin Powder', nameTe: 'జీలకర్ర పొడి', unit: 'gm', defaultQuantity: 100, price: 900, compareAtPrice: 900, sortOrder: 19 },    // 900/kg
-
-  // Masala Blends
-  { slug: 'sp-020', categorySlug: 'spices', name: 'Garam Masala', nameTe: 'గరం మసాలా', unit: 'gm', defaultQuantity: 100, price: 1100, compareAtPrice: 1100, sortOrder: 20 },      // 1100/kg
-  { slug: 'sp-021', categorySlug: 'spices', name: 'Sambar Powder', nameTe: 'సాంబార్ పొడి', unit: 'gm', defaultQuantity: 250, price: 280, compareAtPrice: 280, sortOrder: 21 },   // 280/kg
-  { slug: 'sp-022', categorySlug: 'spices', name: 'Rasam Powder', nameTe: 'రసం పొడి', unit: 'gm', defaultQuantity: 250, price: 260, compareAtPrice: 260, sortOrder: 22 },        // 260/kg
-  { slug: 'sp-023', categorySlug: 'spices', name: 'Biryani Masala', nameTe: 'బిర్యానీ మసాలా', unit: 'gm', defaultQuantity: 100, price: 1150, compareAtPrice: 1150, sortOrder: 23 }, // 1150/kg
-  { slug: 'sp-024', categorySlug: 'spices', name: 'Chaat Masala', nameTe: 'చాట్ మసాలా', unit: 'gm', defaultQuantity: 100, price: 1050, compareAtPrice: 1050, sortOrder: 24 },      // 1050/kg
-  { slug: 'sp-025', categorySlug: 'spices', name: 'Asafoetida (Hing)', nameTe: 'ఇంగువ', unit: 'gm', defaultQuantity: 50, price: 4000, compareAtPrice: 4000, sortOrder: 25 },       // 4000/kg
 
   // ========== Vegetables (gm items use per-KG prices) ==========
   { slug: 'vg-001', categorySlug: 'vegetables', name: 'Potato', nameTe: 'బంగాళదుంప', unit: 'kg', defaultQuantity: 2, price: 35, compareAtPrice: 35, sortOrder: 1 },
@@ -345,7 +310,6 @@ export const VIJAYPARCELPOS_CATEGORIES: CategorySeed[] = [
   { slug: 'inv-dal', name: 'Dal', nameTe: 'పప్పులు', icon: '🫘', sortOrder: 6, trackInventory: true },
   { slug: 'inv-oil', name: 'Oil', nameTe: 'నూనెలు', icon: '🫗', sortOrder: 7, trackInventory: true },
   { slug: 'inv-basic', name: 'Basic', nameTe: 'ప్రాథమిక', icon: '🧂', sortOrder: 8, trackInventory: true },
-  { slug: 'inv-spices', name: 'Spices', nameTe: 'మసాలాలు', icon: '🌶️', sortOrder: 9, trackInventory: true },
 ];
 
 export const VIJAYPARCELPOS_ITEMS: ItemSeed[] = [
@@ -392,14 +356,57 @@ export const VIJAYPARCELPOS_ITEMS: ItemSeed[] = [
 
   // ========== Inventory: Basic ==========
   { slug: 'vp-inv-basic-001', categorySlug: 'inv-basic', name: 'Salt', nameTe: 'ఉప్పు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 20, lowStockThreshold: 5 },
+];
 
-  // ========== Inventory: Spices ==========
-  { slug: 'vp-inv-spice-001', categorySlug: 'inv-spices', name: 'Turmeric Powder', nameTe: 'పసుపు పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 1, stockQuantity: 2, lowStockThreshold: 1 },
-  { slug: 'vp-inv-spice-002', categorySlug: 'inv-spices', name: 'Red Chilli Powder', nameTe: 'ఎర్ర మిర్చి పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 2, stockQuantity: 3, lowStockThreshold: 1 },
-  { slug: 'vp-inv-spice-003', categorySlug: 'inv-spices', name: 'Coriander Powder', nameTe: 'ధనియాల పొడి', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 3, stockQuantity: 2, lowStockThreshold: 1 },
-  { slug: 'vp-inv-spice-004', categorySlug: 'inv-spices', name: 'Garam Masala', nameTe: 'గరం మసాలా', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 4, stockQuantity: 1, lowStockThreshold: 1 },
-  { slug: 'vp-inv-spice-005', categorySlug: 'inv-spices', name: 'Cumin Seeds', nameTe: 'జీలకర్ర', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 5, stockQuantity: 1.5, lowStockThreshold: 1 },
-  { slug: 'vp-inv-spice-006', categorySlug: 'inv-spices', name: 'Mustard Seeds', nameTe: 'ఆవాలు', unit: 'kg', defaultQuantity: 1, compareAtPrice: 0, sortOrder: 6, stockQuantity: 1, lowStockThreshold: 1 },
+// =============================================================================
+// AB Trade — South Indian grocery starter catalog (31 items, 6 categories)
+// Prices are midpoints of quoted MRP ranges, rounded to nearest INR.
+// =============================================================================
+
+export const ABTRADE_CATEGORIES: CategorySeed[] = [
+  { slug: 'staples-grains', name: 'Staples (Grains & Rice)', nameTe: 'ధాన్యాలు & బియ్యం', icon: '🍚', sortOrder: 1 },
+  { slug: 'pulses-lentils', name: 'Pulses & Lentils', nameTe: 'పప్పు ధాన్యాలు', icon: '🌾', sortOrder: 2 },
+  { slug: 'oils-fats', name: 'Cooking Oils & Fats', nameTe: 'నూనెలు & నెయ్యి', icon: '🛢️', sortOrder: 3 },
+  { slug: 'south-indian-special', name: 'South Indian Special', nameTe: 'దక్షిణ భారత ప్రత్యేకం', icon: '🥥', sortOrder: 5 },
+  { slug: 'other-essentials', name: 'Other Essentials', nameTe: 'ఇతర అవసరాలు', icon: '🍬', sortOrder: 6 },
+];
+
+export const ABTRADE_ITEMS: ItemSeed[] = [
+  // Staples (Grains & Rice) — midpoints of ranges
+  { slug: 'ab-stp-001', categorySlug: 'staples-grains', name: 'Sona Masoori / Ponni Rice', nameTe: 'సోనా మసూరి / పొన్ని బియ్యం', unit: 'kg', defaultQuantity: 5, price: 50, compareAtPrice: 50, sortOrder: 1 },
+  { slug: 'ab-stp-002', categorySlug: 'staples-grains', name: 'Idli Rice', nameTe: 'ఇడ్లీ బియ్యం', unit: 'kg', defaultQuantity: 2, price: 60, compareAtPrice: 60, sortOrder: 2 },
+  { slug: 'ab-stp-003', categorySlug: 'staples-grains', name: 'Basmati Rice', nameTe: 'బాస్మతి బియ్యం', unit: 'kg', defaultQuantity: 5, price: 105, compareAtPrice: 105, sortOrder: 3 },
+  { slug: 'ab-stp-004', categorySlug: 'staples-grains', name: 'Ragi (Finger Millet)', nameTe: 'రాగి', unit: 'kg', defaultQuantity: 1, price: 55, compareAtPrice: 55, sortOrder: 4 },
+  { slug: 'ab-stp-005', categorySlug: 'staples-grains', name: 'Suji / Rava', nameTe: 'రవ్వ', unit: 'kg', defaultQuantity: 1, price: 50, compareAtPrice: 50, sortOrder: 5 },
+
+  // Pulses & Lentils
+  { slug: 'ab-pl-001', categorySlug: 'pulses-lentils', name: 'Toor Dal (Arhar)', nameTe: 'కంది పప్పు', unit: 'kg', defaultQuantity: 1, price: 120, compareAtPrice: 120, sortOrder: 1 },
+  { slug: 'ab-pl-002', categorySlug: 'pulses-lentils', name: 'Urad Dal', nameTe: 'మినప పప్పు', unit: 'kg', defaultQuantity: 1, price: 115, compareAtPrice: 115, sortOrder: 2 },
+  { slug: 'ab-pl-003', categorySlug: 'pulses-lentils', name: 'Moong Dal', nameTe: 'పెసర పప్పు', unit: 'kg', defaultQuantity: 1, price: 108, compareAtPrice: 108, sortOrder: 3 },
+  { slug: 'ab-pl-004', categorySlug: 'pulses-lentils', name: 'Chana Dal', nameTe: 'శెనగ పప్పు', unit: 'kg', defaultQuantity: 1, price: 85, compareAtPrice: 85, sortOrder: 4 },
+  { slug: 'ab-pl-005', categorySlug: 'pulses-lentils', name: 'Masoor Dal', nameTe: 'మసూర్ పప్పు', unit: 'kg', defaultQuantity: 1, price: 90, compareAtPrice: 90, sortOrder: 5 },
+
+  // Cooking Oils & Fats
+  { slug: 'ab-oil-001', categorySlug: 'oils-fats', name: 'Sunflower Oil', nameTe: 'సన్‌ఫ్లవర్ నూనె', unit: 'L', defaultQuantity: 1, price: 173, compareAtPrice: 173, sortOrder: 1 },
+  { slug: 'ab-oil-002', categorySlug: 'oils-fats', name: 'Groundnut Oil', nameTe: 'వేరుశెనగ నూనె', unit: 'L', defaultQuantity: 1, price: 195, compareAtPrice: 195, sortOrder: 2 },
+  { slug: 'ab-oil-003', categorySlug: 'oils-fats', name: 'Palm Oil', nameTe: 'పామ్ నూనె', unit: 'L', defaultQuantity: 1, price: 145, compareAtPrice: 145, sortOrder: 3 },
+  { slug: 'ab-oil-004', categorySlug: 'oils-fats', name: 'Sesame Oil', nameTe: 'నువ్వుల నూనె', unit: 'L', defaultQuantity: 1, price: 250, compareAtPrice: 250, sortOrder: 4 },
+  { slug: 'ab-oil-005', categorySlug: 'oils-fats', name: 'Ghee', nameTe: 'నెయ్యి', unit: 'kg', defaultQuantity: 1, price: 675, compareAtPrice: 675, sortOrder: 5 },
+
+  // South Indian Special
+  { slug: 'ab-sis-001', categorySlug: 'south-indian-special', name: 'Coconut Oil', nameTe: 'కొబ్బరి నూనె', unit: 'L', defaultQuantity: 1, price: 215, compareAtPrice: 215, sortOrder: 1 },
+  { slug: 'ab-sis-002', categorySlug: 'south-indian-special', name: 'Dry Coconut (Copra)', nameTe: 'ఎండు కొబ్బరి', unit: 'kg', defaultQuantity: 1, price: 300, compareAtPrice: 300, sortOrder: 2 },
+  { slug: 'ab-sis-003', categorySlug: 'south-indian-special', name: 'Curry Leaves (Dry)', nameTe: 'కరివేపాకు (ఎండు)', unit: 'pcs', defaultQuantity: 1, price: 35, compareAtPrice: 35, sortOrder: 3 },
+  { slug: 'ab-sis-004', categorySlug: 'south-indian-special', name: 'Rasam Powder', nameTe: 'రసం పొడి', unit: 'gm', defaultQuantity: 250, price: 250, compareAtPrice: 250, sortOrder: 4 },
+  { slug: 'ab-sis-005', categorySlug: 'south-indian-special', name: 'Sambar Powder', nameTe: 'సాంబార్ పొడి', unit: 'gm', defaultQuantity: 250, price: 275, compareAtPrice: 275, sortOrder: 5 },
+  { slug: 'ab-sis-006', categorySlug: 'south-indian-special', name: 'Idli/Dosa Podi (Gunpowder)', nameTe: 'ఇడ్లీ/దోస పొడి', unit: 'gm', defaultQuantity: 250, price: 325, compareAtPrice: 325, sortOrder: 6 },
+
+  // Other Essentials
+  { slug: 'ab-oe-001', categorySlug: 'other-essentials', name: 'Sugar', nameTe: 'పంచదార', unit: 'kg', defaultQuantity: 1, price: 48, compareAtPrice: 48, sortOrder: 1 },
+  { slug: 'ab-oe-002', categorySlug: 'other-essentials', name: 'Jaggery (Gur)', nameTe: 'బెల్లం', unit: 'kg', defaultQuantity: 1, price: 63, compareAtPrice: 63, sortOrder: 2 },
+  { slug: 'ab-oe-003', categorySlug: 'other-essentials', name: 'Salt', nameTe: 'ఉప్పు', unit: 'kg', defaultQuantity: 1, price: 23, compareAtPrice: 23, sortOrder: 3 },
+  { slug: 'ab-oe-004', categorySlug: 'other-essentials', name: 'Tea', nameTe: 'టీ పొడి', unit: 'gm', defaultQuantity: 500, price: 275, compareAtPrice: 275, sortOrder: 4 },
+  { slug: 'ab-oe-005', categorySlug: 'other-essentials', name: 'Coffee', nameTe: 'కాఫీ పొడి', unit: 'gm', defaultQuantity: 250, price: 600, compareAtPrice: 600, sortOrder: 5 },
 ];
 
 // =============================================================================
@@ -415,6 +422,7 @@ const TENANT_SEED_MAP: Record<string, TenantSeedData> = {
   freshmart: { categories: FRESHMART_CATEGORIES, items: FRESHMART_ITEMS },
   quickbasket: { categories: QUICKBASKET_CATEGORIES, items: QUICKBASKET_ITEMS },
   vijayparcelpos: { categories: VIJAYPARCELPOS_CATEGORIES, items: VIJAYPARCELPOS_ITEMS },
+  abtrade: { categories: ABTRADE_CATEGORIES, items: ABTRADE_ITEMS },
 };
 
 /**

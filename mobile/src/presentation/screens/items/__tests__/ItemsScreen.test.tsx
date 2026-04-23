@@ -230,7 +230,7 @@ describe('ItemsScreen', () => {
       expect(addItemCall).toBeUndefined();
     });
 
-    it('add button creates cart when none exists and adds item with quantity 1', () => {
+    it('add button creates cart when none exists and adds item with its defaultQuantity', () => {
       setupMockSelectors({ activeCart: null, todaysCarts: [] });
       const { getByTestId } = render(<ItemsScreen />);
 
@@ -243,11 +243,71 @@ describe('ItemsScreen', () => {
       expect(createCartCall).toBeDefined();
       expect(createCartCall[0].payload.name).toMatch(/^\d{4}-\d{6}-\d{2}$/);
 
-      // Should dispatch addItemToActiveCart with quantity 1
+      // Should dispatch addItemToActiveCart with the item's defaultQuantity (5 for item-1),
+      // not a hardcoded 1 — otherwise gm-unit items like "250 gm" packets get 1gm → 0.001kg.
       const addItemCall = mockDispatch.mock.calls.find(
         (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
       );
       expect(addItemCall).toBeDefined();
+      expect(addItemCall[0].payload.quantity).toBe(5);
+    });
+
+    it('+Add on a gm-unit packet adds defaultQuantity grams (not 1gm → 0.001kg)', () => {
+      // Regression: a spice like "Black Pepper 100 gm" was adding 0.001 to cart because
+      // the screen hardcoded `normalizeToBaseUnit(1, item.unit)` instead of defaultQuantity.
+      const gmItem = buildMockItem({
+        id: 'item-gm',
+        name: 'Black Pepper',
+        categoryId: 'cat-1',
+        unit: 'gm',
+        defaultQuantity: 100,
+        price: 1800,
+        trackInventory: false,
+        stockQuantity: 1000,
+      });
+      setupMockSelectors({
+        items: [gmItem],
+        activeCart: null,
+        todaysCarts: [],
+      });
+      const { getByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('item-item-gm-add-button'));
+
+      const addItemCall = mockDispatch.mock.calls.find(
+        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
+      );
+      expect(addItemCall).toBeDefined();
+      // normalizeToBaseUnit is mocked as identity, so we assert the *input* that went
+      // into it: the item's defaultQuantity (100 gm), never 1.
+      expect(addItemCall[0].payload.quantity).toBe(100);
+      expect(addItemCall[0].payload.quantity).not.toBe(1);
+      expect(addItemCall[0].payload.quantity).not.toBe(0.001);
+    });
+
+    it('+Add falls back to 1 when item has no defaultQuantity (safety net)', () => {
+      const noDefaultItem = buildMockItem({
+        id: 'item-nodef',
+        name: 'Mystery Item',
+        categoryId: 'cat-1',
+        unit: 'pcs',
+        defaultQuantity: 0, // simulate missing/invalid value
+        price: 10,
+        trackInventory: false,
+        stockQuantity: 5,
+      });
+      setupMockSelectors({
+        items: [noDefaultItem],
+        activeCart: null,
+        todaysCarts: [],
+      });
+      const { getByTestId } = render(<ItemsScreen />);
+
+      fireEvent.press(getByTestId('item-item-nodef-add-button'));
+
+      const addItemCall = mockDispatch.mock.calls.find(
+        (call: any) => call[0]?.type === 'multiCart/addItemToActiveCart'
+      );
       expect(addItemCall[0].payload.quantity).toBe(1);
     });
 

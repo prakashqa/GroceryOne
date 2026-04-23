@@ -76,6 +76,29 @@ describe('ActiveOrderPreview', () => {
       expect(getByText(/12.5/)).toBeTruthy();
     });
 
+    it('formats floating-point quantity residue (8.001999999999999 → 8.002)', () => {
+      const { getByText, queryByText } = render(
+        <ActiveOrderPreview {...defaultProps} totalQuantity={8.001999999999999} />,
+      );
+      expect(getByText('8.002')).toBeTruthy();
+      // Must NOT render the raw float string
+      expect(queryByText('8.001999999999999')).toBeNull();
+    });
+
+    it('renders integer quantities without trailing decimals (8 → "8")', () => {
+      const { getByText } = render(
+        <ActiveOrderPreview {...defaultProps} totalQuantity={8} />,
+      );
+      expect(getByText('8')).toBeTruthy();
+    });
+
+    it('preserves meaningful decimals (2.5 → "2.5")', () => {
+      const { getByText } = render(
+        <ActiveOrderPreview {...defaultProps} totalQuantity={2.5} />,
+      );
+      expect(getByText('2.5')).toBeTruthy();
+    });
+
     it('renders total amount when provided', () => {
       const { getByText } = render(<ActiveOrderPreview {...defaultProps} />);
       // Amount should be formatted as currency

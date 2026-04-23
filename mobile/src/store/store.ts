@@ -17,15 +17,8 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        // Ignore specific action types from RTK Query
-        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'tenant/setTenant'],
-        // Ignore date fields in state
-        ignoredPaths: [
-          'tenant.tenant.createdAt',
-          'tenant.tenant.updatedAt',
-          'auth.user.createdAt',
-          'auth.user.updatedAt',
-        ],
+        // Ignore persist library internal actions (payload carries non-serializable refs).
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
       },
     })
       .concat(baseApi.middleware)

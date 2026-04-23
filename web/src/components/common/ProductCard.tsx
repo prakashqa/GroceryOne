@@ -8,6 +8,8 @@ interface ProductCardProps {
   name: string;
   price?: number;
   unit: string;
+  /** Pack size the price applies to (e.g. 100 for a ₹1800 / 100g pack). */
+  defaultQuantity?: number;
   inCartQty?: number;
   onAdd: () => void;
   onIncrement: () => void;
@@ -15,17 +17,26 @@ interface ProductCardProps {
 }
 
 export const ProductCard = memo(function ProductCard({
-  name, price, unit, inCartQty, onAdd, onIncrement, onDecrement,
+  name, price, unit, defaultQuantity, inCartQty, onAdd, onIncrement, onDecrement,
 }: ProductCardProps) {
   const { t } = useTranslation('common');
+  // price is the price for a pack of `defaultQuantity` units of `unit`, NOT
+  // per-unit. Rendering as "₹{price}/{unit}" conflates those and implied, for
+  // example, "₹1800/gm" for a ₹1800 100g pack of black pepper. Show the pack
+  // size in the denominator so the rate is unambiguous.
+  const priceLabel = price === undefined
+    ? null
+    : defaultQuantity && defaultQuantity > 0
+      ? `₹${price} / ${defaultQuantity}${unit}`
+      : `₹${price}/${unit}`;
   return (
     <div className={`bg-white dark:bg-surface-dark rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] ${
       inCartQty ? 'border-in-cart-border bg-in-cart-bg dark:bg-green-900/10' : 'border-gray-100 dark:border-gray-800'
     }`}>
       <div className="mb-2">
         <p className="font-medium text-sm truncate">{name}</p>
-        {price !== undefined && (
-          <p className="text-primary font-semibold text-sm mt-0.5">₹{price}/{unit}</p>
+        {priceLabel && (
+          <p className="text-primary font-semibold text-sm mt-0.5">{priceLabel}</p>
         )}
       </div>
       {inCartQty ? (

@@ -361,6 +361,72 @@ describe('multiCartSlice', () => {
     });
   });
 
+  describe('pendingPaymentSync retry queue', () => {
+    const { markActiveCartAsPaid, updateCartBackendId, addItemToActiveCart } = require('../multiCartSlice');
+
+    it('enqueues cart id when markActiveCartAsPaid fires before backendId is assigned', () => {
+      // Create cart — no backendId yet
+      let state = multiCartReducer(initialState, createCart({ name: 'C1' }));
+      const localId = state.carts[0].id;
+      // Add an item so mark-paid passes validation
+      state = multiCartReducer(state, addItemToActiveCart({
+        item: { id: 'i1', categoryId: 'c1', name: 'X', unit: 'kg', defaultQuantity: 1, price: 10 },
+        quantity: 1,
+      }));
+      // Pay while backendId is still missing
+      state = multiCartReducer(state, markActiveCartAsPaid({ amount: 10, paymentInfo: { method: 'cash' } as any }));
+
+      expect(state.pendingPaymentSync).toContain(localId);
+      expect(state.carts[0].status).toBe('paid');
+    });
+
+    it('drains the queue when updateCartBackendId arrives for that cart', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'C1' }));
+      const localId = state.carts[0].id;
+      state = multiCartReducer(state, addItemToActiveCart({
+        item: { id: 'i1', categoryId: 'c1', name: 'X', unit: 'kg', defaultQuantity: 1, price: 10 },
+        quantity: 1,
+      }));
+      state = multiCartReducer(state, markActiveCartAsPaid({ amount: 10, paymentInfo: { method: 'cash' } as any }));
+      expect(state.pendingPaymentSync).toContain(localId);
+
+      state = multiCartReducer(state, updateCartBackendId({ localId, backendId: 'backend-uuid-xyz' }));
+
+      expect(state.pendingPaymentSync ?? []).not.toContain(localId);
+      expect(state.carts[0].backendId).toBe('backend-uuid-xyz');
+    });
+
+    it('does NOT enqueue when backendId already present at mark-paid time', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'C1' }));
+      const localId = state.carts[0].id;
+      // Simulate createCart POST already returned
+      state = multiCartReducer(state, updateCartBackendId({ localId, backendId: 'backend-uuid-pre' }));
+      state = multiCartReducer(state, addItemToActiveCart({
+        item: { id: 'i1', categoryId: 'c1', name: 'X', unit: 'kg', defaultQuantity: 1, price: 10 },
+        quantity: 1,
+      }));
+      state = multiCartReducer(state, markActiveCartAsPaid({ amount: 10, paymentInfo: { method: 'cash' } as any }));
+
+      expect(state.pendingPaymentSync ?? []).not.toContain(localId);
+    });
+
+    it('logout clears the retry queue (tenant isolation)', () => {
+      let state = multiCartReducer(initialState, createCart({ name: 'C1' }));
+      const localId = state.carts[0].id;
+      state = multiCartReducer(state, addItemToActiveCart({
+        item: { id: 'i1', categoryId: 'c1', name: 'X', unit: 'kg', defaultQuantity: 1, price: 10 },
+        quantity: 1,
+      }));
+      state = multiCartReducer(state, markActiveCartAsPaid({ amount: 10, paymentInfo: { method: 'cash' } as any }));
+      expect(state.pendingPaymentSync).toContain(localId);
+
+      // Tenant switch → logout action → retry queue must not follow into next tenant
+      state = multiCartReducer(state, { type: 'auth/logout' });
+      expect(state.pendingPaymentSync ?? []).toEqual([]);
+      expect(state.carts).toHaveLength(0);
+    });
+  });
+
   describe('deleteCart', () => {
     it('should remove cart from carts array', () => {
       const stateWithCart: MultiCartState = {
@@ -576,6 +642,91 @@ describe('multiCartSlice', () => {
 
       expect(state.carts).toHaveLength(1);
       expect(state.carts[0].id).toBe('backend-uuid-kept');
+    });
+  });
+
+  describe('syncCartsFromBackend status normalization (paidAt → paid)', () => {
+    it('upgrades backend status=draft to paid when paidAt is set (replaceAll)', () => {
+      const state = multiCartReducer(
+        initialState,
+        syncCartsFromBackend({
+          carts: [
+            createBackendCart('cart-stale', 'Previously Paid', {
+              status: 'draft',
+              paidAt: '2026-01-30T11:00:00.000Z',
+              paidAmount: 500,
+            }),
+          ],
+          replaceAll: true,
+        })
+      );
+      expect(state.carts[0].status).toBe('paid');
+      expect(state.carts[0].paidAmount).toBe(500);
+    });
+
+    it('upgrades backend status=draft to paid when paidAt is set (merge mode)', () => {
+      // Existing local cart with draft status — simulates a cache that lost paid state
+      const prior: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-stale', name: 'Previously Paid', status: 'draft' as const,
+          items: [], createdAt: '2026-01-30T10:00:00.000Z', updatedAt: '2026-01-30T10:00:00.000Z',
+        }] as MultiCartState['carts'],
+      };
+      const state = multiCartReducer(
+        prior,
+        syncCartsFromBackend({
+          carts: [createBackendCart('cart-stale', 'Previously Paid', {
+            status: 'draft', paidAt: '2026-01-30T11:00:00.000Z', paidAmount: 500,
+          })],
+          replaceAll: false,
+        })
+      );
+      expect(state.carts[0].status).toBe('paid');
+    });
+
+    it('leaves draft carts without paidAt untouched', () => {
+      const state = multiCartReducer(
+        initialState,
+        syncCartsFromBackend({
+          carts: [createBackendCart('cart-draft', 'Real Draft', { status: 'draft' })],
+          replaceAll: true,
+        })
+      );
+      expect(state.carts[0].status).toBe('draft');
+    });
+
+    it('preserves paidItemCount from backend payload', () => {
+      const state = multiCartReducer(
+        initialState,
+        syncCartsFromBackend({
+          carts: [createBackendCart('cart-x', 'Paid Cart', {
+            status: 'paid', paidAt: '2026-01-30T11:00:00.000Z', paidAmount: 500, paidItemCount: 7,
+          })],
+          replaceAll: true,
+        })
+      );
+      expect(state.carts[0].paidItemCount).toBe(7);
+    });
+
+    it('LOCAL-WINS via paidAt: local cart with stale draft + paidAt stays paid after sync', () => {
+      const prior: MultiCartState = {
+        ...initialState,
+        carts: [{
+          id: 'cart-stale', name: 'Previously Paid', status: 'draft' as const,
+          paidAt: '2026-01-30T11:00:00.000Z', paidAmount: 500,
+          items: [], createdAt: '2026-01-30T10:00:00.000Z', updatedAt: '2026-01-30T10:00:00.000Z',
+        }] as MultiCartState['carts'],
+      };
+      const state = multiCartReducer(
+        prior,
+        syncCartsFromBackend({
+          carts: [createBackendCart('cart-stale', 'Previously Paid', { status: 'draft' })],
+          replaceAll: true,
+        })
+      );
+      expect(state.carts[0].status).toBe('paid');
+      expect(state.carts[0].paidAmount).toBe(500);
     });
   });
 
@@ -2055,16 +2206,18 @@ describe('multiCartSlice', () => {
         expect(state.carts[0].items[0].priceSnapshot).toBeUndefined();
       });
 
-      it('should use hardcoded ITEMS as fallback when catalog items have no prices', () => {
-        // This test reproduces the bug where backend returns items without prices
-        // Cart has item matching hardcoded ITEMS by name
+      it('should leave priceSnapshot undefined when neither catalog id nor name has a price (no hardcoded fallback)', () => {
+        // Regression: in a multi-tenant app, falling back to a hardcoded
+        // price table was a tenant-leakage vector (the table only held
+        // FreshMart's slugs). The honest answer when catalog has no price
+        // is `undefined`; the UI surfaces "price unavailable" instead of
+        // silently serving a possibly-wrong cross-tenant price.
         const cartItemWithoutPrice: Item = {
           id: 'gf-001',
           categoryId: 'grains-flour',
-          name: 'Wheat Flour / Atta', // Matches ITEMS in picking.ts
+          name: 'Wheat Flour / Atta',
           unit: 'kg',
           defaultQuantity: 5,
-          // No price
         };
 
         const stateWithUnpricedItem: MultiCartState = {
@@ -2075,7 +2228,6 @@ describe('multiCartSlice', () => {
               item: cartItemWithoutPrice,
               quantity: 5,
               addedAt: new Date().toISOString(),
-              // priceSnapshot is undefined
             }],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -2087,22 +2239,21 @@ describe('multiCartSlice', () => {
           deletedCartIds: [],
         };
 
-        // Catalog items WITHOUT prices (simulating backend not seeded)
+        // Catalog items WITHOUT prices (simulating a tenant whose backend
+        // hasn't populated prices yet).
         const catalogItemsNoPrices: Item[] = [{
           id: 'gf-001',
           categoryId: 'grains-flour',
           name: 'Wheat Flour / Atta',
           unit: 'kg',
           defaultQuantity: 5,
-          // No price - simulating backend without price data
         }];
 
         const action = refreshActiveCartPrices(catalogItemsNoPrices);
         const state = multiCartReducer(stateWithUnpricedItem, action);
 
-        // Should fall back to hardcoded ITEMS price (48 for Wheat Flour / Atta)
-        expect(state.carts[0].items[0].priceSnapshot).toBe(48);
-        expect(state.carts[0].items[0].item.price).toBe(48);
+        expect(state.carts[0].items[0].priceSnapshot).toBeUndefined();
+        expect(state.carts[0].items[0].item.price).toBeUndefined();
       });
 
       it('should update multiple cart items with mixed ID and name matches', () => {

@@ -82,10 +82,10 @@ export default function ItemsPage() {
 
       {/* Category Bar */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-        <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100'}`}>{t('manageItems.all')}</button>
+        <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{t('manageItems.all')}</button>
         {orderingCategories.map((cat) => (
           <button key={cat.id} onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === cat.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100'}`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === cat.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
             {cat.icon} {cat.name}
           </button>
         ))}
@@ -103,6 +103,7 @@ export default function ItemsPage() {
                 name={item.name}
                 price={item.price}
                 unit={item.unit}
+                defaultQuantity={item.defaultQuantity}
                 inCartQty={cartItemMap.get(item.id)}
                 onAdd={() => handleAddItem(item)}
                 onIncrement={() => dispatch(incrementItemInActiveCart(item.id))}
@@ -123,7 +124,7 @@ export default function ItemsPage() {
                   {item.price !== undefined && <p className="text-sm font-semibold text-primary">₹{item.price}</p>}
                   {inCartQty ? (
                     <div className="flex items-center gap-2">
-                      <button onClick={() => dispatch(decrementItemInActiveCart(item.id))} className="w-7 h-7 rounded bg-red-50 text-red-600 flex items-center justify-center"><Minus size={12} /></button>
+                      <button onClick={() => dispatch(decrementItemInActiveCart(item.id))} className="w-7 h-7 rounded bg-red-50 dark:bg-red-900/20 text-red-600 flex items-center justify-center"><Minus size={12} /></button>
                       <span className="text-sm font-medium w-12 text-center">{inCartQty}</span>
                       <button onClick={() => handleAddItem(item)} className="w-7 h-7 rounded bg-primary/10 text-primary flex items-center justify-center"><Plus size={12} /></button>
                     </div>

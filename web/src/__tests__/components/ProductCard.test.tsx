@@ -25,9 +25,34 @@ describe('ProductCard', () => {
     jest.clearAllMocks();
   });
 
-  it('renders product name and price', () => {
-    render(<ProductCard {...defaultProps} />);
+  it('renders product name and price with pack size (₹{price} / {qty}{unit})', () => {
+    render(<ProductCard {...defaultProps} defaultQuantity={1} />);
     expect(screen.getByText('Rice')).toBeInTheDocument();
+    // Price stored is for a pack of defaultQuantity units of `unit`.
+    // For Rice 1kg @ ₹45 we show "₹45 / 1kg" — not "₹45/kg" (ambiguous) and
+    // never "₹45/gm" when unit is a subdivision.
+    expect(screen.getByText('₹45 / 1kg')).toBeInTheDocument();
+  });
+
+  it('shows pack size in the denominator even for gm-unit packs (regression)', () => {
+    // Regression: Black Pepper 100g @ ₹1800 used to display as "₹1800/gm"
+    // which implied ₹1800 per gram — wildly wrong. Must render pack size.
+    render(
+      <ProductCard
+        {...defaultProps}
+        name="Black Pepper"
+        price={1800}
+        unit="gm"
+        defaultQuantity={100}
+      />,
+    );
+    expect(screen.getByText('₹1800 / 100gm')).toBeInTheDocument();
+    expect(screen.queryByText('₹1800/gm')).not.toBeInTheDocument();
+  });
+
+  it('falls back to "/{unit}" when defaultQuantity is missing (legacy items)', () => {
+    render(<ProductCard {...defaultProps} />);
+    // No defaultQuantity passed — keep the legacy rendering so old items still show.
     expect(screen.getByText('₹45/kg')).toBeInTheDocument();
   });
 

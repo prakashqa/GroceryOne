@@ -67,6 +67,17 @@ export class Cart {
   })
   paidAmount?: number;
 
+  // Snapshot of the item count at the moment the cart was paid. Preserved so
+  // "Recent Orders" rows can show an accurate count even after items are
+  // cleared, archived, or the client rehydrates from backend with an empty
+  // items array.
+  @Column({
+    name: 'paid_item_count',
+    type: 'int',
+    nullable: true,
+  })
+  paidItemCount?: number;
+
   @OneToMany(() => CartItem, (cartItem) => cartItem.cart, { cascade: true })
   items: CartItem[];
 

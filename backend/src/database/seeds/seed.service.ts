@@ -178,11 +178,16 @@ export class SeedService {
    * Seed items
    */
   private async seedItems(items: ItemSeed[], categoryMap: Map<string, string>, report: SeedReport, tenantId: string, categorySeedData?: CategorySeed[]): Promise<void> {
-    // Build category slug -> trackInventory lookup
+    // Build category slug -> trackInventory lookup.
+    // Default to `false` to match the seedCategories path (lines ~140/157),
+    // which also defaults to `false` when the seed omits the flag. Defaulting
+    // items to `true` here produced a category/item mismatch: FreshMart
+    // categories landed as trackInventory=false but every item landed as true,
+    // causing the mobile POS filter (trackInventory !== true) to hide them all.
     const categoryTrackInventory = new Map<string, boolean>();
     if (categorySeedData) {
       for (const cat of categorySeedData) {
-        categoryTrackInventory.set(cat.slug, cat.trackInventory ?? true);
+        categoryTrackInventory.set(cat.slug, cat.trackInventory ?? false);
       }
     }
     for (const seedItem of items) {
@@ -201,19 +206,29 @@ export class SeedService {
           where: { slug: seedItem.slug, tenantId },
         });
 
+        // Determine trackInventory from category seed data (default: false)
+        const shouldTrackInventory = categoryTrackInventory.get(seedItem.categorySlug) ?? false;
+
         if (existing) {
+          let changed = false;
           // Fix existing items with missing compareAtPrice (MRP)
           if (existing.compareAtPrice == null || existing.compareAtPrice === 0) {
             existing.compareAtPrice = seedItem.compareAtPrice;
             existing.price = seedItem.price;
-            await this.itemRepository.save(existing);
+            changed = true;
             this.logger.debug(`Updated MRP for existing item '${seedItem.slug}'`);
           }
+          // Heal category/item trackInventory drift — prior seeds defaulted
+          // items to true while categories defaulted to false, leaving them
+          // out of sync. Re-seeding now reconciles the item to its category.
+          if (existing.trackInventory !== shouldTrackInventory) {
+            existing.trackInventory = shouldTrackInventory;
+            changed = true;
+            this.logger.debug(`Updated trackInventory for existing item '${seedItem.slug}' -> ${shouldTrackInventory}`);
+          }
+          if (changed) await this.itemRepository.save(existing);
           continue;
         }
-
-        // Determine trackInventory from category seed data (default: true)
-        const shouldTrackInventory = categoryTrackInventory.get(seedItem.categorySlug) ?? true;
 
         // Create item
         const item = this.itemRepository.create({

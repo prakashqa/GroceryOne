@@ -90,6 +90,82 @@ describe('catalogSlice', () => {
       expect(result.items.find(i => i.id === 'item-local-456')).toBeDefined();
     });
 
+    it('should drop stale synced items that are no longer in backend response', () => {
+      // Items that were synced previously (have backendId) but are absent
+      // from the fresh backend payload were deleted server-side. Keeping
+      // them causes "not found" errors when the user edits or deletes them.
+      const localState: CatalogState = {
+        categories: [{ id: 'fruits', backendId: 'uuid-1', name: 'Fruits', icon: '🍎' }],
+        items: [
+          { id: 'apple', backendId: 'item-uuid-1', categoryId: 'fruits', name: 'Apple', unit: 'kg' as const, defaultQuantity: 1, mrp: 100 },
+          { id: 'ghost', backendId: 'item-uuid-ghost', categoryId: 'fruits', name: 'Ghost', unit: 'kg' as const, defaultQuantity: 1, mrp: 50 },
+          { id: 'item-local-456', categoryId: 'fruits', name: 'Local Only', unit: 'pcs' as const, defaultQuantity: 1, mrp: 50 },
+        ],
+        isInitialized: true,
+      };
+
+      const backendData = {
+        categories: [{ id: 'fruits', backendId: 'uuid-1', name: 'Fruits', icon: '🍎' }],
+        items: [
+          { id: 'apple', backendId: 'item-uuid-1', categoryId: 'fruits', name: 'Apple', unit: 'kg' as const, defaultQuantity: 1, mrp: 100 },
+        ],
+      };
+
+      const result = catalogReducer(localState, mergeCatalogFromBackend(backendData));
+      expect(result.items).toHaveLength(2);
+      expect(result.items.find(i => i.id === 'ghost')).toBeUndefined();
+      expect(result.items.find(i => i.id === 'item-local-456')).toBeDefined();
+      expect(result.items.find(i => i.id === 'apple')).toBeDefined();
+    });
+
+    it('should drop stale synced categories no longer in backend response', () => {
+      const localState: CatalogState = {
+        categories: [
+          { id: 'fruits', backendId: 'uuid-1', name: 'Fruits', icon: '🍎' },
+          { id: 'ghost-cat', backendId: 'uuid-ghost', name: 'Ghost Cat', icon: '👻' },
+          { id: 'local-cat', name: 'Local Only', icon: '📁' },
+        ],
+        items: [],
+        isInitialized: true,
+      };
+
+      const backendData = {
+        categories: [{ id: 'fruits', backendId: 'uuid-1', name: 'Fruits', icon: '🍎' }],
+        items: [],
+      };
+
+      const result = catalogReducer(localState, mergeCatalogFromBackend(backendData));
+      expect(result.categories).toHaveLength(2);
+      expect(result.categories.find(c => c.id === 'ghost-cat')).toBeUndefined();
+      expect(result.categories.find(c => c.id === 'local-cat')).toBeDefined();
+    });
+
+    it('should enforce tenant isolation: stale items from a previous tenant are dropped', () => {
+      // Simulate tenant switch: local cache has items from tenant A, backend
+      // payload is now from tenant B. Synced items must be dropped so a
+      // tenant-B user never sees tenant-A items (and never 404s editing them).
+      const localState: CatalogState = {
+        categories: [{ id: 'fruits-A', backendId: 'tenantA-cat', name: 'Fruits A', icon: '🍎' }],
+        items: [
+          { id: 'apple-A', backendId: 'tenantA-item', categoryId: 'fruits-A', name: 'Apple A', unit: 'kg' as const, defaultQuantity: 1, mrp: 100 },
+        ],
+        isInitialized: true,
+      };
+
+      const backendData = {
+        categories: [{ id: 'fruits-B', backendId: 'tenantB-cat', name: 'Fruits B', icon: '🥭' }],
+        items: [
+          { id: 'mango-B', backendId: 'tenantB-item', categoryId: 'fruits-B', name: 'Mango B', unit: 'kg' as const, defaultQuantity: 1, mrp: 200 },
+        ],
+      };
+
+      const result = catalogReducer(localState, mergeCatalogFromBackend(backendData));
+      expect(result.categories).toHaveLength(1);
+      expect(result.categories[0].backendId).toBe('tenantB-cat');
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].backendId).toBe('tenantB-item');
+    });
+
     it('should update state on repeated merges (no hasMerged guard)', () => {
       const initialState: CatalogState = {
         categories: [{ id: 'fruits', backendId: 'uuid-1', name: 'Fruits', icon: '🍎' }],

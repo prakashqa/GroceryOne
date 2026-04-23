@@ -24,6 +24,14 @@ export type PrinterConnectionStatus =
   | 'connected'
   | 'error';
 
+// Cut command emitted after a print job.
+// - 'full'    → GS V 0 (0x1D 0x56 0x00). Widest compatibility; the new default.
+// - 'partial' → GS V 1 (0x1D 0x56 0x01). Leaves a small connecting strip.
+// The prior hardcoded GS V 66 Function B bytes were silently ignored by
+// several Bluetooth thermal printers, which surfaced as "auto-cut not
+// working" in the field.
+export type CutMode = 'full' | 'partial';
+
 // Printer configuration interface
 export interface PrinterConfig {
   enabled: boolean;
@@ -37,6 +45,8 @@ export interface PrinterConfig {
   lastConnectedAt: string | null;
   autoPrint: boolean;
   imageWidthDots: number;  // Bitmap width in printer dots (576=standard 203dpi, 832=HD 300dpi)
+  autoCut: boolean;        // whether to emit a cut command after each print
+  cutMode: CutMode;        // which cut command to emit when autoCut is true
 }
 
 // Notification preferences interface
@@ -91,6 +101,8 @@ const initialState: SettingsState = {
     lastConnectedAt: null,
     autoPrint: false,
     imageWidthDots: 576,
+    autoCut: true,
+    cutMode: 'full',
   },
   payment: {
     merchantUpiId: '',
@@ -192,6 +204,16 @@ const settingsSlice = createSlice({
       state.lastUpdated = new Date().toISOString();
     },
 
+    setAutoCut(state, action: PayloadAction<boolean>) {
+      state.printer.autoCut = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
+
+    setCutMode(state, action: PayloadAction<CutMode>) {
+      state.printer.cutMode = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
+
     // Payment actions
     setMerchantUpiId(state, action: PayloadAction<string>) {
       state.payment.merchantUpiId = action.payload;
@@ -252,6 +274,8 @@ export const {
   setPaperSize,
   setImageWidthDots,
   setPrintFormat,
+  setAutoCut,
+  setCutMode,
   setMerchantUpiId,
   setMerchantName,
   setPaymentSettings,
@@ -273,6 +297,12 @@ export const selectNotifications = (state: { settings: SettingsState }) =>
 
 export const selectPrinter = (state: { settings: SettingsState }) =>
   state.settings.printer;
+
+export const selectAutoCut = (state: { settings: SettingsState }) =>
+  state.settings.printer.autoCut;
+
+export const selectCutMode = (state: { settings: SettingsState }) =>
+  state.settings.printer.cutMode;
 
 export const selectPaymentSettings = (state: { settings: SettingsState }) =>
   state.settings.payment;

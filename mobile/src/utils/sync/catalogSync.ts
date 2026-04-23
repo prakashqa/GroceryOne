@@ -422,15 +422,15 @@ export async function syncBackendToLocal(options?: {
   accessToken?: string;
 }): Promise<{ categories: Category[]; items: Item[] } | null> {
   try {
-    const categories = await fetchCategoriesFromBackend({ ...options, trackInventory: false });
+    const categories = await fetchCategoriesFromBackend(options);
 
     const allItems = await fetchItemsFromBackend(options);
 
-    // Defense-in-depth: Only include items belonging to fetched order categories.
-    // This prevents inventory items from leaking into the order Redux store even if
-    // the backend response is missing the trackInventory field (e.g. old deployment).
-    const orderCategoryIds = new Set(categories.map(c => c.id));
-    const items = allItems.filter(item => orderCategoryIds.has(item.categoryId));
+    // Only include items that belong to one of the fetched categories. This keeps
+    // Redux consistent with the tenant's category list and matches the web Items
+    // page behavior, which shows every category and its items.
+    const categoryIds = new Set(categories.map(c => c.id));
+    const items = allItems.filter(item => categoryIds.has(item.categoryId));
 
     return { categories, items };
   } catch (error) {

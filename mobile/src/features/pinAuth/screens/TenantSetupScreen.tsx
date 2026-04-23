@@ -72,8 +72,8 @@ export const TenantSetupScreen: React.FC = () => {
           supportedLanguages: ['en', 'te'],
           currency: 'INR',
           timezone: 'Asia/Kolkata',
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
 
         // Persist tenant slug, user email, and friendly name for future PIN logins

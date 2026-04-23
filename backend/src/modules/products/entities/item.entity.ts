@@ -38,6 +38,10 @@ export class Item {
   @Column({ name: 'name_te', length: 255, nullable: true })
   nameTe?: string;
 
+  @Column({ length: 50, nullable: true })
+  @Index()
+  barcode?: string;
+
   @Column({ name: 'category_id', type: 'uuid' })
   @Index()
   categoryId: string;

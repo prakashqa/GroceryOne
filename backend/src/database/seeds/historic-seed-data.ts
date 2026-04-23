@@ -1,9 +1,16 @@
 /**
  * Historic Seed Data
- * Generates realistic historical cart data for testing Reports & Analytics
+ * Generates realistic historical cart data for testing Reports & Analytics.
+ *
+ * The generator is tenant-agnostic: callers pass in the pool of items that
+ * carts should be populated from, so the same logic can seed FreshMart,
+ * QuickBasket, ABTrade, etc. without hardcoding any one tenant's catalog.
  */
 
-import { FRESHMART_ITEMS } from './seed-data';
+export interface ItemPoolEntry {
+  slug: string;
+  price?: number;
+}
 
 export interface HistoricCartSeed {
   name: string;
@@ -32,11 +39,15 @@ function daysAgo(days: number, hours = 0, minutes = 0): Date {
 }
 
 /**
- * Helper to get random items from catalog
+ * Helper to get random items from the caller-supplied catalog. The pool
+ * is expected to belong to a single tenant; callers must not mix catalogs
+ * across tenants or cart_items will reference items the cart's tenant
+ * does not own.
  */
-function getRandomItems(count: number): HistoricCartItemSeed[] {
-  const shuffled = [...FRESHMART_ITEMS].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, count);
+function getRandomItems(count: number, pool: ItemPoolEntry[]): HistoricCartItemSeed[] {
+  if (pool.length === 0) return [];
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, Math.min(count, pool.length));
 
   return selected.map((item) => ({
     itemSlug: item.slug,
@@ -68,7 +79,7 @@ interface TempCartConfig {
   minutes: number;
 }
 
-export function generateHistoricCarts(): HistoricCartSeed[] {
+export function generateHistoricCarts(pool: ItemPoolEntry[]): HistoricCartSeed[] {
   const carts: HistoricCartSeed[] = [];
   let cartNumber = 1;
 
@@ -82,7 +93,7 @@ export function generateHistoricCarts(): HistoricCartSeed[] {
   ];
 
   for (const cart of todayCarts) {
-    const items = getRandomItems(Math.floor(Math.random() * 8) + 3);
+    const items = getRandomItems(Math.floor(Math.random() * 8) + 3, pool);
     const total = calculateCartTotal(items);
     const createdAt = daysAgo(0, cart.hours, cart.minutes);
 
@@ -108,7 +119,7 @@ export function generateHistoricCarts(): HistoricCartSeed[] {
   ];
 
   for (const cart of yesterdayCarts) {
-    const items = getRandomItems(Math.floor(Math.random() * 10) + 2);
+    const items = getRandomItems(Math.floor(Math.random() * 10) + 2, pool);
     const total = calculateCartTotal(items);
     const createdAt = daysAgo(1, cart.hours, cart.minutes);
 
@@ -134,7 +145,7 @@ export function generateHistoricCarts(): HistoricCartSeed[] {
       const hour = 8 + Math.floor((10 / numCarts) * i);
       const status: HistoricCartSeed['status'] =
         Math.random() > 0.2 ? 'paid' : Math.random() > 0.5 ? 'completed' : 'printed';
-      const items = getRandomItems(Math.floor(Math.random() * 12) + 2);
+      const items = getRandomItems(Math.floor(Math.random() * 12) + 2, pool);
       const total = calculateCartTotal(items);
       const createdAt = daysAgo(dayOffset, hour, Math.floor(Math.random() * 60));
 
@@ -161,7 +172,7 @@ export function generateHistoricCarts(): HistoricCartSeed[] {
       const hour = 8 + Math.floor(Math.random() * 11);
       const status: HistoricCartSeed['status'] =
         Math.random() > 0.15 ? 'paid' : Math.random() > 0.5 ? 'completed' : 'printed';
-      const items = getRandomItems(Math.floor(Math.random() * 10) + 3);
+      const items = getRandomItems(Math.floor(Math.random() * 10) + 3, pool);
       const total = calculateCartTotal(items);
       const createdAt = daysAgo(dayOffset, hour, Math.floor(Math.random() * 60));
 
@@ -185,7 +196,7 @@ export function generateHistoricCarts(): HistoricCartSeed[] {
       const hour = 9 + Math.floor(Math.random() * 10);
       const status: HistoricCartSeed['status'] =
         Math.random() > 0.1 ? 'paid' : 'completed';
-      const items = getRandomItems(Math.floor(Math.random() * 8) + 2);
+      const items = getRandomItems(Math.floor(Math.random() * 8) + 2, pool);
       const total = calculateCartTotal(items);
       const createdAt = daysAgo(dayOffset, hour, Math.floor(Math.random() * 60));
 

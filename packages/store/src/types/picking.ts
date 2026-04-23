@@ -20,6 +20,7 @@ export interface Item {
   categoryId: string;
   name: string;
   nameTe?: string;
+  barcode?: string;
   unit: 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
   defaultQuantity: number;
   price?: number;

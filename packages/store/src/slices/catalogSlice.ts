@@ -34,9 +34,13 @@ const catalogSlice = createSlice({
       const { categories: backendCategories, items: backendItems } = action.payload;
       const backendCategoryIds = new Set(backendCategories.map(c => c.id));
       const backendItemIds = new Set(backendItems.map(i => i.id));
-      const localOnlyCategories = state.categories.filter(c => !backendCategoryIds.has(c.id));
+      // Keep only local entries that were never synced (no backendId). Entries
+      // that had a backendId but are absent from the fresh backend payload
+      // were deleted server-side and must be dropped — otherwise the UI
+      // retains stale entries whose backend UUIDs 404 on edit/delete.
+      const localOnlyCategories = state.categories.filter(c => !c.backendId && !backendCategoryIds.has(c.id));
       state.categories = [...backendCategories, ...localOnlyCategories];
-      const localOnlyItems = state.items.filter(i => !backendItemIds.has(i.id));
+      const localOnlyItems = state.items.filter(i => !i.backendId && !backendItemIds.has(i.id));
       state.items = [...backendItems, ...localOnlyItems];
       state.isInitialized = true;
     },
@@ -73,13 +77,13 @@ const catalogSlice = createSlice({
       }
       state.categories = state.categories.filter((cat) => cat.id !== id);
     },
-    addItem: (state, action: PayloadAction<{ name: string; categoryId: string; unit?: Item['unit']; defaultQuantity?: number; price?: number; mrp: number }>) => {
-      const { name, categoryId, unit = 'pcs', defaultQuantity = 1, price, mrp } = action.payload;
+    addItem: (state, action: PayloadAction<{ name: string; categoryId: string; unit?: Item['unit']; defaultQuantity?: number; price?: number; mrp: number; barcode?: string }>) => {
+      const { name, categoryId, unit = 'pcs', defaultQuantity = 1, price, mrp, barcode } = action.payload;
       if (!state.categories.some((cat) => cat.id === categoryId)) return;
-      state.items.push({ id: generateId('item'), name, categoryId, unit, defaultQuantity, mrp, ...(price !== undefined && { price }) });
+      state.items.push({ id: generateId('item'), name, categoryId, unit, defaultQuantity, mrp, ...(price !== undefined && { price }), ...(barcode && { barcode }) });
     },
-    updateItem: (state, action: PayloadAction<{ id: string; name?: string; categoryId?: string; unit?: Item['unit']; defaultQuantity?: number; price?: number; mrp?: number }>) => {
-      const { id, name, categoryId, unit, defaultQuantity, price, mrp } = action.payload;
+    updateItem: (state, action: PayloadAction<{ id: string; name?: string; categoryId?: string; unit?: Item['unit']; defaultQuantity?: number; price?: number; mrp?: number; barcode?: string }>) => {
+      const { id, name, categoryId, unit, defaultQuantity, price, mrp, barcode } = action.payload;
       const idx = state.items.findIndex((item) => item.id === id);
       if (idx === -1) return;
       if (categoryId) {
@@ -92,6 +96,7 @@ const catalogSlice = createSlice({
       if (defaultQuantity !== undefined) state.items[idx].defaultQuantity = defaultQuantity;
       if (price !== undefined) state.items[idx].price = price;
       if (mrp !== undefined) state.items[idx].mrp = mrp;
+      if (barcode !== undefined) state.items[idx].barcode = barcode;
     },
     deleteItem: (state, action: PayloadAction<string>) => {
       state.items = state.items.filter((item) => item.id !== action.payload);
@@ -112,6 +117,7 @@ export const selectItems = (state: RootState): Item[] => state.catalog.items;
 export const selectItemsByCategory = (state: RootState, categoryId: string): Item[] => state.catalog.items.filter((item) => item.categoryId === categoryId);
 export const selectCategoryById = (state: RootState, categoryId: string): Category | undefined => state.catalog.categories.find((cat) => cat.id === categoryId);
 export const selectItemById = (state: RootState, itemId: string): Item | undefined => state.catalog.items.find((item) => item.id === itemId);
+export const selectItemByBarcode = (state: RootState, barcode: string): Item | undefined => state.catalog.items.find((item) => item.barcode === barcode);
 export const selectIsCatalogInitialized = (state: RootState): boolean => state.catalog.isInitialized;
 
 export default catalogSlice.reducer;

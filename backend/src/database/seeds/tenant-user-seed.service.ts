@@ -158,8 +158,8 @@ export class TenantUserSeedService implements OnModuleInit {
           try {
             const hasActiveSub = await this.subscriptionService.isSubscriptionActive(existing.id);
             if (!hasActiveSub) {
-              await this.subscriptionService.createTrialSubscription(existing.id);
-              this.logger.log(`Created trial subscription for existing tenant: ${seedTenant.slug}`);
+              await this.subscriptionService.createSeedSubscription(existing.id);
+              this.logger.log(`Renewed seed subscription for existing tenant: ${seedTenant.slug}`);
             }
           } catch (subError) {
             this.logger.warn(`Could not check/create subscription for tenant '${seedTenant.slug}': ${subError}`);
@@ -197,10 +197,10 @@ export class TenantUserSeedService implements OnModuleInit {
         });
         await this.configRepository.save(config);
 
-        // Create trial subscription for new tenant
+        // Create long-lived seed subscription for new tenant (10 years, active)
         try {
-          await this.subscriptionService.createTrialSubscription(saved.id);
-          this.logger.log(`Created trial subscription for tenant: ${seedTenant.slug}`);
+          await this.subscriptionService.createSeedSubscription(saved.id);
+          this.logger.log(`Created seed subscription for tenant: ${seedTenant.slug}`);
         } catch (subError) {
           this.logger.warn(`Could not create subscription for tenant '${seedTenant.slug}': ${subError}`);
         }

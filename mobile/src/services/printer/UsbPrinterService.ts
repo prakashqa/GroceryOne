@@ -289,18 +289,13 @@ class UsbPrinterService {
       });
       job.status = 'completed';
 
-      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
+      // Atomic feed-and-cut: GS V 66 6 (function B). One firmware op that
+      // feeds the paper past the cutter then partial-cuts. See
+      // BluetoothPrinterService.printImage for the rationale.
       try {
-        await USBPrinter.printRawData(ESC_POS.FEED_4_LINES);
+        await USBPrinter.printRawData(ESC_POS.FEED_AND_CUT);
       } catch {
-        // Swallow paper feed errors — don't fail the print job
-      }
-
-      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
-      try {
-        await USBPrinter.printRawData(ESC_POS.CUT_PARTIAL);
-      } catch {
-        // Swallow cut errors — printer may not have a cutter
+        // Swallow errors — printer may not have a cutter
       }
     } catch (error: any) {
       job.status = 'failed';

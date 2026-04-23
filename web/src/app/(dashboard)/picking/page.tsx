@@ -10,9 +10,10 @@ import {
 } from '@groceryone/store';
 import type { DomainTypes } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
-import { ShoppingCart, Search } from 'lucide-react';
+import { ShoppingCart, Search, ScanLine } from 'lucide-react';
 import Link from 'next/link';
 import { ProductCard } from '@/components/common/ProductCard';
+import { BarcodeScannerModal } from '@/components/barcode/BarcodeScannerModal';
 
 export default function PickingPage() {
   const dispatch = useAppDispatch();
@@ -30,6 +31,7 @@ export default function PickingPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewCartDialog, setShowNewCartDialog] = useState(false);
   const [newCartName, setNewCartName] = useState('');
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
   // Filter items by category and search
   const filteredItems = useMemo(() => {
@@ -82,6 +84,14 @@ export default function PickingPage() {
               className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
+          <button
+            onClick={() => setShowBarcodeScanner(true)}
+            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Scan barcode"
+            title={t('scan.title', 'Scan Barcode')}
+          >
+            <ScanLine size={18} className="text-gray-600 dark:text-gray-400" />
+          </button>
           <Link
             href="/orders"
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors whitespace-nowrap"
@@ -156,6 +166,7 @@ export default function PickingPage() {
                 name={item.name}
                 price={item.price}
                 unit={item.unit}
+                defaultQuantity={item.defaultQuantity}
                 inCartQty={cartItemMap.get(item.id)}
                 onAdd={() => handleAddItem(item)}
                 onIncrement={() => dispatch(incrementItemInActiveCart(item.id))}
@@ -208,6 +219,11 @@ export default function PickingPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {showBarcodeScanner && (
+        <BarcodeScannerModal onClose={() => setShowBarcodeScanner(false)} />
       )}
     </div>
   );

@@ -67,6 +67,7 @@ export class ProductsService {
         'item.slug',
         'item.name',
         'item.nameTe',
+        'item.barcode',
         'item.categoryId',
         'item.unit',
         'item.defaultQuantity',
@@ -120,6 +121,7 @@ export class ProductsService {
         'item.slug',
         'item.name',
         'item.nameTe',
+        'item.barcode',
         'item.categoryId',
         'item.unit',
         'item.defaultQuantity',
@@ -192,6 +194,24 @@ export class ProductsService {
 
     if (!item) {
       throw new NotFoundException(`Item with slug '${slug}' not found`);
+    }
+
+    return item;
+  }
+
+  /**
+   * Find an item by barcode (tenant-scoped)
+   */
+  async findByBarcode(barcode: string, tenantId?: string): Promise<Item> {
+    validateTenantId(tenantId);
+
+    const item = await this.itemRepository.findOne({
+      where: { barcode, tenantId },
+      relations: ['category'],
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Item with barcode '${barcode}' not found`);
     }
 
     return item;

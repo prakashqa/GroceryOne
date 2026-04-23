@@ -17,8 +17,9 @@ export interface Tenant {
   supportedLanguages: SupportedLanguage[];
   currency: string;
   timezone: string;
-  createdAt: Date;
-  updatedAt: Date;
+  // ISO-8601 strings (see user.types.ts for rationale).
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TenantStatus = 'active' | 'inactive' | 'suspended';
@@ -38,8 +39,8 @@ export interface TenantConfig {
   features: TenantFeatures;
   limits: TenantLimits;
   paymentGateways: PaymentGatewayConfig[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TenantFeatures {

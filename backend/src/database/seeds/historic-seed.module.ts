@@ -11,6 +11,7 @@ import { CartItem } from '../../modules/cart/entities/cart-item.entity';
 import { Item } from '../../modules/products/entities/item.entity';
 import { Category } from '../../modules/categories/entities/category.entity';
 import { Tenant } from '../../tenant/entities/tenant.entity';
+import { TenantConfig } from '../../tenant/entities/tenant-config.entity';
 import { HistoricSeedService } from './historic-seed.service';
 
 @Module({
@@ -28,7 +29,8 @@ import { HistoricSeedService } from './historic-seed.service';
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_NAME', 'gro_one'),
-        entities: [Cart, CartItem, Item, Category, Tenant],
+        // TenantConfig must be included because Tenant has @OneToOne(() => TenantConfig).
+        entities: [Cart, CartItem, Item, Category, Tenant, TenantConfig],
         synchronize: configService.get<string>('NODE_ENV', 'development') === 'development',
         logging: configService.get<string>('DB_LOGGING', 'false') === 'true',
       }),

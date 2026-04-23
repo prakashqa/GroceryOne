@@ -231,9 +231,12 @@ export const lightTheme: Theme = {
     background: '#F5F7FA',
     surface: '#FFFFFF',
     card: '#FFFFFF',
+    // Header bar renders on top of theme.colors.primary (green), not
+    // headerBackground. These tokens must read against green — white +
+    // semi-transparent white mirror the title/icon color="inverse" already in use.
     headerBackground: '#FFFFFF',
-    headerText: '#1A1A1A',
-    headerTextMuted: '#666666',
+    headerText: '#FFFFFF',
+    headerTextMuted: 'rgba(255, 255, 255, 0.75)',
 
     // Text
     text: '#1A1A1A',
@@ -359,9 +362,11 @@ export const darkTheme: Theme = {
     background: '#0F0F0F',
     surface: '#1E1E1E',
     card: '#2C2C2C',
+    // Header bar renders on top of theme.colors.primary (green) in dark mode
+    // too. Bumped muted alpha from 0.6 → 0.75 for readability on green.
     headerBackground: '#1E1E1E',
-    headerText: '#F5F5F5',
-    headerTextMuted: 'rgba(245, 245, 245, 0.6)',
+    headerText: '#FFFFFF',
+    headerTextMuted: 'rgba(255, 255, 255, 0.75)',
 
     // Text (high contrast for accessibility)
     text: '#FFFFFF',

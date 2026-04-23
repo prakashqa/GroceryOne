@@ -13,36 +13,6 @@ export interface CategorySeed {
 
 export const GROCERY_CATEGORIES: CategorySeed[] = [
   {
-    name: 'Spices & Masalas',
-    nameTe: 'సుగంధ ద్రవ్యాలు & మసాలాలు',
-    slug: 'spices-masalas',
-    description: 'Fresh spices and masalas for authentic Indian cooking',
-    descriptionTe: 'అసలైన భారతీయ వంటకు తాజా సుగంధ ద్రవ్యాలు మరియు మసాలాలు',
-    subcategories: [
-      {
-        name: 'Whole Spices',
-        nameTe: 'మొత్తం సుగంధ ద్రవ్యాలు',
-        slug: 'whole-spices',
-        description: 'Cinnamon, cardamom, cloves, and more',
-        descriptionTe: 'దాల్చిన చెక్క, ఏలకులు, లవంగాలు మరియు మరిన్ని',
-      },
-      {
-        name: 'Ground Spices',
-        nameTe: 'పొడి సుగంధ ద్రవ్యాలు',
-        slug: 'ground-spices',
-        description: 'Turmeric, chili, coriander powder',
-        descriptionTe: 'పసుపు, మిరప, ధనియాల పొడి',
-      },
-      {
-        name: 'Blended Masalas',
-        nameTe: 'మిశ్రమ మసాలాలు',
-        slug: 'blended-masalas',
-        description: 'Garam masala, chaat masala, kitchen king',
-        descriptionTe: 'గరం మసాలా, చాట్ మసాలా, కిచెన్ కింగ్',
-      },
-    ],
-  },
-  {
     name: 'Dal & Pulses',
     nameTe: 'పప్పులు & కాయధాన్యాలు',
     slug: 'dal-pulses',

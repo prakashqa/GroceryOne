@@ -144,6 +144,84 @@ describe('SubscriptionService', () => {
     });
   });
 
+  describe('createSeedSubscription', () => {
+    beforeEach(() => {
+      // Mock the expireExistingSubscriptions query-builder chain
+      const mockQb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 0 }),
+      };
+      subscriptionRepo.createQueryBuilder.mockReturnValue(mockQb);
+    });
+
+    it('should create an active (not trial) long-lived subscription with amount 0', async () => {
+      await service.createSeedSubscription('tenant-seed-a');
+
+      expect(subscriptionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-seed-a',
+          status: 'active',
+          amount: 0,
+          currency: 'INR',
+        }),
+      );
+
+      const createArg = subscriptionRepo.create.mock.calls[0][0];
+      const expiresAt = new Date(createArg.expiresAt);
+      const startsAt = new Date(createArg.startsAt);
+      const diffDays = Math.round(
+        (expiresAt.getTime() - startsAt.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      // Seed subscriptions must outlive any realistic trial — require at least 5 years
+      expect(diffDays).toBeGreaterThanOrEqual(365 * 5);
+      expect(subscriptionRepo.save).toHaveBeenCalled();
+    });
+
+    it('should expire existing active/trial subscriptions before creating new one', async () => {
+      await service.createSeedSubscription('tenant-seed-a');
+
+      expect(subscriptionRepo.createQueryBuilder).toHaveBeenCalled();
+      const qb = subscriptionRepo.createQueryBuilder.mock.results[0].value;
+      expect(qb.update).toHaveBeenCalled();
+      expect(qb.set).toHaveBeenCalledWith({ status: 'expired' });
+      expect(qb.where).toHaveBeenCalledWith(
+        'tenant_id = :tenantId',
+        { tenantId: 'tenant-seed-a' },
+      );
+    });
+
+    it('should invalidate Redis cache for the tenant', async () => {
+      await service.createSeedSubscription('tenant-seed-a');
+      expect(redisClient.del).toHaveBeenCalledWith('sub:active:tenant-seed-a');
+    });
+
+    it('should scope create and cache invalidation to the given tenantId (tenant isolation)', async () => {
+      await service.createSeedSubscription('tenant-A');
+      await service.createSeedSubscription('tenant-B');
+
+      const createCalls = subscriptionRepo.create.mock.calls;
+      expect(createCalls[0][0].tenantId).toBe('tenant-A');
+      expect(createCalls[1][0].tenantId).toBe('tenant-B');
+
+      expect(redisClient.del).toHaveBeenCalledWith('sub:active:tenant-A');
+      expect(redisClient.del).toHaveBeenCalledWith('sub:active:tenant-B');
+
+      // Expire-existing queries must be tenant-scoped, never unbounded
+      const qbCalls = subscriptionRepo.createQueryBuilder.mock.results;
+      expect(qbCalls[0].value.where).toHaveBeenCalledWith(
+        'tenant_id = :tenantId',
+        { tenantId: 'tenant-A' },
+      );
+      expect(qbCalls[1].value.where).toHaveBeenCalledWith(
+        'tenant_id = :tenantId',
+        { tenantId: 'tenant-B' },
+      );
+    });
+  });
+
   describe('isSubscriptionActive', () => {
     it('should return true when cached as active', async () => {
       redisClient.get.mockResolvedValue('1');

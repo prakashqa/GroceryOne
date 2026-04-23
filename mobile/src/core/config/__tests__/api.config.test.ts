@@ -44,8 +44,8 @@ describe('api.config', () => {
       const config = require('../api.config');
       API_CONFIG = config.API_CONFIG;
 
-      // iOS uses LOCAL_MACHINE_IP when it is set
-      expect(API_CONFIG.BASE_URL).toBe('http://192.168.0.102:3000/api/v1');
+      // iOS uses LOCAL_MACHINE_IP_FALLBACK when .env override is not loaded
+      expect(API_CONFIG.BASE_URL).toBe('http://192.168.0.100:3000/api/v1');
     });
   });
 });

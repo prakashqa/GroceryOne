@@ -64,7 +64,7 @@ export default function DashboardPage() {
                 <div>
                   <p className="font-medium">{cart.name}</p>
                   <p className="text-sm text-gray-500">
-                    {cart.items.length} {t('picking.items')}
+                    {cart.paidItemCount ?? cart.items.length} {t('picking.items')}
                   </p>
                 </div>
                 <div className="text-right">

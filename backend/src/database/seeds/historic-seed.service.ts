@@ -76,55 +76,106 @@ export class HistoricSeedService {
         return report;
       }
 
-      // Get a tenant for cart association
-      const tenant = await this.tenantRepository.findOne({ where: {} });
-      if (!tenant) {
+      // Iterate every tenant — historic data is per-tenant. A prior version
+      // picked one arbitrary tenant via findOne({ where: {} }), leaving the
+      // others with zero historic carts and using FreshMart's item slugs
+      // for whichever tenant was chosen.
+      const tenants = await this.tenantRepository.find();
+      if (tenants.length === 0) {
         const errMsg = 'No tenant in database. Please run tenant seed first (npm run seed:tenants)';
         report.errors.push(errMsg);
         this.logger.error(errMsg);
         return report;
       }
 
-      this.logger.log(`Using tenant: ${tenant.name} (${tenant.id})`);
+      const aggregateSummary: typeof report.summary = {
+        totalCarts: 0,
+        totalItems: 0,
+        totalSales: 0,
+        statusBreakdown: {},
+        dateRange: { start: new Date(8640000000000000), end: new Date(-8640000000000000) },
+      };
 
-      // Generate historic cart data
-      const historicCarts = generateHistoricCarts();
-      report.summary = getHistoricDataSummary(historicCarts);
+      for (const tenant of tenants) {
+        this.logger.log(`Seeding historic carts for tenant: ${tenant.name} (${tenant.id})`);
 
-      this.logger.log(`Generated ${historicCarts.length} historic carts`);
-      this.logger.log(`Date range: ${report.summary.dateRange.start.toISOString()} to ${report.summary.dateRange.end.toISOString()}`);
-
-      // Build item slug to ID map
-      const items = await this.itemRepository.find();
-      const itemMap = new Map<string, string>();
-      for (const item of items) {
-        itemMap.set(item.slug, item.id);
-      }
-
-      // Use transaction for data integrity
-      const queryRunner = this.dataSource.createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
-
-      try {
-        for (const cartSeed of historicCarts) {
-          const cart = await this.createCart(cartSeed, itemMap, tenant.id, report);
-          if (cart) {
-            report.cartsCreated++;
-          }
+        // Idempotency guard — tenant-scoped. Running twice for the same
+        // tenant is a no-op; the random hours/minutes used for most days
+        // would otherwise produce silent duplicate "Cart N" rows.
+        const existingCartCount = await this.cartRepository.count({ where: { tenantId: tenant.id } });
+        if (existingCartCount > 0) {
+          const msg = `Historic carts already present for tenant ${tenant.name} (${existingCartCount} rows). Skipping to stay idempotent. Run clearHistoricData() first to re-seed.`;
+          this.logger.warn(msg);
+          report.errors.push(msg);
+          continue;
         }
 
-        await queryRunner.commitTransaction();
-        this.logger.log(`Successfully created ${report.cartsCreated} carts with ${report.cartItemsCreated} items`);
-      } catch (error) {
-        await queryRunner.rollbackTransaction();
-        throw error;
-      } finally {
-        await queryRunner.release();
+        // Fetch this tenant's items ONLY — the generator must never pull
+        // slugs from another tenant's catalog.
+        const tenantItems = await this.itemRepository.find({ where: { tenantId: tenant.id } });
+        if (tenantItems.length === 0) {
+          const msg = `Tenant ${tenant.name} has no items — skipping historic seed. Run npm run seed first.`;
+          this.logger.warn(msg);
+          report.errors.push(msg);
+          continue;
+        }
+
+        const itemMap = new Map<string, string>();
+        for (const item of tenantItems) itemMap.set(item.slug, item.id);
+        const pool = tenantItems.map((i) => ({
+          slug: i.slug,
+          price: i.price != null ? Number(i.price) : undefined,
+        }));
+
+        // Generate historic cart data from this tenant's own catalog.
+        const historicCarts = generateHistoricCarts(pool);
+        const tenantSummary = getHistoricDataSummary(historicCarts);
+        this.logger.log(`Generated ${historicCarts.length} historic carts for ${tenant.name}`);
+        this.logger.log(`Date range: ${tenantSummary.dateRange.start.toISOString()} to ${tenantSummary.dateRange.end.toISOString()}`);
+
+        // Aggregate stats across tenants.
+        aggregateSummary.totalCarts += tenantSummary.totalCarts;
+        aggregateSummary.totalItems += tenantSummary.totalItems;
+        aggregateSummary.totalSales += tenantSummary.totalSales;
+        for (const [k, v] of Object.entries(tenantSummary.statusBreakdown)) {
+          aggregateSummary.statusBreakdown[k] = (aggregateSummary.statusBreakdown[k] ?? 0) + v;
+        }
+        if (tenantSummary.dateRange.start < aggregateSummary.dateRange.start) {
+          aggregateSummary.dateRange.start = tenantSummary.dateRange.start;
+        }
+        if (tenantSummary.dateRange.end > aggregateSummary.dateRange.end) {
+          aggregateSummary.dateRange.end = tenantSummary.dateRange.end;
+        }
+
+        // One transaction per tenant — a failure in tenant A must not
+        // leak into or poison tenant B's rows.
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+
+        try {
+          for (const cartSeed of historicCarts) {
+            const cart = await this.createCart(cartSeed, itemMap, tenant.id, report);
+            if (cart) {
+              report.cartsCreated++;
+            }
+          }
+          await queryRunner.commitTransaction();
+          this.logger.log(`Committed historic carts for tenant ${tenant.name}`);
+        } catch (error) {
+          await queryRunner.rollbackTransaction();
+          const errMsg = `Historic seed rolled back for tenant ${tenant.name}: ${error instanceof Error ? error.message : String(error)}`;
+          this.logger.error(errMsg);
+          report.errors.push(errMsg);
+          // Continue to next tenant — do not abort the whole seed.
+        } finally {
+          await queryRunner.release();
+        }
       }
 
-      // Calculate total sales from created carts
-      report.totalSales = report.summary.totalSales;
+      report.summary = aggregateSummary;
+      report.totalSales = aggregateSummary.totalSales;
+      this.logger.log(`Historic seed finished: ${report.cartsCreated} carts with ${report.cartItemsCreated} items across ${tenants.length} tenants`);
 
     } catch (error) {
       const errMsg = `Historic seed failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -145,6 +196,14 @@ export class HistoricSeedService {
     report: HistoricSeedReport,
   ): Promise<Cart | null> {
     try {
+      // For paid/completed carts, snapshot the count of items that will actually
+      // resolve against the current item catalog. Unresolved slugs are skipped
+      // below, so counting the full cartSeed.items.length would over-report.
+      const isPaid = cartSeed.status === 'paid' || cartSeed.status === 'completed';
+      const resolvedItemCount = isPaid
+        ? cartSeed.items.filter((i) => itemMap.has(i.itemSlug)).length
+        : undefined;
+
       // Create cart
       const cart = this.cartRepository.create({
         name: cartSeed.name,
@@ -153,6 +212,7 @@ export class HistoricSeedService {
         tenantId,
         paidAt: cartSeed.paidAt,
         paidAmount: cartSeed.paidAmount,
+        paidItemCount: resolvedItemCount,
       });
 
       // Save cart first to get ID
@@ -180,6 +240,7 @@ export class HistoricSeedService {
         const cartItem = this.cartItemRepository.create({
           cartId: savedCart.id,
           itemId,
+          tenantId,
           quantity: itemSeed.quantity,
           priceSnapshot: itemSeed.priceSnapshot,
         });

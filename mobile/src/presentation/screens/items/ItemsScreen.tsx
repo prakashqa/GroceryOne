@@ -284,8 +284,10 @@ const ItemsScreen: React.FC = () => {
         dispatch(createCart({ name: cartName }));
       }
 
-      // Add item with quantity 1 in base units
-      const { quantity: baseQty } = normalizeToBaseUnit(1, item.unit);
+      // Add one pack of the item (e.g., a 250gm spice pack = 250gm), normalized
+      // to the base unit. Falls back to 1 when defaultQuantity is missing/invalid.
+      const packQty = item.defaultQuantity && item.defaultQuantity > 0 ? item.defaultQuantity : 1;
+      const { quantity: baseQty } = normalizeToBaseUnit(packQty, item.unit);
       dispatch(
         addItemToActiveCart({
           item,

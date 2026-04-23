@@ -67,6 +67,14 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+// Quantities come from summing decimals (e.g. 1.5kg + 0.5kg + 0.2kg) which
+// produces floating-point residue like 8.001999999999999. Round to 3 decimals
+// (grams-level precision) and strip trailing zeros so 8 → "8", 2.5 → "2.5".
+const formatQuantity = (q: number): string => {
+  if (!Number.isFinite(q)) return '0';
+  return parseFloat(q.toFixed(3)).toString();
+};
+
 export const ActiveOrderPreview: React.FC<ActiveCartPreviewProps> = ({
   cartName,
   categoryCount,
@@ -137,7 +145,8 @@ export const ActiveOrderPreview: React.FC<ActiveCartPreviewProps> = ({
   const borderColor = theme.colors.inCartBorder;
   const highlightColor = isDarkMode ? theme.colors.primary : theme.colors.primaryLight;
 
-  const accessibilityLabel = `${t('dashboard.activeCart')}: ${cartName}, ${categoryCount} ${t('dashboard.categories')}, ${itemCount} ${t('dashboard.uniqueItems')}, ${totalQuantity} ${t('dashboard.qty')}${totalAmount ? `, ${formatCurrency(totalAmount)}` : ''}`;
+  const displayQuantity = formatQuantity(totalQuantity);
+  const accessibilityLabel = `${t('dashboard.activeCart')}: ${cartName}, ${categoryCount} ${t('dashboard.categories')}, ${itemCount} ${t('dashboard.uniqueItems')}, ${displayQuantity} ${t('dashboard.qty')}${totalAmount ? `, ${formatCurrency(totalAmount)}` : ''}`;
 
   return (
     <TouchableOpacity
@@ -268,7 +277,7 @@ export const ActiveOrderPreview: React.FC<ActiveCartPreviewProps> = ({
                   styles.statValue,
                   { color: theme.colors.text, fontSize: statValueFontSize },
                 ]}>
-                  {totalQuantity}
+                  {displayQuantity}
                 </Text>
                 <Text style={[
                   styles.statLabel,

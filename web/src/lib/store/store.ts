@@ -48,15 +48,7 @@ export const makeStore = () => {
     reducer: rootReducer,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
-        serializableCheck: {
-          ignoredActions: ['tenant/setTenant'],
-          ignoredPaths: [
-            'tenant.tenant.createdAt',
-            'tenant.tenant.updatedAt',
-            'auth.user.createdAt',
-            'auth.user.updatedAt',
-          ],
-        },
+        serializableCheck: true,
       }).concat(baseApi.middleware),
     devTools: process.env.NODE_ENV !== 'production',
   });

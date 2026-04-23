@@ -4,7 +4,7 @@
 
 import { PartialType } from '@nestjs/swagger';
 import { CreateCartDto } from './create-cart.dto';
-import { IsBoolean, IsOptional, IsNumber, IsDateString, Min } from 'class-validator';
+import { IsBoolean, IsOptional, IsNumber, IsDateString, Min, IsInt } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateCartDto extends PartialType(CreateCartDto) {
@@ -23,4 +23,10 @@ export class UpdateCartDto extends PartialType(CreateCartDto) {
   @IsNumber()
   @Min(0)
   paidAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Item count snapshot at payment time', example: 7 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  paidItemCount?: number;
 }

@@ -97,7 +97,7 @@ export default function CategoryManagementPage() {
                   <p className="font-medium">{cat.name}</p>
                   {cat.trackInventory && <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{t('more.inventory')}</span>}
                 </div>
-                <button onClick={() => handleEdit(cat)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><Edit2 size={14} /></button>
+                <button onClick={() => handleEdit(cat)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><Edit2 size={14} /></button>
                 <button onClick={() => handleDelete(cat.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
               </div>
             ))}

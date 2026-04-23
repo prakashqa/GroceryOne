@@ -10,6 +10,11 @@ export type PaperSize = '80mm' | '58mm';
 export type PrintFormat = 'receipt' | 'detailed' | 'compact';
 export type PrinterConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+// Cut command emitted after a print job. See mobile slice for the detailed
+// ESC/POS rationale — kept identical here so the two slices round-trip
+// persisted state cleanly.
+export type CutMode = 'full' | 'partial';
+
 export interface PrinterConfig {
   enabled: boolean;
   connectionType: PrinterConnectionType;
@@ -22,6 +27,8 @@ export interface PrinterConfig {
   lastConnectedAt: string | null;
   autoPrint: boolean;
   imageWidthDots: number;
+  autoCut: boolean;
+  cutMode: CutMode;
 }
 
 export interface NotificationPreferences {
@@ -71,6 +78,8 @@ const initialState: SettingsState = {
     lastConnectedAt: null,
     autoPrint: false,
     imageWidthDots: 576,
+    autoCut: true,
+    cutMode: 'full',
   },
   payment: {
     merchantUpiId: '',
@@ -147,6 +156,14 @@ const settingsSlice = createSlice({
       state.printer.printFormat = action.payload;
       state.lastUpdated = new Date().toISOString();
     },
+    setAutoCut(state, action: PayloadAction<boolean>) {
+      state.printer.autoCut = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
+    setCutMode(state, action: PayloadAction<CutMode>) {
+      state.printer.cutMode = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
     setMerchantUpiId(state, action: PayloadAction<string>) {
       state.payment.merchantUpiId = action.payload;
       state.lastUpdated = new Date().toISOString();
@@ -178,6 +195,7 @@ export const {
   setThemeMode, setLanguage, setNotificationsEnabled, updateNotificationPreference,
   setPrinterEnabled, setPrinterConnectionType, setSelectedPrinter, setPrinterConnectionStatus,
   setAutoPrint, setPaperSize, setImageWidthDots, setPrintFormat,
+  setAutoCut, setCutMode,
   setMerchantUpiId, setMerchantName, setPaymentSettings, hydrateSettings, resetSettings,
 } = settingsSlice.actions;
 
@@ -187,6 +205,8 @@ export const selectThemeMode = (state: { settings: SettingsState }) => state.set
 export const selectLanguage = (state: { settings: SettingsState }) => state.settings.language;
 export const selectNotifications = (state: { settings: SettingsState }) => state.settings.notifications;
 export const selectPrinter = (state: { settings: SettingsState }) => state.settings.printer;
+export const selectAutoCut = (state: { settings: SettingsState }) => state.settings.printer.autoCut;
+export const selectCutMode = (state: { settings: SettingsState }) => state.settings.printer.cutMode;
 export const selectPaymentSettings = (state: { settings: SettingsState }) => state.settings.payment;
 export const selectMerchantUpiId = (state: { settings: SettingsState }) => state.settings.payment.merchantUpiId;
 export const selectMerchantName = (state: { settings: SettingsState }) => state.settings.payment.merchantName;

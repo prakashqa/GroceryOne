@@ -19,6 +19,12 @@ export class CreateItemDto {
   @MaxLength(255)
   name: string;
 
+  @ApiPropertyOptional({ description: 'Product barcode (EAN-13, UPC-A, etc.)', example: '8901030793615' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  barcode?: string;
+
   @ApiProperty({ description: 'Category ID', example: 'uuid-here' })
   @IsUUID()
   categoryId: string;

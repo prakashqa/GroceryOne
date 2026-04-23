@@ -29,10 +29,44 @@ export const bytesToBase64 = (bytes: number[]): string => {
  * ESC/POS command constants (Base64-encoded for printRawData)
  */
 export const ESC_POS = {
-  /** GS V 1 — Partial paper cut (leaves small connection for easy tear) */
+  /** GS V 0 — Full paper cut (the new default).
+   *  Widest compatibility across budget Bluetooth thermal printers. The
+   *  prior default was Function B (FEED_AND_CUT) which several printers
+   *  silently ignored; field reports of "auto-cut not working" traced
+   *  back to that. */
+  FULL_CUT: bytesToBase64([0x1D, 0x56, 0x00]),
+  /** GS V 1 — Partial paper cut (leaves small connection for easy tear). */
+  PARTIAL_CUT: bytesToBase64([0x1D, 0x56, 0x01]),
+  /** GS V 1 — Partial paper cut. Legacy alias retained for older callers. */
   CUT_PARTIAL: bytesToBase64([0x1D, 0x56, 0x01]),
-  /** ESC d 4 — Feed 4 lines before cutting */
+  /** ESC d 4 — Feed 4 lines. Kept for legacy callers. */
   FEED_4_LINES: bytesToBase64([0x1B, 0x64, 0x04]),
+  /** GS V 66 n — Function B: feed n lines then execute partial cut, atomically.
+   *  Retained for any caller still requesting it explicitly, but NOT the
+   *  default because several budget BT printers silently ignore Function B. */
+  FEED_AND_CUT: bytesToBase64([0x1D, 0x56, 0x42, 0x06]),
+};
+
+/**
+ * Cut-command configuration.
+ * - autoCut=false → no cut bytes are emitted after a print.
+ * - cutMode='full'    → GS V 0 (default, widest compatibility).
+ * - cutMode='partial' → GS V 1 (leaves a small connecting strip).
+ */
+export interface CutOptions {
+  autoCut: boolean;
+  cutMode: 'full' | 'partial';
+}
+
+/** Safe default used when no CutOptions are provided by the caller. */
+export const DEFAULT_CUT_OPTIONS: CutOptions = { autoCut: true, cutMode: 'full' };
+
+/** Resolve the cut-command bytes (or null if autoCut is off). Extracted so
+ *  both printImage and printImages share the same code path, and so tests
+ *  can assert the decision logic in isolation. */
+export const resolveCutCommand = (opts: CutOptions): string | null => {
+  if (!opts.autoCut) return null;
+  return opts.cutMode === 'partial' ? ESC_POS.PARTIAL_CUT : ESC_POS.FULL_CUT;
 };
 
 // Bluetooth device interface
@@ -493,7 +527,11 @@ class BluetoothPrinterService {
    * @param base64Image Base64-encoded PNG image data (no data URI prefix)
    * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
    */
-  async printImage(base64Image: string, imageWidth: number = 576): Promise<PrintJob> {
+  async printImage(
+    base64Image: string,
+    imageWidth: number = 576,
+    cutOptions: CutOptions = DEFAULT_CUT_OPTIONS,
+  ): Promise<PrintJob> {
     if (!this.state.connectedDevice) {
       throw new Error('No printer connected');
     }
@@ -519,20 +557,17 @@ class BluetoothPrinterService {
       });
       job.status = 'completed';
 
-      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
-      // printRawData expects Base64, not hex — the native library decodes with Base64.decode().
-      try {
-        await BLEPrinter.printRawData(ESC_POS.FEED_4_LINES);
-      } catch {
-        // Swallow paper feed errors — don't fail the print job
-      }
-
-      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
-      // Sends [0x1D, 0x56, 0x01] — leaves a small paper connection for easy tear.
-      try {
-        await BLEPrinter.printRawData(ESC_POS.CUT_PARTIAL);
-      } catch {
-        // Swallow cut errors — printer may not have a cutter
+      // Config-aware cut. Default is GS V 0 (full cut), which works on
+      // significantly more thermal printers than the prior Function B
+      // default. When the user has turned Auto Cut off, no cut bytes are
+      // written at all — the paper feeds and stops.
+      const cutCmd = resolveCutCommand(cutOptions);
+      if (cutCmd) {
+        try {
+          await BLEPrinter.printRawData(cutCmd);
+        } catch {
+          // Swallow errors — printer may not have a cutter
+        }
       }
     } catch (error: any) {
       job.status = 'failed';
@@ -552,7 +587,11 @@ class BluetoothPrinterService {
    * @param chunks Array of base64-encoded PNG image strings (one per chunk)
    * @param imageWidth Width in pixels (576 for 80mm, 384 for 58mm)
    */
-  async printImages(chunks: string[], imageWidth: number = 576): Promise<PrintJob> {
+  async printImages(
+    chunks: string[],
+    imageWidth: number = 576,
+    cutOptions: CutOptions = DEFAULT_CUT_OPTIONS,
+  ): Promise<PrintJob> {
     if (!this.state.connectedDevice) {
       throw new Error('No printer connected');
     }
@@ -609,18 +648,14 @@ class BluetoothPrinterService {
 
       job.status = 'completed';
 
-      // Paper feed: ESC d 4 (feed 4 lines) via printRawData with Base64 encoding.
-      try {
-        await BLEPrinter.printRawData(ESC_POS.FEED_4_LINES);
-      } catch {
-        // Swallow paper feed errors — don't fail the print job
-      }
-
-      // Auto-cut: GS V 1 (partial paper cut) via printRawData with Base64 encoding.
-      try {
-        await BLEPrinter.printRawData(ESC_POS.CUT_PARTIAL);
-      } catch {
-        // Swallow cut errors — printer may not have a cutter
+      // Config-aware cut after the last chunk (see printImage for rationale).
+      const cutCmd = resolveCutCommand(cutOptions);
+      if (cutCmd) {
+        try {
+          await BLEPrinter.printRawData(cutCmd);
+        } catch {
+          // Swallow errors — printer may not have a cutter
+        }
       }
     } catch (error: any) {
       job.status = 'failed';

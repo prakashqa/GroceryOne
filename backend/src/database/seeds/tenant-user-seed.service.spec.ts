@@ -69,8 +69,14 @@ describe('TenantUserSeedService', () => {
 
   const mockSubscriptionService = {
     createTrialSubscription: jest.fn().mockResolvedValue({
-      id: 'sub-mock',
+      id: 'sub-trial-mock',
       status: 'trial',
+      amount: 0,
+      currency: 'INR',
+    }),
+    createSeedSubscription: jest.fn().mockResolvedValue({
+      id: 'sub-seed-mock',
+      status: 'active',
       amount: 0,
       currency: 'INR',
     }),
@@ -443,22 +449,24 @@ describe('TenantUserSeedService', () => {
       );
     });
 
-    it('should create trial subscription for each new tenant', async () => {
+    it('should create long-lived seed subscription (not short trial) for each new tenant', async () => {
       await service.seed();
 
-      expect(mockSubscriptionService.createTrialSubscription).toHaveBeenCalledTimes(
+      // Seed tenants must NEVER get the 14-day trial — they'd silently expire in demos/prod
+      expect(mockSubscriptionService.createTrialSubscription).not.toHaveBeenCalled();
+      expect(mockSubscriptionService.createSeedSubscription).toHaveBeenCalledTimes(
         SEED_TENANTS.length,
       );
       // Verify each tenant gets its own subscription (tenant isolation)
       for (const seedTenant of SEED_TENANTS) {
-        expect(mockSubscriptionService.createTrialSubscription).toHaveBeenCalledWith(
+        expect(mockSubscriptionService.createSeedSubscription).toHaveBeenCalledWith(
           `tenant-${seedTenant.slug}`,
         );
       }
     });
 
-    it('should create subscription for existing tenant if no active subscription', async () => {
-      // First tenant already exists but has no active subscription
+    it('should create seed subscription for existing tenant whose previous sub expired', async () => {
+      // First tenant already exists but has no active subscription (expired)
       mockTenantRepository.findOne
         .mockResolvedValueOnce({ id: 'existing-tenant-id', slug: SEED_TENANTS[0].slug })
         .mockResolvedValue(null); // rest are new
@@ -466,9 +474,10 @@ describe('TenantUserSeedService', () => {
 
       await service.seed();
 
-      // Should create subscription for existing tenant without active sub
+      // Should renew with a long-lived seed subscription, not another 14-day trial
       expect(mockSubscriptionService.isSubscriptionActive).toHaveBeenCalledWith('existing-tenant-id');
-      expect(mockSubscriptionService.createTrialSubscription).toHaveBeenCalledWith('existing-tenant-id');
+      expect(mockSubscriptionService.createSeedSubscription).toHaveBeenCalledWith('existing-tenant-id');
+      expect(mockSubscriptionService.createTrialSubscription).not.toHaveBeenCalledWith('existing-tenant-id');
     });
 
     it('should NOT duplicate subscription for existing tenant with active subscription', async () => {
@@ -482,8 +491,7 @@ describe('TenantUserSeedService', () => {
 
       // Should check but NOT create for the existing tenant with active sub
       expect(mockSubscriptionService.isSubscriptionActive).toHaveBeenCalledWith('existing-tenant-id');
-      // createTrialSubscription should only be called for the NEW tenants (not the existing one)
-      const createCalls = mockSubscriptionService.createTrialSubscription.mock.calls;
+      const createCalls = mockSubscriptionService.createSeedSubscription.mock.calls;
       const existingTenantCalls = createCalls.filter(
         (call: any[]) => call[0] === 'existing-tenant-id',
       );
@@ -491,7 +499,7 @@ describe('TenantUserSeedService', () => {
     });
 
     it('should not block tenant creation if subscription creation fails (graceful degradation)', async () => {
-      mockSubscriptionService.createTrialSubscription.mockRejectedValueOnce(
+      mockSubscriptionService.createSeedSubscription.mockRejectedValueOnce(
         new Error('Redis connection failed'),
       );
 
@@ -501,12 +509,12 @@ describe('TenantUserSeedService', () => {
       expect(report.tenantsCreated).toBe(SEED_TENANTS.length);
     });
 
-    it('each tenant gets independent trial subscription (tenant isolation)', async () => {
+    it('each tenant gets independent seed subscription (tenant isolation)', async () => {
       const subscriptionCalls: string[] = [];
-      mockSubscriptionService.createTrialSubscription.mockImplementation(
+      mockSubscriptionService.createSeedSubscription.mockImplementation(
         async (tenantId: string) => {
           subscriptionCalls.push(tenantId);
-          return { id: `sub-${tenantId}`, tenantId, status: 'trial' };
+          return { id: `sub-${tenantId}`, tenantId, status: 'active' };
         },
       );
 

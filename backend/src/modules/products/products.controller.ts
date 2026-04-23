@@ -84,6 +84,18 @@ export class ProductsController {
     return this.productsService.findBySlug(slug, req.tenantId!);
   }
 
+  @Get('barcode/:barcode')
+  @ApiOperation({ summary: 'Find an item by barcode' })
+  @ApiParam({ name: 'barcode', description: 'Product barcode (EAN-13, UPC-A, etc.)' })
+  @ApiResponse({ status: 200, description: 'Item found', type: Item })
+  @ApiResponse({ status: 404, description: 'No item with this barcode' })
+  async findByBarcode(
+    @Req() req: Request,
+    @Param('barcode') barcode: string,
+  ): Promise<Item> {
+    return this.productsService.findByBarcode(barcode, req.tenantId!);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get an item by ID' })
   @ApiParam({ name: 'id', description: 'Item UUID' })

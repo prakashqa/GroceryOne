@@ -17,6 +17,7 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [
   workspaceRoot,
   path.resolve(workspaceRoot, 'packages', 'shared'),
+  path.resolve(workspaceRoot, 'packages', 'store'),
 ];
 
 // Ensure Metro resolves node_modules from both mobile and workspace root
@@ -29,6 +30,7 @@ config.resolver.nodeModulesPaths = [
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   '@groceryone/shared': path.resolve(workspaceRoot, 'packages', 'shared'),
+  '@groceryone/store': path.resolve(workspaceRoot, 'packages', 'store'),
   'expo-asset': path.resolve(projectRoot, 'node_modules', 'expo-asset'),
   // Force react-native-svg to use the mobile workspace version (fixes fabric compatibility)
   'react-native-svg': path.resolve(projectRoot, 'node_modules', 'react-native-svg'),
@@ -70,12 +72,5 @@ config.transformer = {
 config.cacheStores = [
   ...config.cacheStores || [],
 ];
-
-// Server optimizations
-config.server = {
-  ...config.server,
-  // Increase timeout for slow bundle generation
-  reloadOnChange: true,
-};
 
 module.exports = config;

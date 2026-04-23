@@ -8,7 +8,7 @@ import type { Category } from './categoryApi';
 export type ItemUnit = 'kg' | 'gm' | 'pcs' | 'L' | 'ml';
 
 export interface Item {
-  id: string; slug: string; name: string; nameTe?: string;
+  id: string; slug: string; name: string; nameTe?: string; barcode?: string;
   categoryId: string; category?: Category; unit: ItemUnit;
   defaultQuantity: number; price?: number; compareAtPrice?: number;
   mrp?: number; costPrice?: number; stockQuantity?: number;
@@ -26,14 +26,14 @@ function mapItemWithMrp(item: Item): Item {
 }
 
 export interface CreateItemDto {
-  slug: string; name: string; nameTe?: string; categoryId: string;
+  slug: string; name: string; nameTe?: string; barcode?: string; categoryId: string;
   unit?: ItemUnit; defaultQuantity?: number; price?: number;
   compareAtPrice?: number; costPrice?: number; sortOrder?: number;
   trackInventory?: boolean; stockQuantity?: number; lowStockThreshold?: number;
 }
 
 export interface UpdateItemDto {
-  slug?: string; name?: string; nameTe?: string; categoryId?: string;
+  slug?: string; name?: string; nameTe?: string; barcode?: string; categoryId?: string;
   unit?: ItemUnit; defaultQuantity?: number; price?: number;
   compareAtPrice?: number; costPrice?: number; sortOrder?: number; isActive?: boolean;
 }
@@ -61,6 +61,11 @@ export const productApi = baseApi.injectEndpoints({
       transformResponse: (response: Item) => mapItemWithMrp(response),
       providesTags: (result) => (result ? [{ type: 'Product', id: result.id }] : []),
     }),
+    getItemByBarcode: builder.query<Item, string>({
+      query: (barcode) => `/items/barcode/${barcode}`,
+      transformResponse: (response: Item) => mapItemWithMrp(response),
+      providesTags: (result) => (result ? [{ type: 'Product', id: result.id }] : []),
+    }),
     getItemCount: builder.query<{ count: number }, { includeInactive?: boolean; categoryId?: string }>({
       query: ({ includeInactive = false, categoryId }) => ({ url: '/items/count', params: { includeInactive, categoryId } }),
     }),
@@ -82,6 +87,7 @@ export const productApi = baseApi.injectEndpoints({
 
 export const {
   useGetItemsQuery, useGetItemsByCategoryQuery, useGetItemByIdQuery,
-  useGetItemBySlugQuery, useGetItemCountQuery,
+  useGetItemBySlugQuery, useGetItemByBarcodeQuery, useLazyGetItemByBarcodeQuery,
+  useGetItemCountQuery,
   useCreateItemMutation, useUpdateItemMutation, useDeleteItemMutation,
 } = productApi;

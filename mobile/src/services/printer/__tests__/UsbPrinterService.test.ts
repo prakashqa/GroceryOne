@@ -298,7 +298,7 @@ describe('UsbPrinterService', () => {
       expect(printListener.mock.calls[0][0]).toHaveProperty('status', 'completed');
     });
 
-    it('should send paper feed after printing image', async () => {
+    it('should send atomic feed-and-cut (GS V B 6) after printing image', async () => {
       const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
       const devices = await service.discoverDevices();
       await service.connect(devices[0]);
@@ -307,21 +307,11 @@ describe('UsbPrinterService', () => {
 
       await service.printImage('base64ImageData');
 
-      // Should send ESC d 4 (feed 4 lines) as Base64 via printRawData
-      expect(USBPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
-    });
-
-    it('should send auto-cut command (GS V 1) after printing an image', async () => {
-      const { USBPrinter } = require('react-native-thermal-receipt-printer-image-qr');
-      const devices = await service.discoverDevices();
-      await service.connect(devices[0]);
-
-      (USBPrinter.printRawData as jest.Mock).mockClear();
-
-      await service.printImage('base64ImageData');
-
-      // GS V 1 = [0x1D, 0x56, 0x01] sent as Base64 'HVYB' via printRawData
-      expect(USBPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
+      // Use atomic feed-then-cut rather than two separate commands so the
+      // receipt's end advances past the cutter before the blade fires.
+      expect(USBPrinter.printRawData).toHaveBeenCalledWith(ESC_POS.FEED_AND_CUT);
+      expect(USBPrinter.printRawData).not.toHaveBeenCalledWith(ESC_POS.FEED_4_LINES);
+      expect(USBPrinter.printRawData).not.toHaveBeenCalledWith(ESC_POS.CUT_PARTIAL);
     });
 
     it('should not fail print job if auto-cut command fails', async () => {

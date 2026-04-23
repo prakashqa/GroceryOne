@@ -2,9 +2,12 @@
   "name": "@groceryone/store",
   "version": "1.0.0",
   "description": "Shared Redux store, slices, and API definitions for GroOne",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
   "files": [
+    "src",
     "dist"
   ],
   "scripts": {

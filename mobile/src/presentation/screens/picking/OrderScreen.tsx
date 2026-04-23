@@ -327,7 +327,13 @@ const OrderScreen: React.FC = () => {
 
         let printJob;
         if (printerSettings.connectionType === 'bluetooth') {
-          printJob = await bluetoothPrinterService.printImages(imageChunks, imageWidth);
+          // Thread user-controlled auto-cut settings through to the BT
+          // service. Missing values (older persisted state) fall back to
+          // the safe defaults: autoCut on, cutMode full.
+          printJob = await bluetoothPrinterService.printImages(imageChunks, imageWidth, {
+            autoCut: printerSettings.autoCut ?? true,
+            cutMode: printerSettings.cutMode ?? 'full',
+          });
         } else if (printerSettings.connectionType === 'network') {
           // Network printers: print each chunk sequentially
           // Pass printer info explicitly to ensure print works even if service state is lost
