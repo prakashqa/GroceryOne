@@ -338,7 +338,9 @@ describe('settingsSlice', () => {
           connectionStatus: 'disconnected',
           lastConnectedAt: null,
           autoPrint: false,
-        imageWidthDots: 384,
+          imageWidthDots: 384,
+          autoCut: true,
+          cutMode: 'full',
         },
       };
       const state = settingsReducer(initialState, hydrateSettings(savedSettings));

@@ -70,6 +70,8 @@ const createTestStore = (themeMode: ThemeMode = 'system', language = 'en') => {
           lastConnectedAt: null,
           autoPrint: false,
           imageWidthDots: 576,
+          autoCut: true,
+          cutMode: 'full' as const,
         },
         payment: {
           merchantUpiId: '',

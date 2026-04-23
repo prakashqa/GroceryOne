@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,7 +15,7 @@ import {
 } from '@groceryone/store';
 import type { DomainTypes } from '@groceryone/store';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../theme/ThemeContext';
+import { useTheme } from '../../theme';
 
 export function BarcodeScannerScreen() {
   const { t } = useTranslation('common');
