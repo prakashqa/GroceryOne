@@ -66,6 +66,7 @@ jest.mock('react-redux', () => ({
   useSelector: (selector: any) => {
     if (selector.mockName === 'selectTenant') return mockTenant;
     if (selector.mockName === 'selectCurrentUser') return mockCurrentUser;
+    if (selector.mockName === 'selectIsAdmin') return mockCurrentUser?.role === 'admin';
     return undefined;
   },
   useDispatch: () => jest.fn(),
@@ -78,9 +79,11 @@ jest.mock('../../../../store/slices/tenantSlice', () => {
 });
 
 jest.mock('../../../../store/slices/authSlice', () => {
-  const fn: any = jest.fn();
-  fn.mockName = 'selectCurrentUser';
-  return { selectCurrentUser: fn };
+  const selectCurrentUser: any = jest.fn();
+  selectCurrentUser.mockName = 'selectCurrentUser';
+  const selectIsAdmin: any = jest.fn();
+  selectIsAdmin.mockName = 'selectIsAdmin';
+  return { selectCurrentUser, selectIsAdmin };
 });
 
 // Mock usePinAuth
@@ -219,6 +222,33 @@ describe('MoreScreen', () => {
     it('logout label includes current tenant name', () => {
       const { getByText } = render(<MoreScreen />);
       expect(getByText(/Logout.*FreshMart/)).toBeTruthy();
+    });
+  });
+
+  describe('Role-Based Access — Employees row', () => {
+    // Owner sees the Employees management row; cashiers (employees) don't.
+    // Backend additionally enforces role='admin' on the underlying endpoints.
+
+    it('renders Employees row for admin (owner)', () => {
+      mockCurrentUser = {
+        id: 'user-1',
+        firstName: 'Owner',
+        lastName: 'Doe',
+        role: 'admin',
+      };
+      const { queryByTestId } = render(<MoreScreen />);
+      expect(queryByTestId('more-row-employees')).toBeTruthy();
+    });
+
+    it('does NOT render Employees row for cashier (employee)', () => {
+      mockCurrentUser = {
+        id: 'user-2',
+        firstName: 'Worker',
+        lastName: 'Smith',
+        role: 'cashier',
+      };
+      const { queryByTestId } = render(<MoreScreen />);
+      expect(queryByTestId('more-row-employees')).toBeNull();
     });
   });
 });

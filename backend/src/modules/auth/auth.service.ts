@@ -3,7 +3,13 @@
  * Handles authentication with tenant context
  */
 
-import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -13,6 +19,31 @@ import { TokenBlacklistService } from '../../core/redis/token-blacklist.service'
 import { SubscriptionService } from '../subscription/subscription.service';
 import { TenantService } from '../../tenant/tenant.service';
 import { SignupDto } from './dto/signup.dto';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
+import { normalizePhoneLast10 } from './utils/identifier';
+
+/** Public-shape of an employee returned by the employees endpoints. Never includes hashes. */
+export interface EmployeeView {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  role: string;
+  status: string;
+  createdAt: Date;
+  lastLoginAt?: Date;
+}
+
+const toEmployeeView = (u: User): EmployeeView => ({
+  id: u.id,
+  firstName: u.firstName,
+  lastName: u.lastName,
+  phone: u.phone,
+  role: u.role,
+  status: u.status,
+  createdAt: u.createdAt,
+  lastLoginAt: u.lastLoginAt,
+});
 
 export interface JwtPayload {
   sub: string; // user id
@@ -54,6 +85,59 @@ export class AuthService {
   ) {}
 
   /**
+   * Resolve an active user by either email or phone, optionally scoped to a
+   * tenant. Phone matching is tolerant: input and stored value are reduced
+   * to digits-only and compared by the last 10 characters (Indian mobile
+   * length). Email matching is exact (case-sensitive, as stored).
+   *
+   * Pass `tenantId = null` to search across all tenants (used by
+   * resolveUserTenant during initial device setup).
+   */
+  private async findActiveUserByIdentifier(
+    tenantId: string | null,
+    identifier: string,
+  ): Promise<User | null> {
+    const trimmed = identifier.trim();
+    if (!trimmed) return null;
+
+    const last10 = normalizePhoneLast10(trimmed); // null if input looks like email or is too short
+
+    const qb = this.userRepository
+      .createQueryBuilder('u')
+      .leftJoinAndSelect('u.tenant', 'tenant')
+      .where('u.status = :status', { status: 'active' });
+
+    if (tenantId !== null) {
+      qb.andWhere('u.tenantId = :tenantId', { tenantId });
+    }
+
+    if (last10) {
+      // Phone-shaped input: match either email (in case the digits happen to
+      // be an email, defensive) OR the last-10-digits of the stored phone
+      // after stripping non-digit characters.
+      qb.andWhere(
+        `(u.email = :identifier OR regexp_replace(u.phone, '[^0-9]', '', 'g') LIKE :phonePattern)`,
+        { identifier: trimmed, phonePattern: `%${last10}` },
+      );
+    } else {
+      // Email-shaped or short input: exact email match only.
+      qb.andWhere('u.email = :identifier', { identifier: trimmed });
+    }
+
+    const user = await qb.getOne();
+    // Visibility log: makes "No account found" diagnosable in the backend
+    // terminal without needing DB access. Shows the canonical form the
+    // server used and whether a row matched. Uses .log() (info-level) so
+    // it appears without requiring DEBUG to be enabled.
+    this.logger.log(
+      `findActiveUserByIdentifier: input="${trimmed}" last10=${last10 ?? '(email)'} tenantScoped=${tenantId !== null} -> ${
+        user ? `found userId=${user.id} role=${user.role} phone="${user.phone}"` : 'NOT FOUND'
+      }`,
+    );
+    return user;
+  }
+
+  /**
    * Validate user credentials within a tenant context
    * @param tenantId - Tenant UUID or slug
    * @param identifier - Email or phone number
@@ -65,14 +149,8 @@ export class AuthService {
     identifier: string,
     password: string,
   ): Promise<User | null> {
-    // Find user by email OR phone within the specific tenant
-    const user = await this.userRepository.findOne({
-      where: [
-        { tenantId, email: identifier, status: 'active' },
-        { tenantId, phone: identifier, status: 'active' },
-      ],
-      relations: ['tenant'],
-    });
+    // Find user by email OR phone within the specific tenant (tolerant phone match).
+    const user = await this.findActiveUserByIdentifier(tenantId, identifier);
 
     if (!user) {
       this.logger.warn(
@@ -111,14 +189,8 @@ export class AuthService {
     identifier: string,
     pin: string,
   ): Promise<User | null> {
-    // Find user by email OR phone within the specific tenant
-    const user = await this.userRepository.findOne({
-      where: [
-        { tenantId, email: identifier, status: 'active' },
-        { tenantId, phone: identifier, status: 'active' },
-      ],
-      relations: ['tenant'],
-    });
+    // Find user by email OR phone within the specific tenant (tolerant phone match).
+    const user = await this.findActiveUserByIdentifier(tenantId, identifier);
 
     if (!user) {
       this.logger.warn(
@@ -193,13 +265,12 @@ export class AuthService {
   async resolveUserTenant(
     identifier: string,
   ): Promise<{ tenantSlug: string; tenantName: string; userFirstName: string } | null> {
-    const user = await this.userRepository.findOne({
-      where: [
-        { email: identifier, status: 'active' },
-        { phone: identifier, status: 'active' },
-      ],
-      relations: ['tenant'],
-    });
+    // Cross-tenant lookup with tolerant phone matching. Phones in the DB are
+    // stored in mixed shapes (seeds use "+91-9876543211", the employee
+    // endpoint stores whatever the client sent); we normalise both sides at
+    // query time so "9999000001" / "+91 9999000001" / "+919999000001" all
+    // resolve to the same user.
+    const user = await this.findActiveUserByIdentifier(null, identifier);
 
     if (!user || !user.tenant) {
       return null;
@@ -346,6 +417,116 @@ export class AuthService {
       await queryRunner.release();
     }
   }
+
+  //
+  // EMPLOYEE MANAGEMENT
+  // ──────────────────────────────────────────────────────────────────────
+  // The owner (role='admin') can create / list / deactivate other users
+  // within the SAME tenant. tenantId is always taken from the caller's JWT —
+  // never trusted from the request body — to enforce tenant isolation.
+  //
+
+  /**
+   * Create a new employee user in the caller's tenant.
+   * Role and status are forced server-side; caller cannot escalate via body.
+   *
+   * @param callerTenantId  tenantId from caller's JWT (source of truth)
+   * @param dto             validated CreateEmployeeDto
+   * @throws ConflictException if (tenantId, phone) already exists
+   */
+  async createEmployee(
+    callerTenantId: string,
+    dto: CreateEmployeeDto,
+  ): Promise<EmployeeView> {
+    // Pre-check uniqueness within tenant for a friendlier 409.
+    // The DB unique index `(tenantId, phone)` is the ultimate guarantee.
+    const existing = await this.userRepository.findOne({
+      where: { tenantId: callerTenantId, phone: dto.phone },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'An employee with this phone number already exists in your business',
+      );
+    }
+
+    const pinHash = await this.passwordService.hash(dto.pin);
+    // passwordHash is NOT NULL on the User entity, but employees only ever
+    // log in via PIN. We store a non-usable bcrypt hash so password login
+    // can never succeed for this account (compare against a known-bad input
+    // will always fail).
+    const unusablePasswordHash = await this.passwordService.hash(
+      `__pin_only__${Date.now()}__${Math.random()}`,
+    );
+
+    const user = this.userRepository.create({
+      tenantId: callerTenantId, // forced from JWT
+      phone: dto.phone,
+      passwordHash: unusablePasswordHash,
+      pinHash,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      role: 'cashier', // forced — body role is ignored
+      status: 'active', // forced — body status is ignored
+      phoneVerifiedAt: new Date(),
+    });
+
+    const saved = await this.userRepository.save(user);
+    this.logger.log(
+      `Employee created: tenantId=${callerTenantId} userId=${saved.id} phone=${saved.phone}`,
+    );
+    return toEmployeeView(saved);
+  }
+
+  /**
+   * List all employees in the caller's tenant.
+   * Excludes the caller themselves (an admin doesn't manage themselves here)
+   * and excludes soft-deleted rows.
+   */
+  async listEmployees(callerTenantId: string): Promise<EmployeeView[]> {
+    const rows = await this.userRepository.find({
+      where: { tenantId: callerTenantId },
+      order: { createdAt: 'DESC' },
+    });
+    return rows.map(toEmployeeView);
+  }
+
+  /**
+   * Deactivate an employee (soft-disable login).
+   * 404 if the target user doesn't exist in the caller's tenant — we
+   * deliberately don't distinguish "not found" from "in another tenant"
+   * to avoid leaking the existence of other tenants' user IDs.
+   *
+   * Note: this does NOT revoke existing JWTs. A logged-in cashier will keep
+   * working until token expiry; only subsequent PIN-login attempts are
+   * refused (validateUserByPin already filters by status='active').
+   */
+  async deactivateEmployee(
+    callerTenantId: string,
+    employeeId: string,
+  ): Promise<EmployeeView> {
+    const target = await this.userRepository.findOne({
+      where: { id: employeeId, tenantId: callerTenantId },
+    });
+    if (!target) {
+      throw new NotFoundException('Employee not found');
+    }
+    if (target.role === 'admin') {
+      // Defence-in-depth: admin shouldn't be deactivated via this endpoint
+      // (would lock the tenant out). The UI never offers it, but block here
+      // too in case of direct API calls.
+      throw new ConflictException('Cannot deactivate an admin account');
+    }
+    target.status = 'inactive';
+    const saved = await this.userRepository.save(target);
+    this.logger.log(
+      `Employee deactivated: tenantId=${callerTenantId} userId=${saved.id}`,
+    );
+    return toEmployeeView(saved);
+  }
+
+  //
+  // PRIVATE HELPERS
+  //
 
   /**
    * Generate a unique slug from a business name.

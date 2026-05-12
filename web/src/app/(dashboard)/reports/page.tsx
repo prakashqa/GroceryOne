@@ -7,10 +7,22 @@ import {
   selectAllCarts, selectTodaysCarts, selectCartsByDateRange, selectCartsByStatus,
 } from '@groceryone/store';
 import { BarChart3, TrendingUp, Package, Receipt } from 'lucide-react';
+import { RoleGate } from '@/components/common/RoleGate';
 
 type DatePreset = 'today' | 'week' | 'month' | 'all';
 
+// Wraps the actual report content with a role gate so non-admins navigating
+// directly to /reports see the "Access restricted" panel instead of report
+// data. The Sidebar also hides the Reports link for non-admins.
 export default function ReportsPage() {
+  return (
+    <RoleGate roles={['admin']}>
+      <ReportsPageContent />
+    </RoleGate>
+  );
+}
+
+function ReportsPageContent() {
   const { t } = useTranslation('common');
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const allCarts = useAppSelector(selectAllCarts);

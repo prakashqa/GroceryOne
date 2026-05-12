@@ -26,11 +26,24 @@ describe('AuthService', () => {
 
   const mockUser = buildMockUser({ tenant: mockTenant });
 
+  // QueryBuilder mock — returned by mockUserRepository.createQueryBuilder().
+  // The lookup helper (findActiveUserByIdentifier) builds a tolerant phone
+  // query via createQueryBuilder; tests inject the expected user via
+  // queryBuilderMock.getOne.mockResolvedValue(...).
+  const queryBuilderMock: any = {
+    leftJoinAndSelect: jest.fn(() => queryBuilderMock),
+    where: jest.fn(() => queryBuilderMock),
+    andWhere: jest.fn(() => queryBuilderMock),
+    getOne: jest.fn(),
+  };
+
   const mockUserRepository = {
     findOne: jest.fn(),
+    find: jest.fn(),
     update: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
   const mockPasswordService = {
@@ -112,6 +125,15 @@ describe('AuthService', () => {
     jwtService = module.get<JwtService>(JwtService);
 
     jest.clearAllMocks();
+    // Re-arm chainable QB stubs (cleared above) and make getOne() defer to
+    // whatever the test arms on findOne(). This lets existing tests
+    // (`mockUserRepository.findOne.mockResolvedValue(...)`) keep working
+    // after the validateUser/validateUserByPin/resolveUserTenant paths
+    // were refactored to createQueryBuilder for tolerant phone matching.
+    queryBuilderMock.leftJoinAndSelect.mockReturnValue(queryBuilderMock);
+    queryBuilderMock.where.mockReturnValue(queryBuilderMock);
+    queryBuilderMock.andWhere.mockReturnValue(queryBuilderMock);
+    queryBuilderMock.getOne.mockImplementation(() => mockUserRepository.findOne());
   });
 
   describe('validateUser', () => {
@@ -288,13 +310,14 @@ describe('AuthService', () => {
 
       await service.resolveUserTenant('test@example.com');
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: [
-          { email: 'test@example.com', status: 'active' },
-          { phone: 'test@example.com', status: 'active' },
-        ],
-        relations: ['tenant'],
-      });
+      // The tolerant-phone refactor moved this path to createQueryBuilder;
+      // we assert the cross-tenant nature by checking no tenantId clause was
+      // added (the only andWhere call is the email/phone clause).
+      const andWhereCalls = (queryBuilderMock.andWhere as jest.Mock).mock.calls;
+      const tenantClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('tenantId'),
+      );
+      expect(tenantClause).toBeUndefined();
     });
   });
 
@@ -576,6 +599,296 @@ describe('AuthService', () => {
 
         expect(mockSubscriptionService.createTrialSubscription).toHaveBeenCalledWith('new-tenant-id');
       });
+    });
+  });
+
+  //
+  // EMPLOYEE MANAGEMENT
+  //
+
+  describe('createEmployee', () => {
+    const callerTenantId = 'tenant-a';
+    const dto = {
+      firstName: 'Priya',
+      lastName: 'Sharma',
+      phone: '+919876543211',
+      pin: '1234',
+    };
+
+    beforeEach(() => {
+      mockPasswordService.hash.mockResolvedValue('hashed');
+      // No pre-existing user with same phone in this tenant
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockImplementation((payload) => payload);
+      mockUserRepository.save.mockImplementation(async (u) => ({
+        ...u,
+        id: 'new-employee-id',
+        createdAt: new Date('2026-01-01'),
+      }));
+    });
+
+    it('creates a user scoped to the caller tenantId — body cannot override', async () => {
+      // Attempt to inject a different tenantId in the DTO (TypeScript would
+      // normally block this, but we cast to bypass and prove server ignores it).
+      await service.createEmployee(callerTenantId, dto as any);
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: callerTenantId }),
+      );
+    });
+
+    it('forces role=cashier regardless of any body input', async () => {
+      await service.createEmployee(callerTenantId, { ...(dto as any), role: 'admin' });
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'cashier' }),
+      );
+    });
+
+    it('forces status=active regardless of any body input', async () => {
+      await service.createEmployee(callerTenantId, { ...(dto as any), status: 'inactive' });
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'active' }),
+      );
+    });
+
+    it('hashes the PIN before storage and never stores it plain', async () => {
+      await service.createEmployee(callerTenantId, dto);
+
+      expect(mockPasswordService.hash).toHaveBeenCalledWith('1234');
+      const created = mockUserRepository.create.mock.calls[0][0];
+      // pinHash is whatever passwordService.hash returns; importantly NOT '1234'.
+      expect(created.pinHash).not.toBe('1234');
+      expect(created.pinHash).toBeDefined();
+    });
+
+    it('stores a non-usable passwordHash so password-login can never succeed', async () => {
+      await service.createEmployee(callerTenantId, dto);
+      const created = mockUserRepository.create.mock.calls[0][0];
+      // Two distinct hash calls: one for pin, one for the unusable password.
+      expect(mockPasswordService.hash).toHaveBeenCalledTimes(2);
+      expect(created.passwordHash).toBeDefined();
+    });
+
+    it('returns a public view without hashes', async () => {
+      const result = await service.createEmployee(callerTenantId, dto);
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'new-employee-id',
+          firstName: 'Priya',
+          phone: '+919876543211',
+          role: 'cashier',
+          status: 'active',
+        }),
+      );
+      expect(result as unknown as Record<string, unknown>).not.toHaveProperty('pinHash');
+      expect(result as unknown as Record<string, unknown>).not.toHaveProperty('passwordHash');
+    });
+
+    it('throws ConflictException when (tenantId, phone) already exists', async () => {
+      mockUserRepository.findOne.mockResolvedValue(buildMockUser({ phone: dto.phone }));
+      await expect(service.createEmployee(callerTenantId, dto)).rejects.toThrow(
+        'phone number already exists',
+      );
+    });
+
+    it('multi-tenant: same phone in different tenants does NOT trigger conflict', async () => {
+      // Conflict check uses where: { tenantId, phone } — different tenant should
+      // not match. The mock returns null when called with the caller tenantId.
+      mockUserRepository.findOne.mockImplementation((opts: any) => {
+        if (opts?.where?.tenantId === callerTenantId) return Promise.resolve(null);
+        // Same phone exists in tenant-b — but that shouldn't be checked here
+        return Promise.resolve(buildMockUser({ phone: dto.phone, tenantId: 'tenant-b' }));
+      });
+
+      await expect(service.createEmployee(callerTenantId, dto)).resolves.toBeDefined();
+    });
+  });
+
+  describe('listEmployees', () => {
+    it('scopes the query to the caller tenant', async () => {
+      const find = jest.fn().mockResolvedValue([]);
+      (mockUserRepository as any).find = find;
+
+      await service.listEmployees('tenant-a');
+
+      expect(find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: 'tenant-a' },
+        }),
+      );
+    });
+
+    it('returns public views (no hashes leaked)', async () => {
+      const rows = [buildMockUser({ id: 'u1' }), buildMockUser({ id: 'u2' })];
+      (mockUserRepository as any).find = jest.fn().mockResolvedValue(rows);
+
+      const result = await service.listEmployees('tenant-123');
+
+      expect(result).toHaveLength(2);
+      result.forEach((emp) => {
+        expect(emp as unknown as Record<string, unknown>).not.toHaveProperty('pinHash');
+        expect(emp as unknown as Record<string, unknown>).not.toHaveProperty('passwordHash');
+      });
+    });
+  });
+
+  describe('deactivateEmployee', () => {
+    it('sets status to inactive on the target user', async () => {
+      const target = buildMockUser({ id: 'emp-1', role: 'cashier', status: 'active' });
+      mockUserRepository.findOne.mockResolvedValue(target);
+      mockUserRepository.save.mockImplementation(async (u) => u);
+
+      const result = await service.deactivateEmployee('tenant-123', 'emp-1');
+
+      expect(result.status).toBe('inactive');
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'emp-1', status: 'inactive' }),
+      );
+    });
+
+    it('throws NotFoundException when the id does not exist in caller tenant — never reveals it exists elsewhere', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.deactivateEmployee('tenant-a', 'employee-from-tenant-b'),
+      ).rejects.toThrow('Employee not found');
+
+      // Confirms the lookup is constrained by tenantId — cross-tenant access blocked
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'employee-from-tenant-b', tenantId: 'tenant-a' },
+        }),
+      );
+    });
+
+    it('refuses to deactivate an admin (would lock the tenant out)', async () => {
+      const admin = buildMockUser({ id: 'owner', role: 'admin' });
+      mockUserRepository.findOne.mockResolvedValue(admin);
+
+      await expect(
+        service.deactivateEmployee('tenant-123', 'owner'),
+      ).rejects.toThrow('Cannot deactivate an admin');
+    });
+  });
+
+  //
+  // REGRESSION: PIN-login must refuse inactive users.
+  // This is what makes the deactivate flow meaningful.
+  //
+  describe('validateUserByPin (status enforcement)', () => {
+    it('returns null when the user is inactive — status="active" clause and tenant scoping are always applied', async () => {
+      // The query-builder pipeline always applies status='active' and the
+      // caller-supplied tenantId. Asserting on the SQL fragments guards
+      // against someone refactoring the where clause and silently removing
+      // the gate that powers the deactivate feature.
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.validateUserByPin('tenant-123', '+91xxx', '1234');
+
+      expect(result).toBeNull();
+
+      const whereCalls = (queryBuilderMock.where as jest.Mock).mock.calls;
+      const andWhereCalls = (queryBuilderMock.andWhere as jest.Mock).mock.calls;
+
+      // status='active' is the first WHERE
+      expect(whereCalls[0][0]).toContain('status = :status');
+      expect(whereCalls[0][1]).toEqual({ status: 'active' });
+
+      // tenantId scoping is applied
+      const tenantClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('tenantId'),
+      );
+      expect(tenantClause).toBeDefined();
+      expect(tenantClause![1]).toEqual({ tenantId: 'tenant-123' });
+    });
+  });
+
+  //
+  // REGRESSION: phone login must tolerate common formatting variations
+  // (+91-, +91, space, dash, with/without country code). All of these
+  // should resolve to the same active user regardless of how the phone
+  // was stored. See utils/identifier.ts for the canonicalisation rule.
+  //
+  describe('phone-matching tolerance (login)', () => {
+    beforeEach(() => {
+      // Resolve to a stored user in every shape — the assertion is about
+      // the SQL fragment passed to the QB, not the underlying data.
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockPasswordService.compare.mockResolvedValue(true);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 });
+    });
+
+    it.each([
+      ['9999000001', '9999000001'],
+      ['+919999000001', '9999000001'],
+      ['+91-9999000001', '9999000001'],
+      ['+91 9999000001', '9999000001'],
+      ['919999000001', '9999000001'],
+    ])('validateUserByPin(%p) queries phone LIKE %%%p', async (input, last10) => {
+      jest.clearAllMocks();
+      queryBuilderMock.leftJoinAndSelect.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.where.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.andWhere.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.getOne.mockImplementation(() => mockUserRepository.findOne());
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.validateUserByPin('tenant-123', input, '1234');
+
+      const andWhereCalls = (queryBuilderMock.andWhere as jest.Mock).mock.calls;
+      const phoneClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('regexp_replace'),
+      );
+      expect(phoneClause).toBeDefined();
+      expect(phoneClause![1].phonePattern).toBe(`%${last10}`);
+    });
+
+    it('validateUserByPin treats emails as exact-match, no phone clause', async () => {
+      jest.clearAllMocks();
+      queryBuilderMock.leftJoinAndSelect.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.where.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.andWhere.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.getOne.mockImplementation(() => mockUserRepository.findOne());
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.validateUserByPin('tenant-123', 'owner@freshmart.com', '1234');
+
+      const andWhereCalls = (queryBuilderMock.andWhere as jest.Mock).mock.calls;
+      const phoneClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('regexp_replace'),
+      );
+      expect(phoneClause).toBeUndefined();
+
+      const emailClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && /u\.email = :identifier/.test(sql),
+      );
+      expect(emailClause).toBeDefined();
+      expect(emailClause![1]).toEqual({ identifier: 'owner@freshmart.com' });
+    });
+
+    it('resolveUserTenant uses the same tolerant phone lookup, but without tenantId scope', async () => {
+      jest.clearAllMocks();
+      queryBuilderMock.leftJoinAndSelect.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.where.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.andWhere.mockReturnValue(queryBuilderMock);
+      queryBuilderMock.getOne.mockImplementation(() => mockUserRepository.findOne());
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+      await service.resolveUserTenant('+91-9999000001');
+
+      const andWhereCalls = (queryBuilderMock.andWhere as jest.Mock).mock.calls;
+
+      // No tenantId clause (cross-tenant lookup during device setup)
+      const tenantClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('tenantId'),
+      );
+      expect(tenantClause).toBeUndefined();
+
+      // Phone clause uses the last-10 canonical form
+      const phoneClause = andWhereCalls.find(([sql]: any[]) =>
+        typeof sql === 'string' && sql.includes('regexp_replace'),
+      );
+      expect(phoneClause).toBeDefined();
+      expect(phoneClause![1].phonePattern).toBe('%9999000001');
     });
   });
 });

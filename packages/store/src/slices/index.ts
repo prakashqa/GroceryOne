@@ -8,6 +8,7 @@ export {
   setError as setAuthError,
   selectCurrentUser, selectAccessToken, selectIsAuthenticated,
   selectAuthLoading, selectAuthError, selectRequiresPinSetup,
+  selectUserRole, selectIsAdmin,
 } from './authSlice';
 
 // Tenant slice

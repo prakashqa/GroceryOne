@@ -9,8 +9,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { useTheme } from '../theme';
 import { useResponsiveStyles } from '../../hooks';
+import { selectIsAdmin } from '../../store/slices/authSlice';
 
 // Screen imports
 import { DashboardScreen } from '../screens/dashboard';
@@ -37,6 +39,7 @@ import { BarcodeScannerScreen } from '../screens/picking/BarcodeScannerScreen';
 import { ItemsScreen } from '../screens/items';
 import { MoreScreen } from '../screens/more';
 import { InventoryDashboardScreen, InventoryItemDetailScreen } from '../screens/inventory';
+import { EmployeeListScreen, EmployeeCreateScreen } from '../../features/employees';
 
 // Tab param list - tabs available in bottom navigation
 export type TabParamList = {
@@ -95,6 +98,10 @@ export type MoreStackParamList = {
   About: undefined;
   CategoryManagement: undefined;
   ItemManagement: { categoryId?: string } | undefined;
+  // Employees screens — admin-only entry from MoreScreen, but the routes are
+  // registered for everyone; the screens themselves are gated by role.
+  EmployeeList: undefined;
+  EmployeeCreate: undefined;
 };
 
 export type ItemsStackParamList = {
@@ -516,6 +523,22 @@ function MoreStackNavigator() {
           headerShown: false,
         }}
       />
+      <MoreStack.Screen
+        name="EmployeeList"
+        component={EmployeeListScreen}
+        options={{
+          title: 'Employees',
+          headerShown: false,
+        }}
+      />
+      <MoreStack.Screen
+        name="EmployeeCreate"
+        component={EmployeeCreateScreen}
+        options={{
+          title: 'Add employee',
+          headerShown: true,
+        }}
+      />
     </MoreStack.Navigator>
   );
 }
@@ -563,6 +586,10 @@ export function BottomTabNavigator() {
   const theme = useTheme();
   const { t, ready } = useTranslation('common');
   const responsiveStyles = useResponsiveStyles();
+  // Role-based tab visibility: only `admin` (owner) sees Reports.
+  // Backend additionally enforces role on any sensitive API; the UI gate
+  // is for the navigation experience.
+  const isAdmin = useSelector(selectIsAdmin);
 
   // Wait for i18n to be ready before rendering to avoid showing translation keys
   if (!ready) {
@@ -646,22 +673,25 @@ export function BottomTabNavigator() {
           },
         })}
       />
-      <Tab.Screen
-        name="ReportsTab"
-        component={ReportsStackNavigator}
-        options={{
-          tabBarLabel: t('navigation.reports', 'Reports'),
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="bar-chart" color={color} size={responsiveStyles.tabBarIconSize} />
-          ),
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('ReportsTab' as any, { screen: 'Reports' });
-          },
-        })}
-      />
+      {/* Reports is admin-only. Non-admins (cashiers/employees) don't see this tab. */}
+      {isAdmin && (
+        <Tab.Screen
+          name="ReportsTab"
+          component={ReportsStackNavigator}
+          options={{
+            tabBarLabel: t('navigation.reports', 'Reports'),
+            tabBarIcon: ({ color }) => (
+              <TabBarIcon name="bar-chart" color={color} size={responsiveStyles.tabBarIconSize} />
+            ),
+          }}
+          listeners={({ navigation }) => ({
+            tabPress: (e) => {
+              e.preventDefault();
+              navigation.navigate('ReportsTab' as any, { screen: 'Reports' });
+            },
+          })}
+        />
+      )}
       <Tab.Screen
         name="MoreTab"
         component={MoreStackNavigator}

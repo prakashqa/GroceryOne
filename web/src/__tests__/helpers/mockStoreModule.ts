@@ -42,3 +42,44 @@ export const DomainTypes = {
   createUpiPaymentInfo: (upiId?: string, ref?: string) => ({ method: 'upi', upiId, ref }),
   createCardPaymentInfo: (last4?: string) => ({ method: 'card', last4 }),
 };
+
+// RTK Query mutation hooks (used by management pages)
+export const useCreateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useUpdateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useDeleteCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useCreateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useUpdateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useDeleteItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+
+// Utils namespace (mirrors packages/store/src/utils)
+export const StoreUtils = {
+  generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-') + '-test',
+  getLocalizedName: (entity: { name: string; nameTe?: string | null } | null | undefined, lang?: string | null) => {
+    if (!entity) return '';
+    const language = (lang ?? 'en').toLowerCase();
+    if (language.startsWith('te') && typeof entity.nameTe === 'string' && entity.nameTe.trim().length > 0) {
+      return entity.nameTe;
+    }
+    return entity.name;
+  },
+};
+
+// RBAC selectors / slice — added for Sidebar + RoleGate + Employees page tests.
+// We expose a real reducer (createSlice) so component tests can drive role
+// changes via Redux state preloadedState in configureStore.
+import { createSlice as _createSlice } from '@reduxjs/toolkit';
+export const authSlice = _createSlice({
+  name: 'auth',
+  initialState: {
+    user: null as { role?: 'admin' | 'cashier' | 'manager' | 'super_admin' } | null,
+    accessToken: null as string | null,
+    refreshToken: null as string | null,
+    isAuthenticated: false,
+    isLoading: false,
+    error: null as string | null,
+    requiresPinSetup: false,
+  },
+  reducers: {},
+});
+export const selectUserRole = (state: any) => state.auth?.user?.role ?? null;
+export const selectIsAdmin = (state: any) => state.auth?.user?.role === 'admin';

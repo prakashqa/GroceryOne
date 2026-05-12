@@ -175,6 +175,42 @@ describe('BottomTabNavigator', () => {
     });
   });
 
+  describe('Role-based access (RBAC)', () => {
+    // The Reports tab is conditionally rendered as `{isAdmin && <Tab.Screen .../>}`
+    // in BottomTabNavigator.tsx (~line 650). We assert this via the selectIsAdmin
+    // selector — the actual gate is a single conditional expression, and a deeper
+    // integration test of the gate's behaviour for non-admins lives in
+    // RoleGate.test.tsx, which guarantees a cashier reaching the Reports route
+    // (via state-restore or programmatic nav) sees the "Access restricted" panel.
+
+    /* eslint-disable @typescript-eslint/no-var-requires */
+    const { selectIsAdmin } = require('../../../store/slices/authSlice');
+
+    const stateFor = (role: 'admin' | 'cashier' | null) => ({
+      auth: {
+        user: role ? ({ id: 'u1', tenantId: 't1', role } as any) : null,
+        accessToken: 'a',
+        refreshToken: 'r',
+        isAuthenticated: !!role,
+        isLoading: false,
+        error: null,
+        requiresPinSetup: false,
+      },
+    });
+
+    it('selectIsAdmin returns true for admin (Reports tab visible)', () => {
+      expect(selectIsAdmin(stateFor('admin'))).toBe(true);
+    });
+
+    it('selectIsAdmin returns false for cashier (Reports tab hidden)', () => {
+      expect(selectIsAdmin(stateFor('cashier'))).toBe(false);
+    });
+
+    it('selectIsAdmin returns false when logged out (Reports tab hidden)', () => {
+      expect(selectIsAdmin(stateFor(null))).toBe(false);
+    });
+  });
+
   describe('i18n Integration', () => {
     it('waits for i18n to be ready before rendering', () => {
       // The component should check ready state from useTranslation

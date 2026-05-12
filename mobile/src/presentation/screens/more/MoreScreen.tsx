@@ -14,7 +14,7 @@ import { useTheme } from '../../theme';
 import { useResponsiveStyles } from '../../../hooks';
 import { SettingsSection, SettingsRow } from '../../components/settings';
 import { selectTenant } from '../../../store/slices/tenantSlice';
-import { selectCurrentUser } from '../../../store/slices/authSlice';
+import { selectCurrentUser, selectIsAdmin } from '../../../store/slices/authSlice';
 import { usePinAuth } from '../../../features/pinAuth/hooks/usePinAuth';
 import { formatUserRole } from '../../../utils/formatters/userFormatters';
 
@@ -25,6 +25,8 @@ type MoreStackParamList = {
   Settings: undefined;
   InventoryDashboard: undefined;
   About: undefined;
+  // Admin-only — the row that links here is hidden for non-admins.
+  EmployeeList: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<MoreStackParamList>;
@@ -36,6 +38,7 @@ const MoreScreen: React.FC = () => {
   const responsiveStyles = useResponsiveStyles();
   const tenant = useSelector(selectTenant);
   const currentUser = useSelector(selectCurrentUser);
+  const isAdmin = useSelector(selectIsAdmin);
   const { logoutSession } = usePinAuth();
 
   const handleSettingsPress = useCallback(() => {
@@ -44,6 +47,10 @@ const MoreScreen: React.FC = () => {
 
   const handleInventoryPress = useCallback(() => {
     navigation.navigate('InventoryDashboard');
+  }, [navigation]);
+
+  const handleEmployeesPress = useCallback(() => {
+    navigation.navigate('EmployeeList');
   }, [navigation]);
 
   const handleAboutPress = useCallback(() => {
@@ -140,6 +147,17 @@ const MoreScreen: React.FC = () => {
             hasChevron
             testID="more-row-inventory"
           />
+          {/* Employees row is admin-only — owners manage their staff from here.
+              Backend also enforces role='admin' on the underlying endpoints. */}
+          {isAdmin && (
+            <SettingsRow
+              label={t('more.employees', 'Employees')}
+              icon="user"
+              onPress={handleEmployeesPress}
+              hasChevron
+              testID="more-row-employees"
+            />
+          )}
         </SettingsSection>
 
         {/* Settings Section */}

@@ -15,6 +15,7 @@ import { PasswordService } from './services/password.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, LocalStrategy, JwtStrategy],
+  providers: [AuthService, PasswordService, LocalStrategy, JwtStrategy, RolesGuard],
   exports: [AuthService, PasswordService, PassportModule, JwtModule],
 })
 export class AuthModule {}

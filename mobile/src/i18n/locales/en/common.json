@@ -54,6 +54,7 @@
     "settingsDescription": "App preferences and configuration",
     "inventory": "Inventory",
     "inventoryDescription": "Stock management and reports",
+    "employees": "Employees",
     "sections": {
       "store": "Store",
       "management": "Management",
@@ -64,6 +65,38 @@
     "version": "Version",
     "logout": "Logout",
     "logoutConfirm": "Are you sure you want to logout?"
+  },
+  "employees": {
+    "title": "Employees",
+    "add": "Add",
+    "create": "Create employee",
+    "created": "Employee created",
+    "createdDescription": "They can now log in with their phone number and PIN.",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "pin": "PIN",
+    "confirmPin": "Confirm PIN",
+    "deactivate": "Deactivate",
+    "deactivateConfirmTitle": "Deactivate employee?",
+    "confirmDeactivate": "This employee will no longer be able to log in. You can recreate them later if needed.",
+    "ownerTag": "Owner",
+    "inactive": "Inactive",
+    "empty": "No employees yet. Tap \"Add\" to create your first one.",
+    "errors": {
+      "firstNameRequired": "First name is required",
+      "invalidPhone": "Enter a valid phone number (10–15 digits).",
+      "invalidPin": "PIN must be exactly 4 digits.",
+      "pinMismatch": "PIN and confirmation do not match.",
+      "duplicatePhone": "An employee with this phone number already exists.",
+      "createFailed": "Could not create employee.",
+      "deactivate": "Could not deactivate employee.",
+      "loadFailed": "Could not load employees. Pull down to retry."
+    }
+  },
+  "errors": {
+    "unauthorized": "Access restricted",
+    "unauthorizedDescription": "This area is only available to the business owner."
   },
   "inventory": {
     "title": "Inventory",

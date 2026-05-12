@@ -3,8 +3,11 @@
  * Exports all public components, types, and utilities
  */
 
-// Screen
-export { ReportsScreen } from './screens/ReportsScreen';
+// Screen — wrapped in RoleGate so non-admins (cashiers) who reach this route
+// via state-restore or programmatic navigation see "Access restricted" instead
+// of the actual reports. Tab visibility is also gated in BottomTabNavigator,
+// but RoleGate is the defence-in-depth layer.
+export { ReportsScreen } from './screens/ReportsScreenGated';
 
 // Components
 export { DateRangeSelector } from './components/DateRangeSelector';

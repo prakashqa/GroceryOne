@@ -51,6 +51,7 @@
     "scan": "Scan Order",
     "categories": "Categories",
     "productList": "Product List",
+    "employees": "Employees",
     "more": "More"
   },
   "more": {
@@ -567,5 +568,35 @@
     "baby-6": "Cerelac",
     "baby-7": "Baby Wipes",
     "baby-8": "Baby Lotion"
+  },
+  "employees": {
+    "title": "Employees",
+    "add": "Add employee",
+    "create": "Create employee",
+    "created": "Employee created",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "pin": "PIN",
+    "confirmPin": "Confirm PIN",
+    "deactivate": "Deactivate",
+    "confirmDeactivate": "This employee will no longer be able to log in. You can recreate them later if needed.",
+    "ownerTag": "Owner",
+    "inactive": "Inactive",
+    "empty": "No employees yet. Click \"Add\" to create your first one.",
+    "errors": {
+      "firstNameRequired": "First name is required",
+      "invalidPhone": "Enter a valid phone number (10–15 digits).",
+      "invalidPin": "PIN must be exactly 4 digits.",
+      "pinMismatch": "PIN and confirmation do not match.",
+      "duplicatePhone": "An employee with this phone number already exists.",
+      "createFailed": "Could not create employee.",
+      "deactivate": "Could not deactivate employee.",
+      "loadFailed": "Could not load employees."
+    }
+  },
+  "errors": {
+    "unauthorized": "Access restricted",
+    "unauthorizedDescription": "This area is only available to the business owner."
   }
 }

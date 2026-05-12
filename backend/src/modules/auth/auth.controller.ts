@@ -7,6 +7,8 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Param,
   UseGuards,
   Request,
   Body,
@@ -29,7 +31,10 @@ import { PinLoginDto } from './dto/pin-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResolveTenantDto } from './dto/resolve-tenant.dto';
 import { SignupDto } from './dto/signup.dto';
+import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { User } from '../users/entities/user.entity';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: User;
@@ -252,6 +257,60 @@ export class AuthController {
       phone: req.user.phone,
       role: req.user.role,
     };
+  }
+
+  //
+  // EMPLOYEE MANAGEMENT — admin-only, tenant-scoped
+  //
+  // Note: tenantId in every endpoint below is taken from req.user.tenantId
+  // (the caller's JWT), never from the URL or body. This prevents an admin
+  // from one tenant from operating on another tenant's users.
+  //
+
+  @Post('employees')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new employee in the caller’s tenant (admin only)' })
+  @ApiResponse({ status: 201, description: 'Employee created' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  @ApiResponse({ status: 409, description: 'Phone number already exists in this tenant' })
+  async createEmployee(
+    @Request() req: JwtAuthenticatedRequest,
+    @Body() dto: CreateEmployeeDto,
+  ) {
+    return this.authService.createEmployee(req.user.tenantId, dto);
+  }
+
+  @Get('employees')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List employees in the caller’s tenant (admin only)' })
+  @ApiResponse({ status: 200, description: 'Employees list' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  async listEmployees(@Request() req: JwtAuthenticatedRequest) {
+    return this.authService.listEmployees(req.user.tenantId);
+  }
+
+  @Patch('employees/:id/deactivate')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Deactivate an employee (admin only)' })
+  @ApiResponse({ status: 200, description: 'Employee deactivated' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  @ApiResponse({ status: 404, description: 'Employee not found in this tenant' })
+  async deactivateEmployee(
+    @Request() req: JwtAuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.authService.deactivateEmployee(req.user.tenantId, id);
   }
 
   @Get('me')

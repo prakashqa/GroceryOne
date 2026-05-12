@@ -94,3 +94,8 @@ export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.
 export const selectAuthLoading = (state: { auth: AuthState }) => state.auth.isLoading;
 export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
 export const selectRequiresPinSetup = (state: { auth: AuthState }) => state.auth.requiresPinSetup;
+
+// Role-based access control selectors.
+// `selectIsAdmin` is the primary gate for Reports + Employees management.
+export const selectUserRole = (state: { auth: AuthState }) => state.auth.user?.role ?? null;
+export const selectIsAdmin = (state: { auth: AuthState }) => state.auth.user?.role === 'admin';

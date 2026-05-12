@@ -5,11 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, Receipt, ListChecks,
   BarChart3, Package, Settings2, Camera, Settings, FolderOpen,
-  ChevronLeft, ChevronRight, LogOut, X,
+  ChevronLeft, ChevronRight, LogOut, X, Users,
 } from 'lucide-react';
+import { useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
-import { logout, clearTenant } from '@groceryone/store';
+import { logout, clearTenant, selectIsAdmin } from '@groceryone/store';
 import { useSidebar } from '@/hooks/useSidebar';
 import { useTranslation } from 'react-i18next';
 
@@ -19,21 +20,28 @@ export function Sidebar() {
   const dispatch = useAppDispatch();
   const { isOpen, setIsOpen, collapsed, setCollapsed } = useSidebar();
   const { t } = useTranslation('common');
+  // Owner (role='admin') sees Reports + Employees; cashiers do not.
+  // Backend additionally enforces role on those endpoints.
+  const isAdmin = useSelector(selectIsAdmin);
 
+  // Build the nav list, filtering admin-only items by role. `adminOnly`
+  // entries are skipped for non-admins so the URLs never appear in the
+  // sidebar; the corresponding pages still self-guard (defence in depth).
   const navigation = [
     { name: t('navigation.dashboard'), href: '/dashboard', icon: LayoutDashboard },
     { name: t('navigation.picking'), href: '/picking', icon: ShoppingCart },
     { name: t('navigation.carts'), href: '/orders', icon: Receipt },
     { name: t('navigation.items'), href: '/items', icon: ListChecks },
-    { name: t('navigation.reports'), href: '/reports', icon: BarChart3 },
+    { name: t('navigation.reports'), href: '/reports', icon: BarChart3, adminOnly: true },
     { name: t('navigation.inventory'), href: '/inventory', icon: Package },
     { name: t('navigation.scan'), href: '/scan/upload', icon: Camera },
-  ];
+  ].filter((item) => !item.adminOnly || isAdmin);
 
   const managementNav = [
     { name: t('navigation.categories'), href: '/management/categories', icon: FolderOpen },
     { name: t('navigation.productList'), href: '/management/items', icon: ListChecks },
-  ];
+    { name: t('navigation.employees', 'Employees'), href: '/management/employees', icon: Users, adminOnly: true },
+  ].filter((item) => !item.adminOnly || isAdmin);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -53,7 +61,7 @@ export function Sidebar() {
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
         {!collapsed && (
           <span className="text-xl font-bold text-primary dark:text-primary-light">
-            {t('appName')}
+            {t('appName', 'GroOne')}
           </span>
         )}
         <button
