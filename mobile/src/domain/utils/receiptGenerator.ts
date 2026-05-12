@@ -71,6 +71,14 @@ export interface ReceiptOptions {
   translations?: ReceiptTranslations;
   paymentStatus?: 'paid' | 'unpaid';
   paidAt?: string;
+  /**
+   * Authoritative grand total override. When provided AND there is at least
+   * one priced item, this exact value is printed as GRAND TOTAL instead of
+   * recomputing from `price * quantity`. Used for paid carts so the receipt
+   * matches the recorded `paidAmount` even if catalog prices have drifted
+   * since payment.
+   */
+  grandTotalOverride?: number;
 }
 
 /////////////////////////////
@@ -118,6 +126,39 @@ if (typeof __DEV__ !== 'undefined' && __DEV__) {
     console.error(`58mm values line widths (${total58}) != paper width (${PAPER_WIDTHS['58mm']})`);
   }
 }
+
+/////////////////////////////
+// PAPER SIZE — SINGLE SOURCE OF TRUTH
+/////////////////////////////
+
+export type PaperSizeKey = '58mm' | '80mm';
+
+export interface ResolvedPaperSize {
+  paperSize: PaperSizeKey;
+  /** Bitmap width in pixels for the native renderer (384 = 58mm, 576 = 80mm). */
+  bitmapWidth: number;
+  /** Width in monospace characters for the text-format layout. */
+  charWidth: number;
+}
+
+// Default to 58mm when the input is missing or unrecognised. Rationale: the
+// 58mm format degrades safely on wider paper (extra whitespace at right), but
+// the 80mm format catastrophically loses RATE/AMT/values when clipped by a
+// narrower physical roll (see receipt-printing regression).
+export const resolvePaperSize = (
+  input: string | undefined | null,
+): ResolvedPaperSize => {
+  // eslint-disable-next-line no-undef
+  if (typeof __DEV__ !== 'undefined' && __DEV__ && input !== '58mm' && input !== '80mm') {
+    console.warn(
+      `[receiptGenerator] resolvePaperSize: unrecognised paperWidth=${JSON.stringify(input)}; defaulting to 58mm`,
+    );
+  }
+  if (input === '80mm') {
+    return { paperSize: '80mm', bitmapWidth: 576, charWidth: PAPER_WIDTHS['80mm'] };
+  }
+  return { paperSize: '58mm', bitmapWidth: 384, charWidth: PAPER_WIDTHS['58mm'] };
+};
 
 /////////////////////////////
 // TRANSLATIONS (HARDCODED)
@@ -383,15 +424,20 @@ export const generatePickingListReceipt = (
     merchantInfo,
     items,
     cartName,
-    paperWidth = '80mm',
+    paperWidth: paperWidthInput,
     locale,
     translations,
     paymentStatus,
     paidAt,
+    grandTotalOverride,
   } = options;
 
-  // Determine paper width in characters
-  const width = PAPER_WIDTHS[paperWidth] || 28;
+  // Single source of truth: derive both the format key and the character width
+  // from resolvePaperSize so they can never disagree. Default-to-58mm fallback
+  // protects against settings-hydration races that previously sent the 80mm
+  // tab format to a 58mm printer (right-hand columns clipped by paper edge).
+  const { paperSize, charWidth: width } = resolvePaperSize(paperWidthInput);
+  const paperWidth: PaperSizeKey = paperSize;
 
   // Determine language from locale
   const lang = getLanguageFromLocale(locale);
@@ -406,7 +452,7 @@ export const generatePickingListReceipt = (
   // Round each item's total to integer BEFORE summing so the printed AMT column
   // (which uses maximumFractionDigits: 0) sums to exactly the GRAND TOTAL value.
   const hasPricedItems = items.some(item => item.price !== undefined && item.price > 0);
-  const grandTotal = items.reduce((sum, item) => {
+  const computedGrandTotal = items.reduce((sum, item) => {
     if (item.itemTotal !== undefined) {
       return sum + Math.round(item.itemTotal);
     }
@@ -415,6 +461,13 @@ export const generatePickingListReceipt = (
     }
     return sum;
   }, 0);
+  // Prefer the explicit override (paid-cart paidAmount) over the recomputed
+  // sum so the printed total matches what was actually billed even if catalog
+  // prices have drifted since payment. Only honor the override when at least
+  // one item is priced — otherwise we suppress GRAND TOTAL entirely.
+  const grandTotal = (grandTotalOverride !== undefined && hasPricedItems)
+    ? Math.round(grandTotalOverride)
+    : computedGrandTotal;
 
   // HEADER - Use cart name if provided, else use title from translations
   const title = cartName ? cartName.toUpperCase() : t.title;
@@ -481,9 +534,7 @@ export const generatePickingListReceipt = (
   );
   lines.push(divider(width));
 
-  // COLUMN HEADERS
-  const paperSize: '58mm' | '80mm' = paperWidth === '58mm' ? '58mm' : '80mm';
-
+  // COLUMN HEADERS — paperSize already resolved at top of function.
   // Use English headers for all languages (Telugu headers in tab-separated columns
   // cause print failures on thermal printers due to Android font fallback issues)
   const snoHeader = 'NO';

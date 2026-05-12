@@ -63,6 +63,7 @@ describe('receiptGenerator - structure', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
+        paperWidth: '80mm',
       });
 
       expect(receipt).toContain('123 Test Street, Hyderabad');
@@ -138,6 +139,7 @@ describe('receiptGenerator - structure', () => {
       const receipt = generatePickingListReceipt({
         merchantInfo: mockMerchantInfo,
         items: mockItems,
+        paperWidth: '80mm',
       });
 
       expect(receipt).toMatch(/Date\s*:.*\d{2}\s+\w{3}\s+\d{4}/);

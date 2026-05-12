@@ -16,6 +16,7 @@ import { logout, setTokens } from '../../store/slices/authSlice';
 import { setExpired } from '../../store/slices/subscriptionSlice';
 import { API_CONFIG } from '../../core/config/api.config';
 import type { AuthTokens } from '@groceryone/shared';
+import { PinSecureStorage } from '../../features/pinAuth/services/PinSecureStorage';
 
 // Storage keys
 const TENANT_ID_KEY = '@tenant_id';
@@ -35,6 +36,32 @@ const TENANT_SKIP_ROUTES = [
  */
 export function isTenantRequired(url: string): boolean {
   return !TENANT_SKIP_ROUTES.some((route) => url.startsWith(route));
+}
+
+/**
+ * Resolve the JWT to send on an outgoing request.
+ *
+ * Order:
+ *   1. Redux state (`auth.accessToken`) — the live token after login or refresh.
+ *   2. PinSecureStorage — the persisted token from a prior session.
+ *
+ * Falls back to SecureStore because RTK Query requests can fire at app
+ * launch BEFORE the auth slice has finished hydrating from secure storage
+ * (e.g. cart-hydration on first render). Without the fallback those
+ * requests go out without an Authorization header and the backend rejects
+ * them with 401.
+ */
+export async function resolveAccessToken(
+  reduxAccessToken: string | null | undefined,
+): Promise<string | null> {
+  if (reduxAccessToken) return reduxAccessToken;
+  try {
+    const persisted = await PinSecureStorage.getAuthContext();
+    return persisted?.accessToken ?? null;
+  } catch (error) {
+    console.error('Failed to read persisted access token:', error);
+    return null;
+  }
 }
 
 // Base query with tenant and auth headers
@@ -59,8 +86,9 @@ const baseQuery = fetchBaseQuery({
       }
     }
 
-    // Add auth header
-    const token = state.auth.accessToken;
+    // Add auth header. Falls back to SecureStore when Redux hasn't
+    // hydrated yet (see resolveAccessToken for the rationale).
+    const token = await resolveAccessToken(state.auth.accessToken);
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }

@@ -79,10 +79,23 @@ export class OcrService {
         return this.createErrorResult('Request timed out', 'timeout');
       }
 
-      return this.createErrorResult(
-        error instanceof Error ? error.message : 'Unknown error occurred',
-        'unknown'
-      );
+      const message = error instanceof Error ? error.message : 'Unknown error occurred';
+
+      // Surface the actual cause in dev so the next "Something went wrong"
+      // bug isn't a black box. Production behaviour is unchanged.
+      // eslint-disable-next-line no-undef
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.error('[OcrService] processImage failure:', error);
+      }
+
+      // Classify HTTP errors thrown by callVisionApi as api_error so the UI
+      // shows "Server error. Please try again." instead of the generic
+      // "Something went wrong." and so the retry policy correctly skips 4xx.
+      if (message.startsWith('API request failed:')) {
+        return this.createErrorResult(message, 'api_error');
+      }
+
+      return this.createErrorResult(message, 'unknown');
     } finally {
       timeoutController.signal.removeEventListener('abort', abortComposed);
       externalSignal?.removeEventListener('abort', abortComposed);
@@ -132,7 +145,28 @@ export class OcrService {
     });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      // Try to read the response body so the actual Vision API message
+      // (e.g. "API key not valid", "Quota exceeded") makes it into logs and
+      // the surfaced error message — the bare status text is rarely useful.
+      let detail = '';
+      try {
+        const body = await response.text();
+        if (body) {
+          // Vision API errors are JSON: { error: { message, code, status } }
+          try {
+            const parsed = JSON.parse(body) as { error?: { message?: string } };
+            detail = parsed?.error?.message || body;
+          } catch {
+            detail = body;
+          }
+        }
+      } catch {
+        // Reading body failed — fall back to status text only
+      }
+      const detailSuffix = detail ? ` — ${detail}` : '';
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}${detailSuffix}`,
+      );
     }
 
     return response.json();
@@ -160,10 +194,11 @@ export class OcrService {
 
     const firstResponse = typedResponse.responses?.[0];
 
-    // Check for API-level error
+    // Check for API-level error (HTTP 200 but Vision API rejected the image)
     if (firstResponse?.error) {
       return this.createErrorResult(
-        firstResponse.error.message || 'Vision API error'
+        firstResponse.error.message || 'Vision API error',
+        'api_error',
       );
     }
 

@@ -2,8 +2,22 @@
  * Base API Tests
  * TDD tests for tenant route guard and isTenantRequired utility
  */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-import { isTenantRequired } from '../baseApi';
+// Mock SecureStore-backed auth storage BEFORE importing baseApi (which
+// imports PinSecureStorage at module top).
+jest.mock('../../../features/pinAuth/services/PinSecureStorage', () => ({
+  PinSecureStorage: {
+    getAuthContext: jest.fn(),
+  },
+}));
+
+import { isTenantRequired, resolveAccessToken } from '../baseApi';
+import { PinSecureStorage } from '../../../features/pinAuth/services/PinSecureStorage';
+
+const mockedGetAuthContext = PinSecureStorage.getAuthContext as jest.MockedFunction<
+  typeof PinSecureStorage.getAuthContext
+>;
 
 describe('isTenantRequired', () => {
   describe('routes that require tenant', () => {
@@ -66,5 +80,78 @@ describe('isTenantRequired', () => {
     it('should return false for /auth/login/pin', () => {
       expect(isTenantRequired('/auth/login/pin')).toBe(false);
     });
+  });
+});
+
+// Regression: at app launch, RTK Query requests can fire BEFORE the auth
+// slice has hydrated from SecureStore. Without a SecureStore fallback the
+// outgoing request has no Authorization header → backend 401 → the user
+// sees stale cached data or a forced logout. resolveAccessToken patches
+// that race.
+describe('resolveAccessToken', () => {
+  beforeEach(() => {
+    mockedGetAuthContext.mockReset();
+  });
+
+  it('returns the Redux token immediately when present (no SecureStore lookup)', async () => {
+    const result = await resolveAccessToken('redux-token-xyz');
+    expect(result).toBe('redux-token-xyz');
+    expect(mockedGetAuthContext).not.toHaveBeenCalled();
+  });
+
+  it('falls back to SecureStore when Redux token is null (Redux not yet hydrated)', async () => {
+    mockedGetAuthContext.mockResolvedValue({
+      user: { id: 'u1' },
+      accessToken: 'persisted-token-abc',
+      refreshToken: 'persisted-refresh',
+    });
+
+    const result = await resolveAccessToken(null);
+
+    expect(result).toBe('persisted-token-abc');
+    expect(mockedGetAuthContext).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to SecureStore when Redux token is undefined', async () => {
+    mockedGetAuthContext.mockResolvedValue({
+      user: { id: 'u1' },
+      accessToken: 'persisted-token-abc',
+      refreshToken: 'persisted-refresh',
+    });
+
+    const result = await resolveAccessToken(undefined);
+    expect(result).toBe('persisted-token-abc');
+  });
+
+  it('returns null when neither Redux nor SecureStore has a token', async () => {
+    mockedGetAuthContext.mockResolvedValue(null);
+    const result = await resolveAccessToken(null);
+    expect(result).toBeNull();
+  });
+
+  it('returns null and logs when SecureStore throws', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockedGetAuthContext.mockRejectedValue(new Error('keychain locked'));
+
+    const result = await resolveAccessToken(null);
+
+    expect(result).toBeNull();
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+
+  it('prefers a fresh Redux token over a stale SecureStore token', async () => {
+    // Reflects the post-refresh state where Redux has the new token but
+    // SecureStore still has the old one until the next persist.
+    mockedGetAuthContext.mockResolvedValue({
+      user: { id: 'u1' },
+      accessToken: 'stale-persisted-token',
+      refreshToken: 'stale-refresh',
+    });
+
+    const result = await resolveAccessToken('fresh-redux-token');
+
+    expect(result).toBe('fresh-redux-token');
+    expect(mockedGetAuthContext).not.toHaveBeenCalled();
   });
 });

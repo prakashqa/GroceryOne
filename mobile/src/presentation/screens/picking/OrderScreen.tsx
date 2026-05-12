@@ -29,6 +29,7 @@ import { selectCategories, selectItems } from '../../../store/slices/catalogSlic
 import {
   generatePickingListReceipt,
   ReceiptItem,
+  resolvePaperSize,
 } from '../../../domain/utils/receiptGenerator';
 import i18n from '../../../i18n/i18n.config';
 import {
@@ -288,13 +289,20 @@ const OrderScreen: React.FC = () => {
     return generatePickingListReceipt({
       merchantInfo,
       items: receiptItems,
-      paperWidth: printerSettings.paperSize,
+      paperWidth: resolvePaperSize(printerSettings.paperSize).paperSize,
       locale,
       cartName: activeCartName,
       paymentStatus: activeCart?.status === 'paid' ? 'paid' : undefined,
       paidAt: activeCart?.paidAt,
+      // For paid carts, the authoritative total is the recorded paidAmount.
+      // This prevents the printed total from drifting if catalog prices change
+      // after payment and a re-render recomputes priceSnapshots.
+      grandTotalOverride:
+        activeCart?.status === 'paid' && activeCart?.paidAmount
+          ? activeCart.paidAmount
+          : undefined,
     });
-  }, [cartItems, printerSettings.paperSize, t, activeCartName, getCategoryById, activeCart?.status, activeCart?.paidAt, i18n.language]);
+  }, [cartItems, printerSettings.paperSize, t, activeCartName, getCategoryById, activeCart?.status, activeCart?.paidAt, activeCart?.paidAmount, i18n.language]);
 
   const handlePrint = useCallback(() => {
     const pickingList = generatePickingList();
@@ -321,9 +329,16 @@ const OrderScreen: React.FC = () => {
         // Render receipt text to chunked bitmap images using native Android Canvas.
         // Large receipts are split into multiple smaller bitmaps (≤1500px each)
         // to prevent silent truncation by printers with limited buffer sizes.
+        // Use the same resolver as receipt-format selection so the bitmap width
+        // and the text format key can never disagree (mismatch caused the 58mm
+        // missing-columns bug — 80mm tab format clipped on a narrower roll).
         const imageWidth = printerSettings.imageWidthDots ||
-          (printerSettings.paperSize === '58mm' ? 384 : 576);
-        const imageChunks = await renderTextToImages(currentPickingList, imageWidth);
+          resolvePaperSize(printerSettings.paperSize).bitmapWidth;
+        // Regenerate at print time so any settings change made after opening
+        // the preview (paper size, language, payment status) is reflected.
+        // The preview state is only the visual cache.
+        const printContent = generatePickingList();
+        const imageChunks = await renderTextToImages(printContent, imageWidth);
 
         let printJob;
         if (printerSettings.connectionType === 'bluetooth') {
@@ -402,7 +417,7 @@ const OrderScreen: React.FC = () => {
         ]
       );
     }
-  }, [currentPickingList, printerSettings, t, navigation]);
+  }, [generatePickingList, printerSettings, t, navigation]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // @ts-expect-error TS6133: kept for future use

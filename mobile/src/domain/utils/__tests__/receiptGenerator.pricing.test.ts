@@ -157,6 +157,48 @@ describe('receiptGenerator - pricing', () => {
       expect(receipt.toUpperCase()).toContain('GRAND TOTAL');
       expect(receipt).toMatch(/\s200\b/);
     });
+
+    it('should use grandTotalOverride when provided (paid carts use paidAmount)', () => {
+      // Repro of the user's bug: paidAmount was 5,144 but recomputing from
+      // current item priceSnapshots gives 4,824. The print path must trust
+      // paidAmount for paid carts via the grandTotalOverride option.
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: pricedItems, // would compute to 1,610
+        paperWidth: '80mm',
+        paymentStatus: 'paid',
+        paidAt: new Date().toISOString(),
+        grandTotalOverride: 5144,
+      });
+
+      expect(receipt.toUpperCase()).toContain('GRAND TOTAL');
+      // The override (5,144) appears, the recomputed total (1,610) does not.
+      expect(receipt).toMatch(/\s5,?144\b/);
+      expect(receipt).not.toMatch(/\s1,?610\b/);
+    });
+
+    it('should ignore grandTotalOverride when there are no priced items', () => {
+      // Defensive: if a paid cart somehow has zero priceSnapshots, we still
+      // skip the GRAND TOTAL section to avoid printing a phantom total.
+      const unpricedItems: ReceiptItem[] = [
+        {
+          name: 'Unpriced',
+          quantity: 1,
+          unit: 'pcs',
+          categoryId: 'test',
+          categoryName: 'Test',
+        },
+      ];
+      const receipt = generatePickingListReceipt({
+        merchantInfo: mockMerchantInfo,
+        items: unpricedItems,
+        paperWidth: '80mm',
+        paymentStatus: 'paid',
+        grandTotalOverride: 999,
+      });
+
+      expect(receipt.toUpperCase()).not.toContain('GRAND TOTAL');
+    });
   });
 
   describe('58mm paper format', () => {
@@ -192,6 +234,101 @@ describe('receiptGenerator - pricing', () => {
       });
 
       expect(receipt.toUpperCase()).toContain('GRAND TOTAL');
+    });
+
+    // Regression: physical 58mm prints were missing RATE / AMT / Date / Time /
+    // GRAND TOTAL / Payment Status / Paid at values because an unrecognised
+    // paperWidth (e.g. unhydrated settings) silently fell through to the 80mm
+    // tab-columnar format, then got bitmap-clipped by the narrower paper.
+    describe('format-shape guarantees (regression)', () => {
+      it('uses two-line item rows with no tabs', () => {
+        const receipt = generatePickingListReceipt({
+          merchantInfo: mockMerchantInfo,
+          items: pricedItems,
+          paperWidth: '58mm',
+        });
+
+        const lines = receipt.split('\n');
+        const itemNameIdx = lines.findIndex((l) => l.includes('Aashirvaad'));
+        expect(itemNameIdx).toBeGreaterThan(-1);
+        // Item name line: no tabs (would indicate 80mm tab-columnar fallback)
+        expect(lines[itemNameIdx]).not.toContain('\t');
+        // Following line carries QTY / RATE / AMT values (5kg + 250 + 1,250)
+        const valuesLine = lines[itemNameIdx + 1];
+        expect(valuesLine).toBeDefined();
+        expect(valuesLine).not.toContain('\t');
+        expect(valuesLine).toMatch(/5kg/);
+        expect(valuesLine).toMatch(/250/);
+        expect(valuesLine).toMatch(/1,?250/);
+      });
+
+      it('column header is two lines with no tabs (ITEM then QTY RATE AMT)', () => {
+        const receipt = generatePickingListReceipt({
+          merchantInfo: mockMerchantInfo,
+          items: pricedItems,
+          paperWidth: '58mm',
+        });
+
+        const lines = receipt.split('\n');
+        // The 58mm format renders the header as: "ITEM" alone, then the values header.
+        // Reject any line that looks like the 80mm 5-column tab format.
+        const tabHeader = lines.find((l) => /^NO\tITEM\tQTY\tRATE\tAMT$/.test(l));
+        expect(tabHeader).toBeUndefined();
+
+        const itemHeaderIdx = lines.findIndex((l) => l.trim() === 'ITEM');
+        expect(itemHeaderIdx).toBeGreaterThan(-1);
+        const valuesHeader = lines[itemHeaderIdx + 1];
+        expect(valuesHeader).toBeDefined();
+        expect(valuesHeader).toContain('QTY');
+        expect(valuesHeader).toContain('RATE');
+        expect(valuesHeader).toContain('AMT');
+        expect(valuesHeader).not.toContain('\t');
+      });
+
+      it('label-value lines (Date/Time/Grand Total/Payment) use padding, not tabs', () => {
+        const receipt = generatePickingListReceipt({
+          merchantInfo: mockMerchantInfo,
+          items: pricedItems,
+          paperWidth: '58mm',
+          paymentStatus: 'paid',
+          paidAt: new Date('2026-05-10T15:33:00').toISOString(),
+        });
+
+        const lines = receipt.split('\n');
+        // 58mm padding truncates labels to 13 chars (23 - 10 for value column),
+        // so search by leading prefix that survives truncation.
+        const labelPrefixes = ['Date:', 'Time:', 'GRAND TOTAL', 'Payment', 'Paid at'];
+        labelPrefixes.forEach((prefix) => {
+          const line = lines.find((l) => l.includes(prefix));
+          expect(line).toBeDefined();
+          // 58mm uses character padding; tabs would indicate the 80mm fallback
+          // and cause the value to be clipped off the right edge of the paper.
+          expect(line).not.toContain('\t');
+        });
+
+        // Grand total value (1,610) must be on the same line as the label
+        const gtLine = lines.find((l) => l.includes('GRAND TOTAL'));
+        expect(gtLine).toMatch(/1,?610/);
+
+        // Payment status value (PAID) must be on the same line as the label
+        const psLine = lines.find((l) => l.includes('Payment'));
+        expect(psLine).toMatch(/PAID/);
+      });
+
+      it('falls back to 58mm format (not 80mm) when paperWidth is unrecognised', () => {
+        // If settings haven't hydrated and paperWidth is undefined or a stray
+        // value, we'd rather over-clip a wide receipt onto narrow paper than
+        // lose the right-hand columns to bitmap clipping.
+        const receipt = generatePickingListReceipt({
+          merchantInfo: mockMerchantInfo,
+          items: pricedItems,
+          paperWidth: undefined,
+        });
+
+        const lines = receipt.split('\n');
+        const tabHeader = lines.find((l) => /^NO\tITEM\tQTY\tRATE\tAMT$/.test(l));
+        expect(tabHeader).toBeUndefined();
+      });
     });
   });
 

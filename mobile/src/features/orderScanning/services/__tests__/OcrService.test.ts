@@ -152,6 +152,7 @@ describe('OcrService', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        text: () => Promise.resolve(''),
       });
 
       const result = await ocrService.processImage(mockImageUri);
@@ -169,6 +170,78 @@ describe('OcrService', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Network error');
+    });
+
+    // Regression: the user reported "Something went wrong. Please try again."
+    // (errorType=unknown) for every scan failure, with no actionable detail.
+    // The service must classify HTTP and Vision API errors as 'api_error'
+    // (not 'unknown') so the UI can show a useful message and the retry
+    // policy can correctly skip 4xx.
+    describe('error classification (regression)', () => {
+      it('classifies 4xx HTTP responses as api_error and includes status in message', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          text: () => Promise.resolve('{"error":{"message":"API key not valid"}}'),
+        });
+
+        const result = await ocrService.processImage(mockImageUri);
+
+        expect(result.success).toBe(false);
+        expect(result.errorType).toBe('api_error');
+        expect(result.error).toContain('403');
+      });
+
+      it('classifies 5xx HTTP responses as api_error', async () => {
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          statusText: 'Service Unavailable',
+          text: () => Promise.resolve(''),
+        });
+
+        const result = await ocrService.processImage(mockImageUri);
+
+        expect(result.success).toBe(false);
+        expect(result.errorType).toBe('api_error');
+      });
+
+      it('classifies Vision API error-field responses as api_error', async () => {
+        const mockApiResponse = {
+          responses: [
+            {
+              error: {
+                message: 'Invalid image',
+                code: 3,
+              },
+            },
+          ],
+        };
+        (global.fetch as jest.Mock).mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(mockApiResponse),
+        });
+
+        const result = await ocrService.processImage(mockImageUri);
+
+        expect(result.success).toBe(false);
+        expect(result.errorType).toBe('api_error');
+        expect(result.error).toContain('Invalid image');
+      });
+
+      it('preserves non-classified failures as unknown', async () => {
+        const FileSystem = require('expo-file-system');
+        FileSystem.readAsStringAsync.mockRejectedValueOnce(
+          new Error('Disk full')
+        );
+
+        const result = await ocrService.processImage(mockImageUri);
+
+        expect(result.success).toBe(false);
+        expect(result.errorType).toBe('unknown');
+        expect(result.error).toContain('Disk full');
+      });
     });
 
     it('should handle file read errors', async () => {

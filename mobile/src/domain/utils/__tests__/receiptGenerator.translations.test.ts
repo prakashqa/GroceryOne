@@ -43,6 +43,7 @@ describe('receiptGenerator - translations', () => {
         merchantInfo: mockMerchantInfo,
         items: teluguItems,
         translations: teluguTranslations,
+        paperWidth: '80mm',
       });
 
       expect(receipt).toContain('పికింగ్ జాబితా');
