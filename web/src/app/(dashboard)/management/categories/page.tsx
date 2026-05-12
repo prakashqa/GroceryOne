@@ -13,7 +13,7 @@ import {
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 
 export default function CategoryManagementPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const categories = useAppSelector(selectCategories);
   const [createCategory] = useCreateCategoryMutation();
   const [updateCategoryMut] = useUpdateCategoryMutation();
@@ -94,7 +94,7 @@ export default function CategoryManagementPage() {
               <div key={cat.id} className="px-5 py-3 flex items-center gap-4">
                 <span className="text-2xl">{cat.icon}</span>
                 <div className="flex-1">
-                  <p className="font-medium">{cat.name}</p>
+                  <p className="font-medium">{StoreUtils.getLocalizedName(cat, i18n.language)}</p>
                   {cat.trackInventory && <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{t('more.inventory')}</span>}
                 </div>
                 <button onClick={() => handleEdit(cat)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><Edit2 size={14} /></button>

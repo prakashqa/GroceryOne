@@ -328,6 +328,11 @@ const multiCartSlice = createSlice({
       const cart = state.carts.find((c) => c.id === state.activeCartId);
       if (!cart) return;
 
+      // Paid carts are locked — their priceSnapshot reflects what was actually
+      // billed and must match `paidAmount`. Refreshing prices on a paid cart
+      // causes the printed receipt to drift from the recorded paidAmount.
+      if (cart.status === 'paid' || cart.status === 'completed') return;
+
       const catalogItems = action.payload;
 
       // Update priceSnapshot for each cart item by looking up current price from catalog

@@ -5,7 +5,7 @@
 import { baseApi } from './baseApi';
 
 export interface Category {
-  id: string; slug: string; name: string; icon: string;
+  id: string; slug: string; name: string; nameTe?: string; icon: string;
   sortOrder: number; isActive: boolean; trackInventory?: boolean;
   createdAt: string; updatedAt: string;
 }

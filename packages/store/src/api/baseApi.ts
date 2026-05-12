@@ -13,6 +13,7 @@ import {
 import { getStorageAdapter } from '../adapters/storage';
 import { logout, setTokens } from '../slices/authSlice';
 import { setExpired } from '../slices/subscriptionSlice';
+import { logNon2xx } from './logNon2xx';
 import type { AuthTokens } from '@groceryone/shared';
 
 const TENANT_ID_KEY = '@tenant_id';
@@ -116,6 +117,13 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
   }
 
   let result = await dynamicBaseQuery(args, api, extraOptions);
+
+  // Surface silent non-2xx responses in dev tools so future regressions
+  // (e.g. a missing JWT producing a swallowed 401) are immediately visible.
+  // Tenant context and method/url only — no auth header or body data.
+  const reqMethod = (typeof args === 'string' ? 'GET' : (args.method || 'GET'));
+  const reqUrl = typeof args === 'string' ? args : args.url;
+  logNon2xx(result as any, String(reqMethod), reqUrl);
 
   if (result.error && result.error.status === 402) {
     api.dispatch(setExpired());

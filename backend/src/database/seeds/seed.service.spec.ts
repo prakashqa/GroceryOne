@@ -524,6 +524,130 @@ describe('SeedService', () => {
       }
     });
 
+    it('should backfill nameTe on existing categories that were seeded before Telugu was added (tenant-scoped)', async () => {
+      // Earlier seed runs created categories without `nameTe`. Re-seeding now
+      // must heal those rows so the Telugu UI works without requiring a wipe.
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      // Every seed category "already exists" with nameTe missing.
+      categoryRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve({
+          id: `existing-${where.slug}`,
+          slug: where.slug,
+          tenantId: where.tenantId,
+          name: 'Stale English Name',
+          nameTe: null,
+          trackInventory: false,
+        } as any),
+      );
+      const categorySaveCalls: any[] = [];
+      categoryRepo.save.mockImplementation((data: any) => {
+        categorySaveCalls.push(data);
+        return Promise.resolve(data);
+      });
+      itemRepo.create.mockImplementation((data: any) => data as Item);
+      itemRepo.save.mockImplementation((data: any) => Promise.resolve(data));
+
+      await service.seed();
+
+      // FreshMart has 8 categories all with nameTe defined in seed-data.
+      const backfilled = categorySaveCalls.filter((c) => c.nameTe && c.nameTe.length > 0);
+      expect(backfilled.length).toBe(FRESHMART_CATEGORIES.length);
+      // Tenant scoping: every findOne lookup must include tenantId
+      for (const call of (categoryRepo.findOne as jest.Mock).mock.calls) {
+        expect(call[0].where.tenantId).toBe('tenant-aaa');
+      }
+      // Negative tenant-mismatch: no save call should carry a foreign tenantId
+      for (const saved of categorySaveCalls) {
+        expect(saved.tenantId).toBe('tenant-aaa');
+      }
+    });
+
+    it('should backfill nameTe on existing items that were seeded before Telugu was added (tenant-scoped)', async () => {
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      categoryRepo.create.mockImplementation((data: any) => data as Category);
+      categoryRepo.save.mockImplementation((data: any) =>
+        Promise.resolve({ id: `cat-${data.slug}`, ...data }),
+      );
+
+      // Items already exist but with nameTe missing. compareAtPrice and trackInventory
+      // are healthy so we isolate the nameTe heal path.
+      itemRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve({
+          id: `existing-${where.slug}`,
+          slug: where.slug,
+          tenantId: where.tenantId,
+          name: 'Stale Item',
+          nameTe: undefined,
+          trackInventory: false,
+          compareAtPrice: 100,
+          price: 100,
+        } as any),
+      );
+      const itemSaveCalls: any[] = [];
+      itemRepo.save.mockImplementation((data: any) => {
+        itemSaveCalls.push(data);
+        return Promise.resolve(data);
+      });
+
+      await service.seed();
+
+      // Every existing item with a Telugu name in seed-data should now carry it.
+      const itemsWithSeedTelugu = FRESHMART_ITEMS.filter((i) => i.nameTe && i.nameTe.length > 0);
+      const backfilled = itemSaveCalls.filter((i) => i.nameTe && i.nameTe.length > 0);
+      expect(backfilled.length).toBeGreaterThanOrEqual(itemsWithSeedTelugu.length);
+      // Tenant scoping
+      for (const call of (itemRepo.findOne as jest.Mock).mock.calls) {
+        expect(call[0].where.tenantId).toBe('tenant-aaa');
+      }
+      for (const saved of itemSaveCalls) {
+        expect(saved.tenantId).toBe('tenant-aaa');
+      }
+    });
+
+    it('should NOT overwrite an existing nameTe with a different Telugu translation', async () => {
+      // If a tenant has hand-edited a category's Telugu name, re-seeding must
+      // not clobber it — heal only fills missing values.
+      const mockTenants = [
+        { id: 'tenant-aaa', slug: 'freshmart', name: 'FreshMart Groceries' } as Tenant,
+      ];
+      tenantRepo.find.mockResolvedValue(mockTenants);
+
+      categoryRepo.findOne.mockImplementation(({ where }: any) =>
+        Promise.resolve({
+          id: `existing-${where.slug}`,
+          slug: where.slug,
+          tenantId: where.tenantId,
+          name: 'Existing',
+          nameTe: 'తెలుగు-కస్టమ్',
+          trackInventory: false,
+        } as any),
+      );
+      const categorySaveCalls: any[] = [];
+      categoryRepo.save.mockImplementation((data: any) => {
+        categorySaveCalls.push(data);
+        return Promise.resolve(data);
+      });
+      itemRepo.create.mockImplementation((data: any) => data as Item);
+      itemRepo.save.mockImplementation((data: any) => Promise.resolve(data));
+
+      await service.seed();
+
+      // No category save should change nameTe away from 'తెలుగు-కస్టమ్'
+      for (const saved of categorySaveCalls) {
+        if (saved.nameTe !== undefined) {
+          expect(saved.nameTe).toBe('తెలుగు-కస్టమ్');
+        }
+      }
+    });
+
     it('should use custom stockQuantity and lowStockThreshold for VP inventory items', async () => {
       const mockTenants = [
         { id: 'tenant-ccc', slug: 'vijayparcelpos', name: 'Vijay Parcel POS' } as Tenant,

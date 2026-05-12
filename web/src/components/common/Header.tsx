@@ -77,7 +77,7 @@ export function Header() {
           <Menu size={20} className="text-gray-600 dark:text-gray-400" />
         </button>
         <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400">
-          {tenant?.name || t('appName')}
+          {tenant?.name || t('appName', 'GroOne')}
         </h2>
       </div>
 
@@ -136,7 +136,7 @@ export function Header() {
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{tenant?.name || t('appName')}</p>
+                    <p className="text-sm font-semibold truncate">{tenant?.name || t('appName', 'GroOne')}</p>
                     <p className="text-xs text-gray-500 truncate">{tenant?.slug || 'store'}</p>
                   </div>
                 </div>

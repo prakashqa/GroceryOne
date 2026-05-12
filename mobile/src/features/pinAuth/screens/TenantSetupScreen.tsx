@@ -40,10 +40,12 @@ export const TenantSetupScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = useCallback(async () => {
+    // The field is named `email` for legacy reasons but now also accepts a
+    // phone number — backend resolves whichever shape the user typed.
     const trimmedEmail = email.trim();
 
     if (!trimmedEmail) {
-      setError(t('tenant.emailRequired', 'Please enter your email address'));
+      setError(t('tenant.emailRequired', 'Please enter your email or phone number'));
       return;
     }
 
@@ -84,7 +86,7 @@ export const TenantSetupScreen: React.FC = () => {
         // Navigate to PIN setup
         navigation.navigate('PinSetup');
       } else {
-        setError(result.error || t('tenant.notFound', 'No account found for this email'));
+        setError(result.error || t('tenant.notFound', 'No account found for this identifier'));
       }
     } catch (err) {
       setError(t('tenant.networkError', 'Could not connect to server. Please check your connection.'));
@@ -137,7 +139,7 @@ export const TenantSetupScreen: React.FC = () => {
                 },
               ]}
             >
-              {t('tenant.setupSubtitle', 'Enter your email to get started')}
+              {t('tenant.setupSubtitle', 'Enter your email or phone to get started')}
             </Text>
           </View>
 
@@ -156,7 +158,7 @@ export const TenantSetupScreen: React.FC = () => {
                   paddingVertical: theme.spacing.md,
                 },
               ]}
-              placeholder={t('tenant.emailPlaceholder', 'your@email.com')}
+              placeholder={t('tenant.emailPlaceholder', 'email or phone')}
               placeholderTextColor={theme.colors.disabled}
               value={email}
               onChangeText={handleEmailChange}

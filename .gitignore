@@ -83,6 +83,12 @@ node_modules_old/
 GroceryOne/
 nul
 
+# Stray TS compilation outputs (occasionally drop here under odd circumstances)
+backend/__corrupt_entities_*/
+
+# Stray HTML responses from manual curl/debug sessions
+response.html
+
 # Expo
 .expo/
 

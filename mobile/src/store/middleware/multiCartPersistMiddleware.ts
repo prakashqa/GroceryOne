@@ -660,7 +660,9 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
             cart = state.multiCart.carts.find((c) => c.id === state.multiCart.activeCartId);
           }
 
-          if (cart && cart.backendId) {
+          if (!cart) return;
+
+          if (cart.backendId) {
             await syncCartPaymentToBackend(
               {
                 backendId: cart.backendId,
@@ -671,10 +673,136 @@ export const multiCartPersistMiddleware: Middleware<object, RootState> =
               },
               storeAPI.getState
             );
+            return;
           }
-          // If cart has no backendId yet, the slice will have pushed it into
-          // state.multiCart.pendingPaymentSync — the updateCartBackendId branch
-          // below takes over when the createCart POST returns.
+
+          // No backendId — the cart was either never POSTed (create sync failed
+          // earlier) or is genuinely new. Without this branch the order is
+          // invisible to the backend (and to web), because the existing
+          // updateCartBackendId retry path only fires after a successful POST.
+          // Run create-then-pay now: POST cart → POST items → PUT payment.
+          try {
+            await syncCartToBackend(
+              { id: cart.id, name: cart.name, status: cart.status, createdAt: cart.createdAt },
+              storeAPI.dispatch as (action: unknown) => void,
+              storeAPI.getState,
+            );
+
+            // Re-read cart from state — syncCartToBackend dispatched
+            // updateCartBackendId on success, so the cart now has backendId.
+            const refreshedState = storeAPI.getState();
+            const refreshed = refreshedState.multiCart.carts.find((c) => c.id === cart.id);
+            if (!refreshed?.backendId) {
+              // Create still failed (offline / auth). syncCartToBackend has
+              // already added the cart to the pendingSyncQueue; the next
+              // create attempt will eventually trigger payment sync via the
+              // updateCartBackendId branch below. Nothing more to do now.
+              return;
+            }
+
+            // Backfill items that were added before the cart had a backendId.
+            for (const ci of refreshed.items) {
+              await syncCartItemToBackend(
+                refreshed.backendId,
+                {
+                  itemId: resolveBackendItemId(ci.item),
+                  quantity: ci.quantity,
+                  priceSnapshot: ci.priceSnapshot,
+                },
+                storeAPI.getState,
+              );
+            }
+
+            // Now PUT the payment.
+            await syncCartPaymentToBackend(
+              {
+                backendId: refreshed.backendId,
+                status: refreshed.status,
+                paidAt: refreshed.paidAt,
+                paidAmount: refreshed.paidAmount,
+                paidItemCount: refreshed.paidItemCount,
+              },
+              storeAPI.getState,
+            );
+          } catch (err) {
+            console.warn('[MultiCartSync] create-then-pay failed:', err instanceof Error ? err.message : String(err));
+          }
+        })();
+      }
+
+      // Startup backfill: when the multi-cart slice is hydrated from
+      // AsyncStorage (cold start), walk the paid carts and push any that
+      // are still local-only to the backend. This recovers orders that
+      // were paid before the create-then-pay middleware existed (i.e.,
+      // carts persisted with status='paid' but no backendId).
+      //
+      // Tenant safety: persistence is keyed per-tenant in
+      // multiCartStorage, so the carts now in state are guaranteed to
+      // belong to the currently active tenant. Each network call still
+      // carries the tenant header / auth token via buildHeaders.
+      if (actionType === 'multiCart/hydrateMultiCart') {
+        (async () => {
+          const state = storeAPI.getState();
+          const tenantSlug = getTenantSlug(state);
+          if (!tenantSlug) return; // no tenant → nothing safe to do
+          // Skip if the user isn't authenticated yet — sync will 401 and
+          // surface a confusing "[API] returned 401" warning to the user.
+          // The next mark-paid event (or future create-then-pay attempt)
+          // will pick these up once they're logged in.
+          if (!state.auth?.accessToken) return;
+
+          const paidCarts = state.multiCart.carts.filter(
+            (c) => (c.status === 'paid' || c.paidAt) && !c.backendId,
+          );
+
+          for (const cart of paidCarts) {
+            try {
+              await syncCartToBackend(
+                {
+                  id: cart.id,
+                  name: cart.name,
+                  status: cart.status,
+                  createdAt: cart.createdAt,
+                },
+                storeAPI.dispatch as (action: unknown) => void,
+                storeAPI.getState,
+              );
+
+              const refreshed = storeAPI
+                .getState()
+                .multiCart.carts.find((c) => c.id === cart.id);
+              if (!refreshed?.backendId) continue; // create failed, queued for retry
+
+              for (const ci of refreshed.items) {
+                await syncCartItemToBackend(
+                  refreshed.backendId,
+                  {
+                    itemId: resolveBackendItemId(ci.item),
+                    quantity: ci.quantity,
+                    priceSnapshot: ci.priceSnapshot,
+                  },
+                  storeAPI.getState,
+                );
+              }
+
+              await syncCartPaymentToBackend(
+                {
+                  backendId: refreshed.backendId,
+                  status: refreshed.status,
+                  paidAt: refreshed.paidAt,
+                  paidAmount: refreshed.paidAmount,
+                  paidItemCount: refreshed.paidItemCount,
+                },
+                storeAPI.getState,
+              );
+            } catch (err) {
+              console.warn(
+                '[MultiCartSync] startup backfill failed for cart',
+                cart.id,
+                err instanceof Error ? err.message : String(err),
+              );
+            }
+          }
         })();
       }
 

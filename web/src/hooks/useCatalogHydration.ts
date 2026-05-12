@@ -15,6 +15,45 @@ import {
 
 const CATALOG_STORAGE_KEY = '@catalog_cache';
 
+/**
+ * Map a backend Category response to the Redux store shape.
+ *
+ * Critical: `nameTe` MUST be preserved here so the Telugu language switch on
+ * /management/categories renders the translated name. Earlier this mapping
+ * silently dropped `nameTe`, leaving every category English even when the
+ * backend returned a Telugu translation. Items had it; categories didn't.
+ * Pinned by tests in `__tests__/hooks/catalogHydrationMapping.test.ts`.
+ */
+export function mapApiCategoriesToStore(apiCategories: readonly any[]): any[] {
+  return apiCategories.map((c) => ({
+    id: c.slug || c.id,
+    backendId: c.id,
+    name: c.name,
+    nameTe: c.nameTe,
+    icon: c.icon || '📁',
+    trackInventory: c.trackInventory,
+  }));
+}
+
+/** Map a backend Item response to the Redux store shape. */
+export function mapApiItemsToStore(apiItems: readonly any[]): any[] {
+  return apiItems.map((item) => ({
+    id: item.slug || item.id,
+    backendId: item.id,
+    categoryId: item.category?.slug || item.categoryId,
+    name: item.name,
+    nameTe: item.nameTe,
+    unit: item.unit as 'kg' | 'gm' | 'pcs' | 'L' | 'ml',
+    defaultQuantity: item.defaultQuantity,
+    price: item.price,
+    mrp: item.mrp,
+    sortOrder: item.sortOrder,
+    stockQuantity: item.stockQuantity,
+    lowStockThreshold: item.lowStockThreshold,
+    trackInventory: item.trackInventory,
+  }));
+}
+
 export function useCatalogHydration() {
   const dispatch = useAppDispatch();
   const categories = useAppSelector(selectCategories);
@@ -51,18 +90,8 @@ export function useCatalogHydration() {
   // Step 3: Merge backend data whenever it changes (allows RTK Query tag invalidation to flow through)
   useEffect(() => {
     if (!apiCategories || !apiItems) return;
-    const mappedCategories = apiCategories.map((c) => ({
-      id: c.slug || c.id, backendId: c.id, name: c.name, icon: c.icon || '📁', trackInventory: c.trackInventory,
-    }));
-    const mappedItems = apiItems.map((item) => ({
-      id: item.slug || item.id, backendId: item.id,
-      categoryId: item.category?.slug || item.categoryId,
-      name: item.name, nameTe: item.nameTe,
-      unit: item.unit as 'kg' | 'gm' | 'pcs' | 'L' | 'ml',
-      defaultQuantity: item.defaultQuantity, price: item.price, mrp: item.mrp,
-      sortOrder: item.sortOrder, stockQuantity: item.stockQuantity,
-      lowStockThreshold: item.lowStockThreshold, trackInventory: item.trackInventory,
-    }));
+    const mappedCategories = mapApiCategoriesToStore(apiCategories);
+    const mappedItems = mapApiItemsToStore(apiItems);
     dispatch(mergeCatalogFromBackend({ categories: mappedCategories, items: mappedItems }));
   }, [apiCategories, apiItems, dispatch]);
 

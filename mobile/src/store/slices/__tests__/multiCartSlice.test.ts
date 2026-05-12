@@ -2318,6 +2318,105 @@ describe('multiCartSlice', () => {
         // Second item matched by name fallback
         expect(state.carts[0].items[1].priceSnapshot).toBe(140);
       });
+
+      it('should NOT mutate priceSnapshot of paid carts (locked at payment time)', () => {
+        // Bug repro: a paid cart's priceSnapshot was being overwritten when the
+        // OrderScreen mounted and dispatched refreshActiveCartPrices, causing
+        // the printed grand total to drift from the recorded paidAmount.
+        const paidCartState: MultiCartState = {
+          carts: [{
+            id: 'cart-paid',
+            name: '1638-070526-01',
+            items: [{
+              item: {
+                id: 'bv-003',
+                categoryId: 'beverages',
+                name: 'Green Tea',
+                unit: 'pcs',
+                defaultQuantity: 25,
+                price: 160,
+              },
+              quantity: 27,
+              priceSnapshot: 160,
+              addedAt: new Date().toISOString(),
+            }],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'paid',
+            paidAt: new Date().toISOString(),
+            paidAmount: 4320,
+          }],
+          activeCartId: 'cart-paid',
+          isHydrated: true,
+          lastSyncedAt: null,
+          deletedCartIds: [],
+        };
+
+        // Catalog has changed price after payment
+        const catalogItems: Item[] = [{
+          id: 'bv-003',
+          categoryId: 'beverages',
+          name: 'Green Tea',
+          unit: 'pcs',
+          defaultQuantity: 25,
+          price: 999, // drifted price
+        }];
+
+        const action = refreshActiveCartPrices(catalogItems);
+        const state = multiCartReducer(paidCartState, action);
+
+        // Paid cart must be locked: priceSnapshot stays at 160, not 999.
+        expect(state.carts[0].items[0].priceSnapshot).toBe(160);
+        expect(state.carts[0].items[0].item.price).toBe(160);
+        // paidAmount must remain authoritative.
+        expect(state.carts[0].paidAmount).toBe(4320);
+        // updatedAt should NOT change for a no-op refresh.
+        expect(state.carts[0].updatedAt).toBe(paidCartState.carts[0].updatedAt);
+      });
+
+      it('should still refresh priceSnapshot on draft carts after a paid cart guard is added', () => {
+        // Regression guard: the paid-cart skip must not affect draft carts.
+        const draftCartState: MultiCartState = {
+          carts: [{
+            id: 'cart-draft',
+            name: 'Draft Cart',
+            items: [{
+              item: {
+                id: 'bv-003',
+                categoryId: 'beverages',
+                name: 'Green Tea',
+                unit: 'pcs',
+                defaultQuantity: 25,
+                price: 160,
+              },
+              quantity: 5,
+              priceSnapshot: 160,
+              addedAt: new Date().toISOString(),
+            }],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            status: 'draft',
+          }],
+          activeCartId: 'cart-draft',
+          isHydrated: true,
+          lastSyncedAt: null,
+          deletedCartIds: [],
+        };
+
+        const catalogItems: Item[] = [{
+          id: 'bv-003',
+          categoryId: 'beverages',
+          name: 'Green Tea',
+          unit: 'pcs',
+          defaultQuantity: 25,
+          price: 175,
+        }];
+
+        const action = refreshActiveCartPrices(catalogItems);
+        const state = multiCartReducer(draftCartState, action);
+
+        expect(state.carts[0].items[0].priceSnapshot).toBe(175);
+      });
     });
   });
 

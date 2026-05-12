@@ -136,13 +136,24 @@ export class SeedService {
         });
 
         if (existing) {
+          let changed = false;
           // Update trackInventory if it changed
           const expectedTrackInventory = seedCategory.trackInventory ?? false;
           if (existing.trackInventory !== expectedTrackInventory) {
             existing.trackInventory = expectedTrackInventory;
-            await this.categoryRepository.save(existing);
+            changed = true;
             this.logger.debug(`Updated trackInventory for category '${seedCategory.slug}'`);
           }
+          // Backfill nameTe if missing — earlier seed runs may have populated
+          // the category before Telugu translations existed in seed-data. Only
+          // fill when missing; never overwrite a tenant's customised value.
+          const existingNameTe = (existing.nameTe ?? '').trim();
+          if (existingNameTe.length === 0 && seedCategory.nameTe && seedCategory.nameTe.length > 0) {
+            existing.nameTe = seedCategory.nameTe;
+            changed = true;
+            this.logger.debug(`Backfilled nameTe for category '${seedCategory.slug}'`);
+          }
+          if (changed) await this.categoryRepository.save(existing);
           categoryMap.set(seedCategory.slug, existing.id);
           continue;
         }
@@ -225,6 +236,13 @@ export class SeedService {
             existing.trackInventory = shouldTrackInventory;
             changed = true;
             this.logger.debug(`Updated trackInventory for existing item '${seedItem.slug}' -> ${shouldTrackInventory}`);
+          }
+          // Backfill nameTe if missing — see seedCategories rationale.
+          const existingItemNameTe = (existing.nameTe ?? '').trim();
+          if (existingItemNameTe.length === 0 && seedItem.nameTe && seedItem.nameTe.length > 0) {
+            existing.nameTe = seedItem.nameTe;
+            changed = true;
+            this.logger.debug(`Backfilled nameTe for item '${seedItem.slug}'`);
           }
           if (changed) await this.itemRepository.save(existing);
           continue;

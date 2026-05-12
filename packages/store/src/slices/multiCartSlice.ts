@@ -134,6 +134,10 @@ const multiCartSlice = createSlice({
       if (!state.activeCartId) return;
       const cart = state.carts.find((c) => c.id === state.activeCartId);
       if (!cart) return;
+      // Paid/completed carts are locked — priceSnapshot reflects what was
+      // billed and must match paidAmount. Refreshing on a paid cart causes
+      // the receipt to drift from the recorded paidAmount.
+      if (cart.status === 'paid' || cart.status === 'completed') return;
       const catalogItems = action.payload;
       cart.items.forEach((cartItem) => {
         let catalogItem = catalogItems.find((item) => item.id === cartItem.item.id);

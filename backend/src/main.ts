@@ -3,6 +3,7 @@
  */
 
 import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -10,7 +11,11 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  // Pass ExpressAdapter explicitly so Nest does not rely on PackageLoader's
+  // dynamic require('@nestjs/platform-express') — that resolution breaks
+  // under npm-workspace hoisting and produced the runtime error
+  // "No driver (HTTP) has been selected" when node_modules drifted.
+  const app = await NestFactory.create(AppModule, new ExpressAdapter());
 
   // Get config service
   const configService = app.get(ConfigService);

@@ -18,6 +18,7 @@ import multiCartReducer, {
   markActiveCartAsPaid,
   syncCartsFromBackend,
   refreshActiveCartPrices,
+  hydrateMultiCart,
 } from '../../slices/multiCartSlice';
 import { multiCartPersistMiddleware } from '../multiCartPersistMiddleware';
 import * as multiCartStorage from '../../../utils/storage/multiCartStorage';
@@ -307,6 +308,67 @@ describe('multiCartPersistMiddleware', () => {
       expect(fetchCall).toBeDefined();
       expect(fetchCall[0]).toBe(`${API_CONFIG.BASE_URL}/carts/backend-cart-uuid`);
     });
+
+    it('should create-then-pay when cart was paid before its create POST succeeded', async () => {
+      // Repro: the cart's initial create POST failed (network blip), so the
+      // cart sat locally with no backendId. The user later marks it paid.
+      // Without this branch, the cart never reaches the backend and is
+      // invisible on web. With the branch: middleware fires POST /carts,
+      // POST /carts/:id/items for each item, then PUT /carts/:id payment.
+      const store = createTestStore();
+
+      // Create the cart but make its sync POST fail.
+      (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) });
+      store.dispatch(createCart({ name: 'Offline Cart' }));
+      await advanceAndFlush(4);
+
+      // Add an item — sync skipped because cart has no backendId.
+      store.dispatch(addItemToActiveCart({ item: paymentItem, quantity: 2 }));
+      await advanceAndFlush();
+
+      // Sanity: cart exists, no backendId yet.
+      const before = store.getState().multiCart.carts[0];
+      expect(before.backendId).toBeUndefined();
+      expect(before.items.length).toBe(1);
+
+      (global.fetch as jest.Mock).mockClear();
+
+      // Pay. Mock the three subsequent calls in order:
+      //   1) POST /carts → returns the new backendId
+      //   2) POST /carts/:id/items for the queued item
+      //   3) PUT /carts/:id with the payment
+      mockApiSuccess({ id: 'recovered-backend-id', name: 'Offline Cart', status: 'draft' });
+      mockApiSuccess({ id: 'recovered-item-id', itemId: 'item-1', quantity: 2 });
+      mockApiSuccess({ id: 'recovered-backend-id', status: 'paid' });
+
+      store.dispatch(markActiveCartAsPaid({
+        amount: 80, paymentInfo: { method: 'cash', details: { method: 'cash' }, confirmedAt: new Date().toISOString() },
+      }));
+      await advanceAndFlush(8);
+
+      const calls = (global.fetch as jest.Mock).mock.calls;
+
+      // Must POST /carts to create
+      const createCall = calls.find((c) => c[1].method === 'POST' && c[0].endsWith('/carts'));
+      expect(createCall).toBeDefined();
+
+      // Must POST /carts/recovered-backend-id/items to backfill the queued item
+      const itemCall = calls.find((c) => c[1].method === 'POST' && c[0].includes('/carts/recovered-backend-id/items'));
+      expect(itemCall).toBeDefined();
+      expect(JSON.parse(itemCall[1].body)).toMatchObject({ itemId: 'item-1', quantity: 2 });
+
+      // Must PUT /carts/recovered-backend-id with the payment
+      const payCall = calls.find((c) => c[1].method === 'PUT' && c[0].includes('/carts/recovered-backend-id'));
+      expect(payCall).toBeDefined();
+      const payBody = JSON.parse(payCall[1].body);
+      expect(payBody.status).toBe('paid');
+      expect(payBody.paidAmount).toBe(80);
+
+      // Tenant header on every call (no cross-tenant leakage)
+      for (const c of calls) {
+        expect(c[1].headers['X-Tenant-ID']).toBe('test-tenant');
+      }
+    });
   });
 
   describe('Backend sync on item addition', () => {
@@ -550,6 +612,139 @@ describe('multiCartPersistMiddleware', () => {
         expect.anything(),
         'test-tenant'
       );
+    });
+  });
+
+  describe('Startup backfill on hydrateMultiCart', () => {
+    const item = { id: 'item-1', categoryId: 'cat-1', name: 'Tomato', unit: 'kg' as const, defaultQuantity: 1, price: 40 };
+
+    it('runs create-then-pay for paid carts that have no backendId after rehydration', async () => {
+      const store = createTestStore();
+
+      // Three calls expected: POST cart → POST item → PUT payment
+      mockApiSuccess({ id: 'recovered-id', name: 'Stale Cart', status: 'draft' });
+      mockApiSuccess({ id: 'recovered-item-id', itemId: 'item-1', quantity: 2 });
+      mockApiSuccess({ id: 'recovered-id', status: 'paid' });
+
+      // Simulate cold-start rehydration: a paid cart sitting in AsyncStorage
+      // with no backendId.
+      const stranded = {
+        id: 'local-cart-1',
+        name: 'Stale Cart',
+        status: 'paid' as const,
+        items: [
+          {
+            item,
+            quantity: 2,
+            priceSnapshot: 40,
+            addedAt: new Date().toISOString(),
+          },
+        ],
+        createdAt: new Date(Date.now() - 15 * 24 * 3600_000).toISOString(),
+        updatedAt: new Date().toISOString(),
+        paidAt: new Date().toISOString(),
+        paidAmount: 80,
+      } as any;
+
+      store.dispatch(hydrateMultiCart({ carts: [stranded], activeCartId: 'local-cart-1' } as any));
+      await advanceAndFlush(8);
+
+      const calls = (global.fetch as jest.Mock).mock.calls;
+
+      const createCall = calls.find((c) => c[1].method === 'POST' && c[0].endsWith('/carts'));
+      expect(createCall).toBeDefined();
+
+      const itemCall = calls.find(
+        (c) => c[1].method === 'POST' && c[0].includes('/carts/recovered-id/items'),
+      );
+      expect(itemCall).toBeDefined();
+      expect(JSON.parse(itemCall[1].body)).toMatchObject({ itemId: 'item-1', quantity: 2 });
+
+      const payCall = calls.find(
+        (c) => c[1].method === 'PUT' && c[0].includes('/carts/recovered-id'),
+      );
+      expect(payCall).toBeDefined();
+      expect(JSON.parse(payCall[1].body)).toMatchObject({ status: 'paid', paidAmount: 80 });
+
+      // Tenant + auth headers on every call (no cross-tenant leakage / no anon push)
+      for (const c of calls) {
+        expect(c[1].headers['X-Tenant-ID']).toBe('test-tenant');
+        expect(c[1].headers['Authorization']).toBe('Bearer test-token');
+      }
+    });
+
+    it('does NOT touch carts that already have a backendId', async () => {
+      const store = createTestStore();
+
+      const alreadySynced = {
+        id: 'synced-cart',
+        backendId: 'remote-uuid',
+        name: 'Already Synced',
+        status: 'paid' as const,
+        items: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        paidAt: new Date().toISOString(),
+        paidAmount: 100,
+      } as any;
+
+      store.dispatch(hydrateMultiCart({ carts: [alreadySynced], activeCartId: 'synced-cart' } as any));
+      await advanceAndFlush(4);
+
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      const createCall = calls.find((c) => c[1].method === 'POST' && c[0].endsWith('/carts'));
+      // No POST /carts call — the cart already has a backendId.
+      expect(createCall).toBeUndefined();
+    });
+
+    it('does NOT touch draft carts (only paid + missing backendId qualifies)', async () => {
+      const store = createTestStore();
+
+      const draft = {
+        id: 'draft-cart',
+        name: 'Draft Cart',
+        status: 'draft' as const,
+        items: [{ item, quantity: 1, priceSnapshot: 40, addedAt: new Date().toISOString() }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any;
+
+      store.dispatch(hydrateMultiCart({ carts: [draft], activeCartId: 'draft-cart' } as any));
+      await advanceAndFlush(4);
+
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      const createCall = calls.find((c) => c[1].method === 'POST' && c[0].endsWith('/carts'));
+      expect(createCall).toBeUndefined();
+    });
+
+    it('does NOT push when there is no auth token (avoids 401 storm)', async () => {
+      // Build a store without an access token in auth state.
+      const noAuthStore = configureStore({
+        reducer: {
+          multiCart: multiCartReducer,
+          tenant: () => ({ tenant: { id: 'tenant-uuid-123', slug: 'test-tenant' } }),
+          auth: () => ({ accessToken: null }), // not signed in
+        },
+        middleware: (getDefaultMiddleware: any) =>
+          getDefaultMiddleware({ serializableCheck: false }).concat(multiCartPersistMiddleware),
+      });
+
+      const stranded = {
+        id: 'local-cart-2',
+        name: 'Stale',
+        status: 'paid' as const,
+        items: [{ item, quantity: 1, priceSnapshot: 40, addedAt: new Date().toISOString() }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        paidAt: new Date().toISOString(),
+        paidAmount: 40,
+      } as any;
+
+      noAuthStore.dispatch(hydrateMultiCart({ carts: [stranded], activeCartId: 'local-cart-2' } as any));
+      await advanceAndFlush(4);
+
+      // Zero network calls — would have been a guaranteed 401 storm.
+      expect((global.fetch as jest.Mock).mock.calls.length).toBe(0);
     });
   });
 });

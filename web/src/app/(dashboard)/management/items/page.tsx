@@ -14,7 +14,7 @@ import {
 import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
 
 export default function ItemManagementPage() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const categories = useAppSelector(selectCategories);
   const allItems = useAppSelector(selectItems);
   const [createItem] = useCreateItemMutation();
@@ -32,7 +32,14 @@ export default function ItemManagementPage() {
   const filteredItems = useMemo(() => {
     let items = allItems;
     if (selectedCategory) items = items.filter((i) => i.categoryId === selectedCategory);
-    if (searchQuery.trim()) items = items.filter((i) => i.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(
+        (i) =>
+          i.name.toLowerCase().includes(q) ||
+          (i.nameTe && i.nameTe.toLowerCase().includes(q)),
+      );
+    }
     return items;
   }, [allItems, selectedCategory, searchQuery]);
 
@@ -127,7 +134,7 @@ export default function ItemManagementPage() {
           <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{t('manageItems.all')}</button>
           {categories.map((c) => (
             <button key={c.id} onClick={() => setSelectedCategory(c.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === c.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{c.icon} {c.name}</button>
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === c.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{c.icon} {StoreUtils.getLocalizedName(c, i18n.language)}</button>
           ))}
         </div>
         <div className="relative w-full sm:w-auto sm:ml-auto">
@@ -142,8 +149,8 @@ export default function ItemManagementPage() {
             {filteredItems.map((item) => (
               <div key={item.id} className="px-5 py-3 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">{item.name}</p>
-                  <p className="text-xs text-gray-500">{categories.find((c) => c.id === item.categoryId)?.name} &middot; {item.unit} &middot; {t('manageItems.default')}: {item.defaultQuantity}</p>
+                  <p className="font-medium text-sm">{StoreUtils.getLocalizedName(item, i18n.language)}</p>
+                  <p className="text-xs text-gray-500">{StoreUtils.getLocalizedName(categories.find((c) => c.id === item.categoryId), i18n.language)} &middot; {item.unit} &middot; {t('manageItems.default')}: {item.defaultQuantity}</p>
                 </div>
                 <div className="text-right">
                   {item.price !== undefined && <p className="text-sm font-semibold text-primary">₹{item.price}</p>}
@@ -170,7 +177,7 @@ export default function ItemManagementPage() {
               <select value={form.categoryId} onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
                 <option value="">{t('manageItems.selectCategory')}</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {StoreUtils.getLocalizedName(c, i18n.language)}</option>)}
               </select>
               <div className="grid grid-cols-2 gap-3">
                 <select value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}

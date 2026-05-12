@@ -6,6 +6,7 @@ import { useAppDispatch } from '@/hooks/useAppDispatch';
 import { setCredentials, setTenant } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
 import { UserPlus } from 'lucide-react';
+import { savePersistedTokens, saveLastIdentifier } from '@/lib/auth/authStorage';
 
 interface FormData {
   businessName: string;
@@ -86,6 +87,15 @@ export default function SignupPage() {
 
       const tenantSlug = data.tenantSlug || form.businessName.toLowerCase().replace(/\s+/g, '-');
       localStorage.setItem('@tenant_id', tenantSlug);
+
+      // Persist tokens + last identifier so a hard reload keeps the user
+      // signed in (matches the pin-login flow).
+      savePersistedTokens(tenantSlug, {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        tenantSlug,
+      });
+      saveLastIdentifier(tenantSlug, form.email.trim().toLowerCase());
 
       dispatch(setTenant({
         id: tenantSlug, slug: tenantSlug, name: form.businessName.trim(),
