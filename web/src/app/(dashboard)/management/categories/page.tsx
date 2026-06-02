@@ -12,7 +12,7 @@ import {
   useDeleteCategoryMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus } from 'lucide-react';
 import { seedSampleData, SeedApiError } from '@/lib/api/seed';
 
 export default function CategoryManagementPage() {
@@ -107,76 +107,145 @@ export default function CategoryManagementPage() {
   const icons = ['📁', '🌾', '🍚', '🫘', '🌶️', '🧂', '🫗', '🧹', '🥜', '🍪', '☕', '🥤'];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('manageCategories.title')}</h1>
-        <button onClick={() => { setError(null); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium">
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{t('manageCategories.title')}</h1>
+          <p className="page-subtitle">
+            {t('manageCategories.subtitle', 'Organize your products into categories.')}
+          </p>
+        </div>
+        <button
+          onClick={() => { setError(null); setShowForm(true); }}
+          className="btn-primary"
+        >
           <Plus size={16} /> {t('manageCategories.addCategory')}
         </button>
       </div>
 
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800">
+      <div className="card">
         {categories.length === 0 ? (
-          <div className="p-8 flex flex-col items-center gap-3 text-gray-400">
-            <span>{t('manageCategories.noCategoriesYet')}</span>
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <FolderPlus size={26} strokeWidth={1.8} />
+            </div>
+            <h3 className="empty-state-title">{t('manageCategories.noCategoriesYet')}</h3>
+            <p className="empty-state-hint">
+              {t(
+                'manageCategories.emptyHint',
+                'Start organising your shop. Add your first category, or load a sample catalog to explore the app.',
+              )}
+            </p>
             {isAdmin && tenant?.slug && (
-              <>
-                <button
-                  onClick={handleSeedSample}
-                  disabled={seeding}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
-                  data-testid="seed-sample-data"
-                >
-                  {seeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  {seeding
-                    ? t('manageCategories.loadingSample', 'Loading sample data…')
-                    : t('manageCategories.loadSample', 'Load sample data')}
-                </button>
-                <p className="text-xs text-gray-400 max-w-xs text-center">
+              <div className="flex flex-col items-center gap-2 mt-2">
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <button
+                    onClick={() => { setError(null); setShowForm(true); }}
+                    className="btn-primary"
+                  >
+                    <Plus size={16} /> {t('manageCategories.addCategory')}
+                  </button>
+                  <button
+                    onClick={handleSeedSample}
+                    disabled={seeding}
+                    className="btn-secondary"
+                    data-testid="seed-sample-data"
+                  >
+                    {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {seeding
+                      ? t('manageCategories.loadingSample', 'Loading sample data…')
+                      : t('manageCategories.loadSample', 'Load sample data')}
+                  </button>
+                </div>
+                <p className="hint text-center max-w-md">
                   {t(
                     'manageCategories.loadSampleHint',
-                    "Quickly populate your shop with 9 starter categories and ~113 items (with Telugu names) so you can explore the app.",
+                    'Sample data: 9 starter categories and ~113 items with Telugu names. You can edit or delete anything later.',
                   )}
                 </p>
-                {seedError && <p className="text-xs text-red-500 mt-1">{seedError}</p>}
-              </>
+                {seedError && <p className="error-text">{seedError}</p>}
+              </div>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-50 dark:divide-gray-800">
+          <ul className="row-divider">
             {categories.map((cat) => (
-              <div key={cat.id} className="px-5 py-3 flex items-center gap-4">
-                <span className="text-2xl">{cat.icon}</span>
-                <div className="flex-1">
-                  <p className="font-medium">{StoreUtils.getLocalizedName(cat, i18n.language)}</p>
-                  {cat.trackInventory && <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{t('more.inventory')}</span>}
+              <li key={cat.id} className="row group">
+                <span className="flex-shrink-0 w-10 h-10 rounded-lg bg-gray-50 dark:bg-white/[0.04] flex items-center justify-center text-xl">
+                  {cat.icon}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {StoreUtils.getLocalizedName(cat, i18n.language)}
+                  </p>
+                  {cat.trackInventory && (
+                    <span className="badge-info mt-1">{t('more.inventory')}</span>
+                  )}
                 </div>
-                <button onClick={() => handleEdit(cat)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><Edit2 size={14} /></button>
-                <button onClick={() => handleDelete(cat.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
-              </div>
+                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEdit(cat)}
+                    className="btn-icon"
+                    aria-label="Edit"
+                    title="Edit"
+                  >
+                    <Edit2 size={15} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(cat.id)}
+                    className="btn-icon hover:bg-error/10 hover:text-error dark:hover:bg-error/15"
+                    aria-label="Delete"
+                    title="Delete"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={resetForm}>
-          <div className="bg-white dark:bg-surface-dark rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl animate-slide-up" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">{editId ? t('manageCategories.editCategory') : t('manageCategories.addCategory')}</h3>
-            {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">{error}</p>}
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('manageCategories.enterCategoryName')}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30 mb-3" autoFocus />
-            <p className="text-sm font-medium mb-2">{t('manageCategories.icon')}</p>
-            <div className="grid grid-cols-6 gap-2 mb-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={resetForm}>
+          <div className="card bg-white dark:bg-card-dark p-6 w-full max-w-sm mx-4 shadow-card-lg animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">
+              {editId ? t('manageCategories.editCategory') : t('manageCategories.addCategory')}
+            </h3>
+            {error && <p className="text-sm text-error bg-error/10 dark:bg-error/15 rounded-lg px-3 py-2 mb-3">{error}</p>}
+            <label className="label">{t('manageCategories.enterCategoryName')}</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('manageCategories.enterCategoryName')}
+              className="input mb-4"
+              autoFocus
+            />
+            <p className="label">{t('manageCategories.icon')}</p>
+            <div className="grid grid-cols-6 gap-2 mb-5">
               {icons.map((i) => (
-                <button key={i} onClick={() => setIcon(i)}
-                  className={`p-2 rounded-lg text-xl ${icon === i ? 'bg-primary/10 ring-2 ring-primary' : 'hover:bg-gray-100'}`}>{i}</button>
+                <button
+                  key={i}
+                  onClick={() => setIcon(i)}
+                  className={`h-10 rounded-lg text-xl transition-all ${
+                    icon === i
+                      ? 'bg-primary/15 ring-2 ring-primary scale-105'
+                      : 'bg-gray-50 hover:bg-gray-100 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]'
+                  }`}
+                >
+                  {i}
+                </button>
               ))}
             </div>
             <div className="flex gap-3">
-              <button onClick={resetForm} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium" disabled={saving}>{t('cancel')}</button>
-              <button onClick={handleSave} disabled={!name.trim() || name.trim().length < 2 || saving}
-                className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+              <button onClick={resetForm} className="btn-secondary flex-1" disabled={saving}>
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!name.trim() || name.trim().length < 2 || saving}
+                className="btn-primary flex-1"
+              >
                 {saving && <Loader2 size={14} className="animate-spin" />}
                 {saving ? t('loading') : t('save')}
               </button>

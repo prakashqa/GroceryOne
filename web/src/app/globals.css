@@ -2,68 +2,245 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Base layer — design tokens, typography defaults, scrollbar
+   ============================================================ */
+
 @layer base {
   :root {
     --primary: #2E7D32;
     --primary-light: #66BB6A;
     --primary-dark: #1B5E20;
-    --background: #F5F7FA;
+    --background: #F6F8FA;
     --surface: #FFFFFF;
-    --text: #1A1A1A;
-    --text-secondary: #666666;
-    --border: #E8E8E8;
+    --text: #111418;
+    --text-secondary: #5B626B;
+    --line: #EAECEF;
   }
 
   .dark {
     --primary: #66BB6A;
     --primary-light: #81C784;
     --primary-dark: #388E3C;
-    --background: #0F0F0F;
-    --surface: #1E1E1E;
-    --text: #FFFFFF;
-    --text-secondary: #B0B0B0;
-    --border: #3C3C3C;
+    --background: #0E1014;
+    --surface: #1A1D21;
+    --text: #F1F3F5;
+    --text-secondary: #9AA0A6;
+    --line: #2A2F36;
   }
 
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Custom scrollbar */
+  body {
+    @apply bg-background text-gray-900 dark:bg-background-dark dark:text-gray-100;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Better focus-visible across the app — keyboard users get a clear ring;
+     mouse clicks do not (focus is suppressed via :focus-visible). */
+  *:focus {
+    outline: none;
+  }
+  *:focus-visible {
+    outline: 2px solid theme('colors.primary.DEFAULT');
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  .dark *:focus-visible {
+    outline-color: theme('colors.primary.light');
+  }
+
+  /* Refined scrollbar — slimmer track, softer hover */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
-
   ::-webkit-scrollbar-track {
     background: transparent;
   }
-
   ::-webkit-scrollbar-thumb {
     background: #d1d5db;
-    border-radius: 3px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
-
   ::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
+    background-clip: padding-box;
   }
-
   .dark ::-webkit-scrollbar-thumb {
-    background: #4b5563;
+    background: #3a414a;
+    background-clip: padding-box;
   }
-
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
+    background: #4b5563;
+    background-clip: padding-box;
   }
 
-  /* Selection color */
   ::selection {
-    background-color: rgba(46, 125, 50, 0.2);
+    background-color: rgba(46, 125, 50, 0.22);
     color: inherit;
   }
+
+  /* Heading rhythm */
+  h1 { @apply text-2xl font-semibold tracking-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-lg font-semibold tracking-tight; }
 }
 
-body {
-  @apply bg-background text-gray-900 dark:bg-background-dark dark:text-white;
+/* ============================================================
+   Component layer — opt-in reusable building blocks. Use these
+   in place of the long inline className blobs in pages so the
+   look stays consistent across screens.
+   ============================================================ */
+
+@layer components {
+
+  /* ----- Surfaces ----- */
+  .card {
+    @apply rounded-xl bg-white dark:bg-card-dark border border-line dark:border-line-dark shadow-card;
+  }
+  .card-hover {
+    @apply transition-shadow hover:shadow-card-hover;
+  }
+  .card-padded {
+    @apply card p-5;
+  }
+
+  /* Section divider used between groups of controls */
+  .section-divider {
+    @apply h-px bg-line dark:bg-line-dark my-4;
+  }
+
+  /* ----- Buttons -----
+     Variants: primary, secondary, ghost, danger. All share the same
+     baseline (rounded corner, height, focus ring, disabled state). */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
+           text-sm font-medium select-none whitespace-nowrap
+           transition-all duration-150 ease-out
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-white shadow-sm
+           hover:bg-primary-dark hover:shadow-card-hover
+           active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn bg-white text-gray-900 border border-line shadow-sm
+           hover:bg-gray-50 hover:border-gray-300
+           dark:bg-card-dark dark:text-gray-100 dark:border-line-dark
+           dark:hover:bg-white/5 dark:hover:border-gray-600
+           active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-700
+           hover:bg-gray-100
+           dark:text-gray-300 dark:hover:bg-white/5
+           active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply btn bg-error text-white shadow-sm
+           hover:bg-red-700 hover:shadow-card-hover
+           active:scale-[0.98];
+  }
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-9 h-9 rounded-lg
+           text-gray-600 hover:bg-gray-100
+           dark:text-gray-400 dark:hover:bg-white/5
+           transition-colors;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-5 py-3 text-base;
+  }
+
+  /* ----- Form fields ----- */
+  .input {
+    @apply w-full px-3.5 py-2.5 rounded-lg text-sm
+           bg-gray-50 dark:bg-card-dark
+           border border-line dark:border-line-dark
+           text-gray-900 dark:text-gray-100
+           placeholder:text-gray-400 dark:placeholder:text-gray-500
+           transition-all duration-150
+           focus:bg-white dark:focus:bg-card-dark
+           focus:border-primary focus:shadow-focus-ring
+           disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  .input-error {
+    @apply border-error focus:border-error;
+  }
+  .label {
+    @apply block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5;
+  }
+  .hint {
+    @apply mt-1 text-xs text-gray-500 dark:text-gray-400;
+  }
+  .error-text {
+    @apply mt-1 text-xs text-error;
+  }
+
+  /* ----- Empty state -----
+     Centered, generous, with a primary-tinted icon halo. Use inside any
+     panel that has nothing to display yet. */
+  .empty-state {
+    @apply flex flex-col items-center justify-center text-center
+           py-12 px-6 gap-3;
+  }
+  .empty-state-icon {
+    @apply w-16 h-16 rounded-full bg-primary/10 dark:bg-primary/15
+           flex items-center justify-center
+           text-primary dark:text-primary-light
+           mb-1;
+  }
+  .empty-state-title {
+    @apply text-base font-semibold text-gray-800 dark:text-gray-200;
+  }
+  .empty-state-hint {
+    @apply text-sm text-gray-500 dark:text-gray-400 max-w-sm;
+  }
+
+  /* ----- List rows ----- */
+  .row {
+    @apply flex items-center gap-4 px-5 py-3.5
+           transition-colors
+           hover:bg-gray-50 dark:hover:bg-white/[0.03];
+  }
+  .row-divider {
+    @apply divide-y divide-line dark:divide-line-dark;
+  }
+
+  /* ----- Badges ----- */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+           text-xxs font-medium;
+  }
+  .badge-primary { @apply badge bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light; }
+  .badge-info    { @apply badge bg-info-bg text-info dark:bg-info/20 dark:text-blue-300; }
+  .badge-warning { @apply badge bg-warning-bg text-warning dark:bg-warning/20 dark:text-amber-300; }
+  .badge-success { @apply badge bg-success-bg text-success dark:bg-success/20 dark:text-green-300; }
+  .badge-error   { @apply badge bg-error-bg text-error dark:bg-error/20 dark:text-red-300; }
+  .badge-neutral { @apply badge bg-gray-100 text-gray-700 dark:bg-white/[0.06] dark:text-gray-300; }
+
+  /* ----- Page wrapper ----- */
+  .page {
+    @apply animate-fade-up;
+  }
+  .page-header {
+    @apply flex items-center justify-between gap-3 mb-6;
+  }
+  .page-title {
+    @apply text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100;
+  }
+  .page-subtitle {
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-0.5;
+  }
 }

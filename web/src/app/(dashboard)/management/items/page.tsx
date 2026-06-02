@@ -13,7 +13,7 @@ import {
   useDeleteItemMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Loader2, Sparkles, PackagePlus } from 'lucide-react';
 import { seedSampleData, SeedApiError } from '@/lib/api/seed';
 
 export default function ItemManagementPage() {
@@ -148,71 +148,141 @@ export default function ItemManagementPage() {
   const resetForm = () => { setShowForm(false); setEditId(null); setForm({ name: '', barcode: '', categoryId: categories[0]?.id || '', unit: 'pcs', price: '', mrp: '', defaultQuantity: '1' }); setError(null); };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('manageItems.title')}</h1>
-        <button onClick={() => { setForm((f) => ({ ...f, categoryId: categories[0]?.id || '' })); setError(null); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium"><Plus size={16} /> {t('manageItems.addItem')}</button>
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{t('manageItems.title')}</h1>
+          <p className="page-subtitle">
+            {t('manageItems.subtitle', 'Browse, search and manage your product catalog.')}
+          </p>
+        </div>
+        <button
+          onClick={() => { setForm((f) => ({ ...f, categoryId: categories[0]?.id || '' })); setError(null); setShowForm(true); }}
+          className="btn-primary"
+        >
+          <Plus size={16} /> {t('manageItems.addItem')}
+        </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <button onClick={() => setSelectedCategory(null)} className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${!selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{t('manageItems.all')}</button>
+      <div className="card p-3 mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0 -mx-1 px-1">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              !selectedCategory
+                ? 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            {t('manageItems.all')}
+          </button>
           {categories.map((c) => (
-            <button key={c.id} onClick={() => setSelectedCategory(c.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedCategory === c.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>{c.icon} {StoreUtils.getLocalizedName(c, i18n.language)}</button>
+            <button
+              key={c.id}
+              onClick={() => setSelectedCategory(c.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                selectedCategory === c.id
+                  ? 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.04]'
+              }`}
+            >
+              <span className="mr-1">{c.icon}</span>
+              {StoreUtils.getLocalizedName(c, i18n.language)}
+            </button>
           ))}
         </div>
-        <div className="relative w-full sm:w-auto sm:ml-auto">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder={t('search')} className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-full sm:w-48 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        <div className="relative w-full sm:w-56 flex-shrink-0">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('search')}
+            className="input pl-9 py-2 text-xs"
+          />
         </div>
       </div>
 
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800">
+      <div className="card">
         {filteredItems.length === 0 ? (
-          <div className="p-8 flex flex-col items-center gap-3 text-gray-400">
-            <span>{t('manageItems.noItemsYet')}</span>
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <PackagePlus size={26} strokeWidth={1.8} />
+            </div>
+            <h3 className="empty-state-title">{t('manageItems.noItemsYet')}</h3>
+            <p className="empty-state-hint">
+              {t(
+                'manageItems.emptyHint',
+                'Add your first product, or load a sample catalog with starter categories and ~113 items.',
+              )}
+            </p>
             {isAdmin && tenant?.slug && allItems.length === 0 && (
-              <>
-                <button
-                  onClick={handleSeedSample}
-                  disabled={seeding}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
-                  data-testid="seed-sample-data"
-                >
-                  {seeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  {seeding
-                    ? t('manageItems.loadingSample', 'Loading sample data…')
-                    : t('manageItems.loadSample', 'Load sample data')}
-                </button>
-                <p className="text-xs text-gray-400 max-w-xs text-center">
-                  {t(
-                    'manageItems.loadSampleHint',
-                    "Quickly populate your shop with 9 starter categories and ~113 items (with Telugu names).",
-                  )}
-                </p>
-                {seedError && <p className="text-xs text-red-500 mt-1">{seedError}</p>}
-              </>
+              <div className="flex flex-col items-center gap-2 mt-2">
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <button
+                    onClick={() => { setForm((f) => ({ ...f, categoryId: categories[0]?.id || '' })); setError(null); setShowForm(true); }}
+                    className="btn-primary"
+                  >
+                    <Plus size={16} /> {t('manageItems.addItem')}
+                  </button>
+                  <button
+                    onClick={handleSeedSample}
+                    disabled={seeding}
+                    className="btn-secondary"
+                    data-testid="seed-sample-data"
+                  >
+                    {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {seeding
+                      ? t('manageItems.loadingSample', 'Loading sample data…')
+                      : t('manageItems.loadSample', 'Load sample data')}
+                  </button>
+                </div>
+                {seedError && <p className="error-text">{seedError}</p>}
+              </div>
             )}
           </div>
         ) : (
-          <div className="divide-y divide-gray-50 dark:divide-gray-800">
+          <ul className="row-divider">
             {filteredItems.map((item) => (
-              <div key={item.id} className="px-5 py-3 flex items-center gap-4">
+              <li key={item.id} className="row group">
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">{StoreUtils.getLocalizedName(item, i18n.language)}</p>
-                  <p className="text-xs text-gray-500">{StoreUtils.getLocalizedName(categories.find((c) => c.id === item.categoryId), i18n.language)} &middot; {item.unit} &middot; {t('manageItems.default')}: {item.defaultQuantity}</p>
+                  <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                    {StoreUtils.getLocalizedName(item, i18n.language)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                    {StoreUtils.getLocalizedName(categories.find((c) => c.id === item.categoryId), i18n.language)}
+                    <span className="mx-1.5">·</span>{item.unit}
+                    <span className="mx-1.5">·</span>{t('manageItems.default')}: {item.defaultQuantity}
+                  </p>
                 </div>
-                <div className="text-right">
-                  {item.price !== undefined && <p className="text-sm font-semibold text-primary">₹{item.price}</p>}
-                  {item.mrp !== undefined && <p className="text-xs text-gray-400 line-through">₹{item.mrp}</p>}
+                <div className="text-right flex-shrink-0">
+                  {item.price !== undefined && (
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">₹{item.price}</p>
+                  )}
+                  {item.mrp !== undefined && item.mrp !== item.price && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 line-through">₹{item.mrp}</p>
+                  )}
                 </div>
-                <button onClick={() => handleEdit(item)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"><Edit2 size={14} /></button>
-                <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"><Trash2 size={14} /></button>
-              </div>
+                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="btn-icon"
+                    aria-label="Edit"
+                    title="Edit"
+                  >
+                    <Edit2 size={15} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="btn-icon hover:bg-error/10 hover:text-error dark:hover:bg-error/15"
+                    aria-label="Delete"
+                    title="Delete"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 

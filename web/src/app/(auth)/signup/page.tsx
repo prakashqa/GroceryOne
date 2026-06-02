@@ -134,104 +134,119 @@ export default function SignupPage() {
   };
 
   const inputClass = (field: keyof FormData) =>
-    `w-full px-4 py-2.5 rounded-xl border ${errors[field] ? 'border-error' : 'border-gray-200 dark:border-gray-700'} bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-sm`;
+    `input ${errors[field] ? 'input-error' : ''}`;
 
   return (
-    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-lg p-8 animate-fade-in">
+    <div className="card bg-white dark:bg-card-dark rounded-2xl shadow-card-lg p-7 sm:p-8 animate-fade-up">
       <div className="flex justify-center mb-4">
-        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-          <UserPlus size={24} className="text-primary dark:text-primary-light" />
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/15 flex items-center justify-center">
+          <UserPlus size={22} className="text-primary dark:text-primary-light" strokeWidth={1.8} />
         </div>
       </div>
-      <h2 className="text-xl font-semibold text-center mb-6">
+      <h2 className="text-xl font-semibold text-center text-gray-900 dark:text-gray-100 tracking-tight">
         {t('registerBusiness', 'Register Your Business')}
       </h2>
+      <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-1 mb-6">
+        {t('registerBusinessHint', 'Create your shop in seconds. You can change everything later.')}
+      </p>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium mb-1">Business Name *</label>
+          <label className="label">Business Name *</label>
           <input value={form.businessName} onChange={(e) => updateField('businessName', e.target.value)} className={inputClass('businessName')} placeholder="My Grocery Store" disabled={loading} />
-          {errors.businessName && <p className="text-error text-xs mt-0.5">{errors.businessName}</p>}
+          {errors.businessName && <p className="error-text">{errors.businessName}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium mb-1">First Name *</label>
+            <label className="label">First Name *</label>
             <input value={form.firstName} onChange={(e) => updateField('firstName', e.target.value)} className={inputClass('firstName')} disabled={loading} />
-            {errors.firstName && <p className="text-error text-xs mt-0.5">{errors.firstName}</p>}
+            {errors.firstName && <p className="error-text">{errors.firstName}</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Last Name</label>
+            <label className="label">Last Name</label>
             <input value={form.lastName} onChange={(e) => updateField('lastName', e.target.value)} className={inputClass('lastName')} disabled={loading} />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1">Email *</label>
+          <label className="label">Email *</label>
           <input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} className={inputClass('email')} placeholder="owner@store.com" disabled={loading} />
-          {errors.email && <p className="text-error text-xs mt-0.5">{errors.email}</p>}
+          {errors.email && <p className="error-text">{errors.email}</p>}
         </div>
 
         <div>
-          <label className="block text-xs font-medium mb-1">Phone *</label>
+          <label className="label">Phone *</label>
           <input type="tel" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} className={inputClass('phone')} placeholder="+91 9876543210" disabled={loading} />
-          {errors.phone && <p className="text-error text-xs mt-0.5">{errors.phone}</p>}
+          {errors.phone && <p className="error-text">{errors.phone}</p>}
         </div>
 
-        <div>
-          <label className="block text-xs font-medium mb-1">Password *</label>
-          <input type="password" value={form.password} onChange={(e) => updateField('password', e.target.value)} className={inputClass('password')} placeholder="Min 8 chars, 1 uppercase, 1 number" disabled={loading} />
-          {errors.password && <p className="text-error text-xs mt-0.5">{errors.password}</p>}
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium mb-1">Confirm Password *</label>
-          <input type="password" value={form.confirmPassword} onChange={(e) => updateField('confirmPassword', e.target.value)} className={inputClass('confirmPassword')} disabled={loading} />
-          {errors.confirmPassword && <p className="text-error text-xs mt-0.5">{errors.confirmPassword}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium mb-1">4-digit PIN *</label>
+            <label className="label">Password *</label>
+            <input type="password" value={form.password} onChange={(e) => updateField('password', e.target.value)} className={inputClass('password')} placeholder="Min 8 chars" disabled={loading} />
+            {errors.password && <p className="error-text">{errors.password}</p>}
+          </div>
+          <div>
+            <label className="label">Confirm Password *</label>
+            <input type="password" value={form.confirmPassword} onChange={(e) => updateField('confirmPassword', e.target.value)} className={inputClass('confirmPassword')} disabled={loading} />
+            {errors.confirmPassword && <p className="error-text">{errors.confirmPassword}</p>}
+          </div>
+        </div>
+
+        <div className="section-divider !my-4" />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">4-digit PIN *</label>
             <input
               type="password"
               inputMode="numeric"
               maxLength={4}
               value={form.pin}
               onChange={(e) => updateField('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className={inputClass('pin')}
+              className={`${inputClass('pin')} text-center tracking-[0.4em] font-mono`}
               placeholder="••••"
               disabled={loading}
             />
-            {errors.pin && <p className="text-error text-xs mt-0.5">{errors.pin}</p>}
+            {errors.pin && <p className="error-text">{errors.pin}</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1">Confirm PIN *</label>
+            <label className="label">Confirm PIN *</label>
             <input
               type="password"
               inputMode="numeric"
               maxLength={4}
               value={form.confirmPin}
               onChange={(e) => updateField('confirmPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className={inputClass('confirmPin')}
+              className={`${inputClass('confirmPin')} text-center tracking-[0.4em] font-mono`}
               placeholder="••••"
               disabled={loading}
             />
-            {errors.confirmPin && <p className="text-error text-xs mt-0.5">{errors.confirmPin}</p>}
+            {errors.confirmPin && <p className="error-text">{errors.confirmPin}</p>}
           </div>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">Used to log in on subsequent launches.</p>
+        <p className="hint -mt-1">Used to log in on subsequent launches.</p>
 
-        {apiError && <p className="text-error text-sm">{apiError}</p>}
+        {apiError && (
+          <p className="text-sm text-error bg-error/10 dark:bg-error/15 rounded-lg px-3 py-2.5 animate-fade-in">
+            {apiError}
+          </p>
+        )}
 
-        <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark hover:shadow-lg active:scale-[0.98] disabled:opacity-50 transition-all mt-2">
-          {loading ? 'Creating Account...' : 'Create Account'}
+        <button type="submit" disabled={loading} className="btn-primary btn-lg w-full mt-2">
+          {loading ? 'Creating Account…' : 'Create Account'}
         </button>
       </form>
 
-      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-        <a href="/tenant-setup" className="text-sm text-primary dark:text-primary-light hover:underline">
+      <div className="section-divider mt-7 mb-4" />
+      <div className="text-center">
+        <a
+          href="/tenant-setup"
+          className="inline-flex items-center gap-1.5 text-sm text-primary dark:text-primary-light font-medium hover:underline underline-offset-4"
+        >
           Already have an account? Sign in
+          <span aria-hidden>→</span>
         </a>
       </div>
     </div>

@@ -49,46 +49,54 @@ export function Sidebar() {
 
   const sidebarContent = (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+      {/* Brand row */}
+      <div className="flex items-center justify-between px-4 h-14 border-b border-line dark:border-line-dark">
         {!collapsed && (
-          <span className="text-xl font-bold text-primary dark:text-primary-light">
+          <span className="text-lg font-semibold tracking-tight text-primary dark:text-primary-light">
             {t('appName', 'GroOne')}
           </span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:block p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="btn-icon hidden md:inline-flex"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
         <button
           onClick={() => setIsOpen(false)}
-          className="md:hidden p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className="btn-icon md:hidden"
+          aria-label="Close menu"
         >
           <X size={18} />
         </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <ul className="space-y-1 px-2">
+      <nav className="flex-1 py-3 overflow-y-auto">
+        <ul className="space-y-0.5 px-2">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
-              <li key={item.href}>
+              <li key={item.href} className="relative">
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary dark:bg-primary-light"
+                  />
+                )}
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
                     isActive
-                      ? 'bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/[0.04] dark:hover:text-gray-200'
                   )}
                   title={collapsed ? item.name : undefined}
                 >
-                  <item.icon size={20} className="flex-shrink-0" />
-                  {!collapsed && <span>{item.name}</span>}
+                  <item.icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="truncate">{item.name}</span>}
                 </Link>
               </li>
             );
@@ -97,29 +105,36 @@ export function Sidebar() {
 
         {/* Management section */}
         {!collapsed && (
-          <div className="mt-4 px-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+          <div className="mt-5 mb-1 px-4">
+            <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
               {t('more.sections.management')}
             </p>
           </div>
         )}
-        <ul className="space-y-1 px-2">
+        {collapsed && <div className="my-3 mx-3 border-t border-line dark:border-line-dark" />}
+        <ul className="space-y-0.5 px-2">
           {managementNav.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
-              <li key={item.href}>
+              <li key={item.href} className="relative">
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary dark:bg-primary-light"
+                  />
+                )}
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
                     isActive
-                      ? 'bg-primary/10 text-primary dark:bg-primary-light/10 dark:text-primary-light'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/[0.04] dark:hover:text-gray-200'
                   )}
                   title={collapsed ? item.name : undefined}
                 >
-                  <item.icon size={20} className="flex-shrink-0" />
-                  {!collapsed && <span>{item.name}</span>}
+                  <item.icon size={18} className="flex-shrink-0" />
+                  {!collapsed && <span className="truncate">{item.name}</span>}
                 </Link>
               </li>
             );
@@ -128,23 +143,25 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-2">
+      <div className="border-t border-line dark:border-line-dark p-2 space-y-0.5">
         <Link
           href="/settings"
           className={cn(
-            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors',
-            pathname.startsWith('/settings') && 'bg-primary/10 text-primary dark:text-primary-light'
+            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+            pathname.startsWith('/settings')
+              ? 'bg-primary/10 text-primary dark:bg-primary/15 dark:text-primary-light'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/[0.04] dark:hover:text-gray-200'
           )}
         >
-          <Settings size={20} className="flex-shrink-0" />
-          {!collapsed && <span>{t('more.settings')}</span>}
+          <Settings size={18} className="flex-shrink-0" />
+          {!collapsed && <span className="truncate">{t('more.settings')}</span>}
         </Link>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors w-full"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-error/10 hover:text-error dark:hover:bg-error/15 dark:hover:text-red-400 transition-colors w-full"
         >
-          <LogOut size={20} className="flex-shrink-0" />
-          {!collapsed && <span>{t('more.logout')}</span>}
+          <LogOut size={18} className="flex-shrink-0" />
+          {!collapsed && <span className="truncate">{t('more.logout')}</span>}
         </button>
       </div>
     </>
@@ -161,9 +178,11 @@ export function Sidebar() {
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-white dark:bg-surface-dark border-r border-gray-200 dark:border-gray-800 transition-transform duration-200 w-60',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-white dark:bg-surface-dark',
+          'border-r border-line dark:border-line-dark',
+          'transition-transform duration-200 ease-out w-64',
           isOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:relative md:translate-x-0 md:z-auto md:transition-all',
+          'md:relative md:translate-x-0 md:z-auto md:transition-[width] md:duration-200',
           collapsed ? 'md:w-16' : 'md:w-60'
         )}
       >

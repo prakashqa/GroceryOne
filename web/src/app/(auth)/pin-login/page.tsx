@@ -214,21 +214,22 @@ export default function PinLoginPage() {
   }, [submitting]);
 
   return (
-    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-lg p-8 animate-fade-in">
+    <div className="card bg-white dark:bg-card-dark rounded-2xl shadow-card-lg p-7 sm:p-8 animate-fade-up">
       <div className="flex justify-center mb-4">
-        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-          <Lock size={24} className="text-primary dark:text-primary-light" />
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/15 flex items-center justify-center">
+          <Lock size={22} className="text-primary dark:text-primary-light" strokeWidth={1.8} />
         </div>
       </div>
-      <h2 className="text-xl font-semibold text-center mb-6">
+      <h2 className="text-xl font-semibold text-center mb-1 text-gray-900 dark:text-gray-100 tracking-tight">
         {t('enterPin', 'Enter PIN')}
       </h2>
+      <p className="text-center text-xs text-gray-500 dark:text-gray-400 mb-6">
+        {t('enterPinHint', 'Type your 4-digit PIN to sign in.')}
+      </p>
 
       {/* Identifier (email or phone) */}
       <div className="mb-5">
-        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-          {t('identifier', 'Email or phone')}
-        </label>
+        <label className="label">{t('identifier', 'Email or phone')}</label>
         <input
           type="text"
           autoComplete="username"
@@ -240,32 +241,32 @@ export default function PinLoginPage() {
           }}
           disabled={submitting}
           placeholder={t('identifierPlaceholder', 'admin@yourstore.com')}
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="input"
         />
       </div>
 
       {/* PIN dots */}
-      <div className="flex justify-center gap-4 mb-8">
+      <div className="flex justify-center gap-3.5 mb-7" role="status" aria-label={`${pin.length} of 4 digits entered`}>
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className={`w-4 h-4 rounded-full border-2 transition-all ${
+            className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
               i < pin.length
-                ? 'bg-primary border-primary dark:bg-primary-light dark:border-primary-light'
-                : 'border-gray-300 dark:border-gray-600'
+                ? 'bg-primary dark:bg-primary-light scale-110 shadow-[0_0_0_4px_rgba(46,125,50,0.12)]'
+                : 'bg-transparent border-2 border-gray-300 dark:border-gray-600'
             }`}
           />
         ))}
       </div>
 
       {error && (
-        <p className="text-error text-center text-sm mb-4" role="alert">
+        <p className="text-error text-center text-sm mb-4 animate-fade-in" role="alert">
           {error}
         </p>
       )}
 
       {/* Keypad */}
-      <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto">
+      <div className="grid grid-cols-3 gap-2.5 max-w-xs mx-auto">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((key) => {
           if (key === '') return <div key="empty" />;
           if (key === 'del') {
@@ -274,7 +275,8 @@ export default function PinLoginPage() {
                 key="del"
                 onClick={handleBackspace}
                 disabled={submitting}
-                className="h-14 rounded-xl text-lg font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 hover:scale-105 active:scale-95 transition-all flex items-center justify-center disabled:opacity-50"
+                aria-label="Delete"
+                className="h-14 rounded-xl text-lg font-medium bg-gray-100 hover:bg-gray-200 dark:bg-white/[0.04] dark:hover:bg-white/[0.08] active:scale-95 transition-all duration-150 flex items-center justify-center disabled:opacity-50 text-gray-600 dark:text-gray-300"
               >
                 &#x232B;
               </button>
@@ -285,7 +287,7 @@ export default function PinLoginPage() {
               key={key}
               onClick={() => handleDigitPress(key)}
               disabled={submitting}
-              className="h-14 rounded-xl text-xl font-medium bg-gray-50 dark:bg-gray-800 hover:bg-primary/10 dark:hover:bg-primary-light/10 transition-colors disabled:opacity-50"
+              className="h-14 rounded-xl text-xl font-semibold bg-gray-50 hover:bg-primary/10 hover:text-primary dark:bg-white/[0.03] dark:hover:bg-primary/15 dark:hover:text-primary-light active:scale-95 transition-all duration-150 disabled:opacity-50 text-gray-700 dark:text-gray-200"
             >
               {key}
             </button>
@@ -293,12 +295,14 @@ export default function PinLoginPage() {
         })}
       </div>
 
-      <div className="mt-6 text-center">
+      <div className="section-divider mt-7 mb-4" />
+      <div className="text-center">
         <a
           href="/tenant-setup"
-          className="text-sm text-primary dark:text-primary-light hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm text-primary dark:text-primary-light font-medium hover:underline underline-offset-4 transition-colors"
         >
           {t('setupNewStore', 'Setup New Store')}
+          <span aria-hidden>→</span>
         </a>
       </div>
     </div>
