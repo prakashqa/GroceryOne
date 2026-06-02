@@ -26,11 +26,10 @@ import {
 } from './license/store';
 import { activate, validate, LicenseError } from './license/validator';
 import { getMachineIdShortHash } from './license/machineId';
+import { isCachedLicenseFresh } from './license/freshness';
 
 const WEB_URL = process.env.GROONE_WEB_URL || 'https://app.groone.in';
 
-// 7 days in ms — offline grace window.
-const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 // 24h heartbeat cadence while main window is open.
 const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -85,18 +84,6 @@ function openMainWindow(): BrowserWindow {
     heartbeatTimer = null;
   });
   return w;
-}
-
-function isCachedLicenseFresh(blob: LicenseBlob): boolean {
-  // Fresh if (a) still within validUntil (license not expired), AND
-  //         (b) lastValidatedAt is within OFFLINE_GRACE_MS.
-  const now = Date.now();
-  const validUntil = Date.parse(blob.validUntil);
-  const lastValidatedAt = Date.parse(blob.lastValidatedAt);
-  if (Number.isNaN(validUntil) || Number.isNaN(lastValidatedAt)) return false;
-  if (validUntil <= now) return false;
-  if (now - lastValidatedAt > OFFLINE_GRACE_MS) return false;
-  return true;
 }
 
 async function tryHeartbeat(blob: LicenseBlob): Promise<{ ok: boolean; networkError: boolean }> {

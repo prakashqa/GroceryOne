@@ -38,6 +38,10 @@ jobs:
         working-directory: desktop
         run: npm ci
 
+      - name: Run unit tests
+        working-directory: desktop
+        run: npm test
+
       - name: Build + publish installer
         working-directory: desktop
         env:
