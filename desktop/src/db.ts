@@ -11,9 +11,23 @@
  */
 
 import { app } from 'electron';
-import EmbeddedPostgres from 'embedded-postgres';
+import type EmbeddedPostgres from 'embedded-postgres';
 import * as path from 'path';
 import * as fs from 'fs';
+
+// embedded-postgres is ESM-only. The desktop main process is CommonJS, so a
+// plain `require`/static import fails at runtime (ERR_REQUIRE_ESM). Load it
+// via a real dynamic import() that TypeScript won't downlevel to require()
+// (the `new Function` wrapper hides it from the compiler).
+const importEsm = new Function('s', 'return import(s)') as (s: string) => Promise<any>;
+let EmbeddedPostgresCtor: typeof EmbeddedPostgres | null = null;
+async function loadEmbeddedPostgres(): Promise<typeof EmbeddedPostgres> {
+  if (!EmbeddedPostgresCtor) {
+    const mod = await importEsm('embedded-postgres');
+    EmbeddedPostgresCtor = (mod.default || mod) as typeof EmbeddedPostgres;
+  }
+  return EmbeddedPostgresCtor;
+}
 
 export const DB_PORT = 47632;
 export const DB_USER = 'groone';
@@ -47,7 +61,8 @@ export async function startPostgres(): Promise<DbConnection> {
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
 
-  pg = new EmbeddedPostgres({
+  const EmbeddedPostgresClass = await loadEmbeddedPostgres();
+  pg = new EmbeddedPostgresClass({
     databaseDir: dir,
     port: DB_PORT,
     user: DB_USER,
