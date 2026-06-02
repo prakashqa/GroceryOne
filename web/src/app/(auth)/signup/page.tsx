@@ -63,8 +63,9 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json', 'X-API-Version': '1.0' },
         body: JSON.stringify({
           businessName: form.businessName.trim(),
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
+          // Backend DTO field names — NOT firstName/lastName.
+          ownerFirstName: form.firstName.trim(),
+          ownerLastName: form.lastName.trim() || undefined,
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim(),
           password: form.password,
@@ -75,7 +76,12 @@ export default function SignupPage() {
       const data = json.data || json;
 
       if (!res.ok) {
-        setApiError(data.error?.message || 'Signup failed');
+        // Backend validation errors come as `message: string | string[]`
+        // (Nest's default exception filter). Surface them instead of a
+        // useless generic "Signup failed".
+        const raw = json?.message ?? data?.message ?? data?.error?.message;
+        const msg = Array.isArray(raw) ? raw.join('; ') : raw;
+        setApiError(msg || 'Signup failed');
         return;
       }
 
