@@ -5,6 +5,7 @@ import { Request, Response, NextFunction } from 'express';
 describe('SubscriptionMiddleware', () => {
   let middleware: SubscriptionMiddleware;
   let mockSubscriptionService: { isSubscriptionActive: jest.Mock };
+  let mockConfigService: { get: jest.Mock };
   let mockReq: any;
   let mockRes: Partial<Response>;
   let mockNext: NextFunction;
@@ -13,10 +14,32 @@ describe('SubscriptionMiddleware', () => {
     mockSubscriptionService = {
       isSubscriptionActive: jest.fn(),
     };
-    middleware = new SubscriptionMiddleware(mockSubscriptionService as any);
+    // Default: enforcement ON (cloud behavior) → existing tests unchanged.
+    mockConfigService = {
+      get: jest.fn((key: string) => (key === 'subscriptionEnforced' ? true : undefined)),
+    };
+    middleware = new SubscriptionMiddleware(
+      mockSubscriptionService as any,
+      mockConfigService as any,
+    );
     mockReq = { path: '/categories', tenantId: 'tenant-001' };
     mockRes = {};
     mockNext = jest.fn();
+  });
+
+  describe('offline/desktop mode (subscriptionEnforced=false)', () => {
+    beforeEach(() => {
+      mockConfigService.get.mockImplementation((key: string) =>
+        key === 'subscriptionEnforced' ? false : undefined,
+      );
+    });
+
+    it('passes through without checking the subscription, even when expired', async () => {
+      mockSubscriptionService.isSubscriptionActive.mockResolvedValue(false);
+      await middleware.use(mockReq as Request, mockRes as Response, mockNext);
+      expect(mockSubscriptionService.isSubscriptionActive).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
+    });
   });
 
   it('should allow request when subscription is active', async () => {

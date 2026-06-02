@@ -47,7 +47,11 @@ import configuration from './core/config/configuration';
         database: configService.get<string>('database.name'),
         schema: 'public',
         autoLoadEntities: true,
-        synchronize: ['development', 'test'].includes(configService.get<string>('NODE_ENV') || ''),
+        // Sync when explicitly requested (offline desktop: DB_SYNCHRONIZE=true)
+        // or in the usual dev/test environments.
+        synchronize:
+          configService.get<boolean>('database.synchronize') === true ||
+          ['development', 'test'].includes(configService.get<string>('NODE_ENV') || ''),
         logging: configService.get<string>('NODE_ENV') === 'development',
         ssl: configService.get<boolean>('database.ssl')
           ? { rejectUnauthorized: false }

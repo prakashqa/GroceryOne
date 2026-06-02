@@ -5,6 +5,7 @@
  */
 
 import { Injectable, NestMiddleware, HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response, NextFunction } from 'express';
 import { SubscriptionService } from '../../modules/subscription/subscription.service';
 
@@ -19,9 +20,18 @@ export class SubscriptionMiddleware implements NestMiddleware {
     '/admin',
   ];
 
-  constructor(private readonly subscriptionService: SubscriptionService) {}
+  constructor(
+    private readonly subscriptionService: SubscriptionService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async use(req: Request, res: Response, next: NextFunction) {
+    // Offline/desktop mode enforces licensing outside the API (in Electron),
+    // so the subscription gate is a pass-through.
+    if (this.configService.get<boolean>('subscriptionEnforced') === false) {
+      return next();
+    }
+
     // Skip excluded routes
     if (this.skipRoutes.some((route) => req.path.startsWith(route))) {
       return next();
