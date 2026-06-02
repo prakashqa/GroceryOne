@@ -1,0 +1,54 @@
+name: Desktop Release
+
+# Builds the Windows installer and publishes it to a GitHub Release.
+#
+# Trigger: push a tag like `desktop-v1.0.0`. The tag version should match
+# desktop/package.json's "version" (electron-builder reads it from there).
+#
+#   git tag desktop-v1.0.0
+#   git push origin desktop-v1.0.0
+#
+# electron-builder auto-uploads GroOne-Setup-<version>.exe + latest.yml
+# (the electron-updater feed) to the matching GitHub Release using the
+# built-in GITHUB_TOKEN. No external secrets required for v1 (unsigned).
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+  workflow_dispatch: {} # allow manual runs from the Actions tab
+
+permissions:
+  contents: write # needed to create/upload the GitHub Release
+
+jobs:
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build + publish installer
+        working-directory: desktop
+        env:
+          # electron-builder uses this to create the Release + upload assets.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build && npx electron-builder --win nsis --x64 --publish always
+
+      - name: Upload installer as workflow artifact (fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: GroOne-Setup
+          path: desktop/build/GroOne-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 30

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, Receipt, ListChecks,
   BarChart3, Package, Settings2, Camera, Settings, FolderOpen,
-  ChevronLeft, ChevronRight, LogOut, X, Users,
+  ChevronLeft, ChevronRight, LogOut, X, Users, KeyRound,
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,7 @@ export function Sidebar() {
     { name: t('navigation.categories'), href: '/management/categories', icon: FolderOpen },
     { name: t('navigation.productList'), href: '/management/items', icon: ListChecks },
     { name: t('navigation.employees', 'Employees'), href: '/management/employees', icon: Users, adminOnly: true },
+    { name: t('navigation.licenses', 'Desktop licenses'), href: '/admin/licenses', icon: KeyRound, adminOnly: true },
   ].filter((item) => !item.adminOnly || isAdmin);
 
   const handleLogout = () => {
