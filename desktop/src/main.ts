@@ -11,6 +11,11 @@
  * NestJS backend, and the bundled Next.js UI. No network, no Vultr.
  */
 
+// Must be installed BEFORE any local module that could spawn an unpacked
+// binary (embedded-postgres). Keep this import first.
+import { installAsarSpawnFix } from './asar-spawn-fix';
+installAsarSpawnFix();
+
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
