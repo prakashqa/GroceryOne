@@ -387,11 +387,18 @@ export class AuthService {
 
       // 3b. Create admin user
       const passwordHash = await this.passwordService.hash(dto.password);
+      // Optional PIN: when the client sends one (e.g. desktop signup), hash
+      // it so the owner can use PIN-login immediately on the next launch
+      // without a separate "set PIN" step. Cloud signup omits this and
+      // `pinHash` stays undefined → user goes through the existing PIN-
+      // setup flow on first PIN attempt.
+      const pinHash = dto.pin ? await this.passwordService.hash(dto.pin) : undefined;
       const user = this.userRepository.create({
         tenantId: tenant.id,
         email: dto.email,
         phone: dto.phone,
         passwordHash,
+        pinHash,
         firstName: dto.ownerFirstName,
         lastName: dto.ownerLastName,
         role: 'admin',

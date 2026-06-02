@@ -16,12 +16,15 @@ interface FormData {
   phone: string;
   password: string;
   confirmPassword: string;
+  pin: string;
+  confirmPin: string;
 }
 
 export default function SignupPage() {
   const [form, setForm] = useState<FormData>({
     businessName: '', firstName: '', lastName: '',
     email: '', phone: '', password: '', confirmPassword: '',
+    pin: '', confirmPin: '',
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [loading, setLoading] = useState(false);
@@ -45,6 +48,8 @@ export default function SignupPage() {
     if (form.password.length < 8) e.password = 'Min 8 characters';
     else if (!/[A-Z]/.test(form.password) || !/\d/.test(form.password)) e.password = 'Need 1 uppercase + 1 number';
     if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords don\'t match';
+    if (!/^\d{4}$/.test(form.pin)) e.pin = 'Enter a 4-digit PIN';
+    if (form.pin !== form.confirmPin) e.confirmPin = 'PINs don\'t match';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -69,6 +74,9 @@ export default function SignupPage() {
           email: form.email.trim().toLowerCase(),
           phone: form.phone.trim(),
           password: form.password,
+          // Optional on the backend — sending it here means PIN-login works
+          // on the next launch without a separate "set PIN" step.
+          pin: form.pin || undefined,
         }),
       });
 
@@ -177,6 +185,38 @@ export default function SignupPage() {
           <input type="password" value={form.confirmPassword} onChange={(e) => updateField('confirmPassword', e.target.value)} className={inputClass('confirmPassword')} disabled={loading} />
           {errors.confirmPassword && <p className="text-error text-xs mt-0.5">{errors.confirmPassword}</p>}
         </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className="block text-xs font-medium mb-1">4-digit PIN *</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={form.pin}
+              onChange={(e) => updateField('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className={inputClass('pin')}
+              placeholder="••••"
+              disabled={loading}
+            />
+            {errors.pin && <p className="text-error text-xs mt-0.5">{errors.pin}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1">Confirm PIN *</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={form.confirmPin}
+              onChange={(e) => updateField('confirmPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className={inputClass('confirmPin')}
+              placeholder="••••"
+              disabled={loading}
+            />
+            {errors.confirmPin && <p className="text-error text-xs mt-0.5">{errors.confirmPin}</p>}
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-1">Used to log in on subsequent launches.</p>
 
         {apiError && <p className="text-error text-sm">{apiError}</p>}
 

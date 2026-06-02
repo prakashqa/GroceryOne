@@ -49,4 +49,14 @@ export class SignupDto {
     message: 'Password must contain at least 1 uppercase letter and 1 number',
   })
   password: string;
+
+  @ApiPropertyOptional({
+    example: '4563',
+    description:
+      'Optional 4-digit PIN. When provided, signup also stores the bcrypt-hashed PIN so the owner can log in via the PIN screen on subsequent launches (without a separate "set PIN" step).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  pin?: string;
 }

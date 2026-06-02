@@ -572,6 +572,34 @@ describe('AuthService', () => {
       expect(queryRunner.release).toHaveBeenCalled();
     });
 
+    describe('optional PIN at signup', () => {
+      it('hashes the PIN and stores it on the user when provided', async () => {
+        mockPasswordService.hash
+          .mockResolvedValueOnce('hashed-password')
+          .mockResolvedValueOnce('hashed-pin');
+
+        await service.signup({ ...signupDto, pin: '4563' });
+
+        expect(mockPasswordService.hash).toHaveBeenCalledWith('Admin@123');
+        expect(mockPasswordService.hash).toHaveBeenCalledWith('4563');
+        expect(mockUserRepository.create).toHaveBeenCalledWith(
+          expect.objectContaining({ pinHash: 'hashed-pin' }),
+        );
+      });
+
+      it('does NOT set pinHash when pin is omitted (cloud signup backwards compat)', async () => {
+        await service.signup(signupDto);
+
+        const createArg = mockUserRepository.create.mock.calls[0][0];
+        // pinHash should either be absent OR explicitly null/undefined — but
+        // never the string returned by passwordService.hash when no pin was sent.
+        expect(createArg.pinHash).toBeFalsy();
+        // password hashed exactly once (not twice, which would happen if the
+        // service mistakenly fed an empty/undefined string into hash()).
+        expect(mockPasswordService.hash).toHaveBeenCalledTimes(1);
+      });
+    });
+
     describe('tenant isolation', () => {
       it('should check email uniqueness across ALL tenants', async () => {
         mockUserRepository.findOne.mockResolvedValue(null);
