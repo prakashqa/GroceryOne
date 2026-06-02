@@ -4,3 +4,4 @@ build/
 *.log
 
 web-bundle/
+backend-bundle/
