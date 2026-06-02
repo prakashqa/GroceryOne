@@ -2,15 +2,19 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectCategories,
+  selectIsAdmin,
+  selectTenant,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { seedSampleData, SeedApiError } from '@/lib/api/seed';
 
 export default function CategoryManagementPage() {
   const { t, i18n } = useTranslation('common');
@@ -25,6 +29,33 @@ export default function CategoryManagementPage() {
   const [icon, setIcon] = useState('📁');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAdmin = useSelector(selectIsAdmin);
+  const tenant = useSelector(selectTenant);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+
+  const handleSeedSample = async () => {
+    if (!tenant?.slug) return;
+    setSeedError(null);
+    setSeeding(true);
+    try {
+      const res = await seedSampleData(tenant.slug);
+      if (res.alreadySeeded) {
+        // Shouldn't happen on empty state, but guard anyway.
+        setSeedError(t('manageCategories.alreadySeeded', 'Sample data is already loaded.'));
+        setSeeding(false);
+        return;
+      }
+      // Reload so the RTK Query catalog cache re-fetches and the list shows
+      // the new categories + items.
+      window.location.reload();
+    } catch (e) {
+      const msg = e instanceof SeedApiError ? e.message : (e as Error)?.message;
+      setSeedError(msg || t('error', 'Something went wrong'));
+      setSeeding(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim() || name.trim().length < 2) return;
@@ -87,7 +118,31 @@ export default function CategoryManagementPage() {
 
       <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800">
         {categories.length === 0 ? (
-          <div className="p-8 text-center text-gray-400">{t('manageCategories.noCategoriesYet')}</div>
+          <div className="p-8 flex flex-col items-center gap-3 text-gray-400">
+            <span>{t('manageCategories.noCategoriesYet')}</span>
+            {isAdmin && tenant?.slug && (
+              <>
+                <button
+                  onClick={handleSeedSample}
+                  disabled={seeding}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                  data-testid="seed-sample-data"
+                >
+                  {seeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {seeding
+                    ? t('manageCategories.loadingSample', 'Loading sample data…')
+                    : t('manageCategories.loadSample', 'Load sample data')}
+                </button>
+                <p className="text-xs text-gray-400 max-w-xs text-center">
+                  {t(
+                    'manageCategories.loadSampleHint',
+                    "Quickly populate your shop with 9 starter categories and ~113 items (with Telugu names) so you can explore the app.",
+                  )}
+                </p>
+                {seedError && <p className="text-xs text-red-500 mt-1">{seedError}</p>}
+              </>
+            )}
+          </div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
             {categories.map((cat) => (

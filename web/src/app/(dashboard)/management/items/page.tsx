@@ -2,16 +2,20 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectCategories,
   selectItems,
+  selectIsAdmin,
+  selectTenant,
   useCreateItemMutation,
   useUpdateItemMutation,
   useDeleteItemMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Loader2, Sparkles } from 'lucide-react';
+import { seedSampleData, SeedApiError } from '@/lib/api/seed';
 
 export default function ItemManagementPage() {
   const { t, i18n } = useTranslation('common');
@@ -28,6 +32,29 @@ export default function ItemManagementPage() {
   const [form, setForm] = useState({ name: '', barcode: '', categoryId: '', unit: 'pcs' as any, price: '', mrp: '', defaultQuantity: '1' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isAdmin = useSelector(selectIsAdmin);
+  const tenant = useSelector(selectTenant);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+  const handleSeedSample = async () => {
+    if (!tenant?.slug) return;
+    setSeedError(null);
+    setSeeding(true);
+    try {
+      const res = await seedSampleData(tenant.slug);
+      if (res.alreadySeeded) {
+        setSeedError(t('manageItems.alreadySeeded', 'Sample data is already loaded.'));
+        setSeeding(false);
+        return;
+      }
+      window.location.reload();
+    } catch (e) {
+      const msg = e instanceof SeedApiError ? e.message : (e as Error)?.message;
+      setSeedError(msg || t('error', 'Something went wrong'));
+      setSeeding(false);
+    }
+  };
 
   const filteredItems = useMemo(() => {
     let items = allItems;
@@ -144,7 +171,33 @@ export default function ItemManagementPage() {
       </div>
 
       <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800">
-        {filteredItems.length === 0 ? <div className="p-8 text-center text-gray-400">{t('manageItems.noItemsYet')}</div> : (
+        {filteredItems.length === 0 ? (
+          <div className="p-8 flex flex-col items-center gap-3 text-gray-400">
+            <span>{t('manageItems.noItemsYet')}</span>
+            {isAdmin && tenant?.slug && allItems.length === 0 && (
+              <>
+                <button
+                  onClick={handleSeedSample}
+                  disabled={seeding}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                  data-testid="seed-sample-data"
+                >
+                  {seeding ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {seeding
+                    ? t('manageItems.loadingSample', 'Loading sample data…')
+                    : t('manageItems.loadSample', 'Load sample data')}
+                </button>
+                <p className="text-xs text-gray-400 max-w-xs text-center">
+                  {t(
+                    'manageItems.loadSampleHint',
+                    "Quickly populate your shop with 9 starter categories and ~113 items (with Telugu names).",
+                  )}
+                </p>
+                {seedError && <p className="text-xs text-red-500 mt-1">{seedError}</p>}
+              </>
+            )}
+          </div>
+        ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-800">
             {filteredItems.map((item) => (
               <div key={item.id} className="px-5 py-3 flex items-center gap-4">

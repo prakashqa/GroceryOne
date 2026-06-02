@@ -10,11 +10,25 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { Request as ExpressRequest } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { SeedService, SeedReport } from './seed.service';
 import { HistoricSeedService } from './historic-seed.service';
 import { TenantUserSeedService } from './tenant-user-seed.service';
+
+interface JwtAuthenticatedRequest extends ExpressRequest {
+  user: {
+    userId: string;
+    tenantId: string;
+    role: string;
+  };
+}
 
 @ApiTags('Database Seeds (Dev)')
 @Controller('admin/seeds')
@@ -70,5 +84,34 @@ export class SeedController {
   @ApiResponse({ status: 200, description: 'Tenant/user seed completed' })
   async seedTenants(): Promise<any> {
     return this.tenantUserSeedService.seed();
+  }
+
+  /**
+   * Per-tenant sample-data seed for the caller's own tenant.
+   *
+   * Used by the "Load sample data" button on the empty-state of the web
+   * Categories/Items pages (cloud + offline desktop). Reads tenantId from the
+   * JWT — NEVER from the request body — so an admin of tenant A cannot
+   * accidentally seed tenant B's data.
+   *
+   * Idempotent: if the tenant already has any categories the response is
+   * `{alreadySeeded:true}` and nothing is written.
+   */
+  @Post('sample')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Seed the caller's tenant with the FreshMart sample catalog (admin only)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: '{ alreadySeeded, categories, items }',
+  })
+  async seedSample(
+    @Request() req: JwtAuthenticatedRequest,
+  ): Promise<{ alreadySeeded: boolean; categories: number; items: number }> {
+    return this.seedService.seedSampleDataForTenant(req.user.tenantId);
   }
 }
