@@ -16,7 +16,7 @@ import {
 } from 'typeorm';
 import { Tenant } from '../../../tenant/entities/tenant.entity';
 
-export type SubscriptionPlanType = 'monthly' | 'yearly';
+export type SubscriptionPlanType = 'monthly' | 'yearly' | 'desktop_yearly';
 export type SubscriptionStatusType = 'trial' | 'active' | 'expired' | 'cancelled';
 
 @Entity('subscriptions', { schema: 'public' })

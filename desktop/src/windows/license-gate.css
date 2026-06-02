@@ -1,0 +1,143 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: #f7f9fa;
+  color: #1c1c1c;
+  font-size: 14px;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: #2e7d32;
+  color: white;
+  -webkit-app-region: drag;
+}
+header .logo {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+header .version {
+  font-size: 12px;
+  opacity: 0.85;
+}
+main {
+  padding: 24px;
+  max-width: 460px;
+  margin: 0 auto;
+}
+h1 {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+.subtitle {
+  color: #555;
+  margin: 0 0 20px;
+  font-size: 13px;
+}
+form label {
+  display: block;
+  margin-bottom: 14px;
+  font-weight: 600;
+  color: #333;
+}
+form input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border: 1px solid #ccd0d5;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+form input:focus {
+  outline: none;
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+}
+.hint {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+  font-size: 11px;
+  color: #707783;
+}
+.error {
+  background: #fee;
+  border-left: 3px solid #c00;
+  padding: 9px 12px;
+  border-radius: 4px;
+  margin: 6px 0 14px;
+  color: #800;
+  font-size: 13px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  background: #2e7d32;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+button:hover {
+  background: #266229;
+}
+button:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+.how-to-buy {
+  margin-top: 22px;
+  border-top: 1px solid #e3e5e8;
+  padding-top: 14px;
+}
+.how-to-buy summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #2e7d32;
+  padding: 4px 0;
+}
+.how-to-buy ol {
+  padding-left: 18px;
+  font-size: 13px;
+  color: #444;
+}
+.how-to-buy li {
+  margin: 6px 0;
+}
+.how-to-buy code {
+  background: #eef2f0;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+}
+.how-to-buy a {
+  color: #2e7d32;
+  text-decoration: none;
+}
+.how-to-buy a:hover {
+  text-decoration: underline;
+}
+footer {
+  margin-top: 18px;
+  font-size: 11px;
+  color: #909499;
+  text-align: center;
+}
+footer code {
+  font-family: 'Menlo', 'Consolas', monospace;
+}

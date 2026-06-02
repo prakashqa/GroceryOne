@@ -13,6 +13,10 @@ import { Subscription, SubscriptionPlanType } from './entities/subscription.enti
 const SUBSCRIPTION_PLANS = {
   monthly: { amount: 1000, currency: 'INR', durationDays: 30 },
   yearly: { amount: 9000, currency: 'INR', durationDays: 365 },
+  // Windows desktop app yearly license — separate SKU at ₹2,000.
+  // Drive by an explicit `expiresAt` passed in (so a license's expiry,
+  // not the plan-default duration, controls the subscription window).
+  desktop_yearly: { amount: 2000, currency: 'INR', durationDays: 365 },
 } as const;
 
 const TRIAL_DURATION_DAYS = 14;
@@ -121,6 +125,43 @@ export class SubscriptionService {
     const saved = await this.subscriptionRepository.save(subscription);
     await this.invalidateCache(tenantId);
     this.logger.log(`Created ${plan} subscription for tenant ${tenantId}, amount: ${planInfo.amount} ${planInfo.currency}`);
+    return saved;
+  }
+
+  /**
+   * Create a desktop-app subscription, driven by an explicit `expiresAt`.
+   *
+   * Called by LicensesService when a customer activates their desktop
+   * license. The subscription mirrors the license's expiry so the rest of
+   * the backend's subscription guards (orders, items, etc.) work uniformly
+   * without needing to know that a license is in play.
+   *
+   * Unlike `createSubscription()`, this does NOT expire prior subscriptions
+   * — a tenant may legitimately hold both a mobile yearly AND a desktop
+   * yearly simultaneously.
+   */
+  async createDesktopSubscription(
+    tenantId: string,
+    expiresAt: Date,
+    paymentReference: string,
+  ): Promise<Subscription> {
+    const planInfo = SUBSCRIPTION_PLANS.desktop_yearly;
+    const now = new Date();
+    const subscription = this.subscriptionRepository.create({
+      tenantId,
+      plan: 'desktop_yearly',
+      status: 'active',
+      amount: planInfo.amount,
+      currency: planInfo.currency,
+      startsAt: now,
+      expiresAt,
+      paymentReference,
+    });
+    const saved = await this.subscriptionRepository.save(subscription);
+    await this.invalidateCache(tenantId);
+    this.logger.log(
+      `Created desktop_yearly subscription for tenant ${tenantId}, expires ${expiresAt.toISOString()}`,
+    );
     return saved;
   }
 

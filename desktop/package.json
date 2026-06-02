@@ -1,0 +1,30 @@
+{
+  "name": "groone-desktop",
+  "version": "1.0.0",
+  "description": "GroOne Windows desktop app — licensed yearly subscription",
+  "main": "dist/main.js",
+  "private": true,
+  "scripts": {
+    "build:ts": "tsc -p tsconfig.json",
+    "copy:static": "node scripts/copy-static.js",
+    "build": "npm run build:ts && npm run copy:static",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win nsis --x64",
+    "dist:dir": "npm run build && electron-builder --win dir --x64",
+    "clean": "rimraf dist build"
+  },
+  "dependencies": {
+    "node-machine-id": "^1.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-updater": "^6.2.1",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

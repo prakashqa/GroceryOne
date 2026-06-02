@@ -19,6 +19,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { LicensesModule } from './modules/licenses/licenses.module';
 
 import { TenantMiddleware } from './core/middleware/tenant.middleware';
 import { SubscriptionMiddleware } from './core/middleware/subscription.middleware';
@@ -78,6 +79,7 @@ import configuration from './core/config/configuration';
     CartModule,
     OrdersModule,
     SubscriptionModule,
+    LicensesModule,
   ],
 })
 export class AppModule implements NestModule {
@@ -94,6 +96,10 @@ export class AppModule implements NestModule {
         'seed/(.*)',
         'auth/resolve-tenant',
         'auth/signup',
+        // Desktop license endpoints — public, keyed by license value itself,
+        // never carry an X-Tenant-ID header.
+        'licenses/activate',
+        'licenses/validate',
       )
       .forRoutes('*');
 
@@ -110,6 +116,10 @@ export class AppModule implements NestModule {
         'auth/(.*)',
         'subscriptions/(.*)',
         'subscriptions',
+        // Don't gate license activation / heartbeat on having an active
+        // subscription (chicken-and-egg: activation is HOW you get one).
+        'licenses/(.*)',
+        'licenses',
       )
       .forRoutes('*');
   }

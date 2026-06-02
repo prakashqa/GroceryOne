@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>GroOne — License Activation</title>
+    <link rel="stylesheet" href="license-gate.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">GroOne</div>
+      <div class="version" id="version">v1.0.0 · Desktop</div>
+    </header>
+
+    <main>
+      <h1>Activate your license</h1>
+      <p class="subtitle">
+        Enter the license key emailed to you when you subscribed.
+        One key, one machine.
+      </p>
+
+      <form id="activate-form">
+        <label for="tenant">
+          Business slug
+          <input
+            type="text"
+            id="tenant"
+            name="tenant"
+            placeholder="siri-general-stores"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+          <span class="hint">The unique short name for your shop.</span>
+        </label>
+
+        <label for="key">
+          License key
+          <input
+            type="text"
+            id="key"
+            name="key"
+            placeholder="GROD-XXXX-XXXX-XXXX-XXXX"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="25"
+            required
+          />
+          <span class="hint">Format: GROD-XXXX-XXXX-XXXX-XXXX</span>
+        </label>
+
+        <div id="error" class="error" hidden></div>
+
+        <button id="submit" type="submit">Activate</button>
+      </form>
+
+      <details class="how-to-buy">
+        <summary>Don't have a license? Buy now</summary>
+        <p>
+          GroOne Desktop is <strong>₹2,000 per year</strong>.
+        </p>
+        <ol>
+          <li>Pay <strong>₹2,000</strong> via UPI to <code>groone@upi</code>
+              <span class="hint">(or any UPI app)</span>.
+          </li>
+          <li>
+            Email the payment screenshot + your business name to
+            <a href="#" id="support-link">support@groone.in</a>.
+          </li>
+          <li>
+            We'll email your license key within 1 business day.
+          </li>
+        </ol>
+        <p class="hint">
+          Razorpay self-serve checkout coming soon — for now, manual is
+          the fastest path.
+        </p>
+      </details>
+
+      <footer>
+        <span class="machine-info">
+          Machine ID: <code id="machine-hash">…</code>
+        </span>
+      </footer>
+    </main>
+
+    <script src="license-gate.js"></script>
+  </body>
+</html>

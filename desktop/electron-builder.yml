@@ -1,0 +1,40 @@
+appId: in.groone.desktop
+productName: GroOne
+copyright: Copyright © 2026 GroOne
+
+directories:
+  buildResources: assets
+  output: build
+
+files:
+  - "dist/**/*"
+  - "package.json"
+  - "node_modules/**/*"
+  - "!node_modules/**/{CHANGELOG.md,README.md,readme.md,test,__tests__,tests,*.d.ts,*.map}"
+
+# Windows NSIS installer
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.ico
+  # v1: no code signing — Windows SmartScreen will show a warning.
+  # README explains the "More info → Run anyway" workaround.
+  # Phase 3 adds an EV code-signing cert.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: GroOne
+  artifactName: GroOne-Setup-${version}.${ext}
+
+# electron-updater feed (Phase 1: private GitHub Releases).
+# When publishing, set GH_TOKEN env var.
+publish:
+  - provider: github
+    owner: prakashqa
+    repo: GroceryOne
+    releaseType: release
