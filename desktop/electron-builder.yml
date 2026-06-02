@@ -12,6 +12,13 @@ files:
   - "node_modules/**/*"
   - "!node_modules/**/{CHANGELOG.md,README.md,readme.md,test,__tests__,tests,*.d.ts,*.map}"
 
+# The bundled Next.js UI server runs as a child Node process, so it must live
+# OUTSIDE the asar archive (asar-packed files can't be spawned/required by a
+# separate process reliably). extraResources copies it to resources/web-bundle.
+extraResources:
+  - from: "web-bundle"
+    to: "web-bundle"
+
 # Windows NSIS installer
 win:
   target:

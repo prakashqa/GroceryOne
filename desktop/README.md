@@ -4,11 +4,20 @@ Standalone Windows app gating on a per-tenant yearly license key (₹2,000 / yea
 
 ## Architecture
 
-- **Electron 30** main process — license gate + window lifecycle + auto-update.
-- Renderer for the main window points at the hosted web app (`https://app.groone.in` by default; override with `GROONE_WEB_URL`).
+**Self-contained / standalone.** The `.exe` carries its own UI — there is no
+external web host. On launch the main process spawns the bundled **Next.js
+standalone server** (from `web/`) on a local `127.0.0.1` port using Electron's
+own Node runtime, then points the BrowserWindow at it. The UI talks to the
+cloud API (`https://api.groone.in`) directly for data — only the HTML/JS is
+served locally. (This is unavoidable for a multi-tenant cloud POS; the same
+as the Android app. Truly offline data would need a separate local-sync layer.)
+
+- **Electron 30** main process — license gate + window lifecycle + auto-update + local UI server.
+- **Bundled UI** — `desktop/web-bundle/` holds the Next standalone output (server.js + traced node_modules + static assets), shipped via electron-builder `extraResources` (outside asar so it can be spawned). Built with `NEXT_PUBLIC_API_URL=https://api.groone.in/api/v1` baked in.
 - License lives in `%APPDATA%\GroOne\license.dat`, encrypted via Electron's `safeStorage` (Windows DPAPI under the hood — file is bound to the OS user account).
 - Heartbeat: `POST /licenses/validate` on launch + every 24h. 7-day offline grace if backend unreachable.
 - Machine binding: `node-machine-id` reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`. Sent raw; backend SHA-256s it before storage.
+- **Dev override**: set `GROONE_WEB_URL=http://localhost:3001` to point the window at a running `next dev` instead of the bundled server.
 
 ## Folder layout
 

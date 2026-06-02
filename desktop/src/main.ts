@@ -10,12 +10,13 @@
  *   4. Otherwise → show the license-gate window.
  *   5. After successful activate from the gate → swap to main window.
  *
- * The main window currently points at WEB_URL (default
- * https://app.groone.in). When the standalone-bundled /web is added
- * later, swap to a localhost express in Phase 1.5.
+ * The main window loads the UI from a Next.js server bundled INSIDE the app
+ * and spawned on a local 127.0.0.1 port (see ./server). There's no external
+ * web host. For local UI development you can still override with
+ * GROONE_WEB_URL=http://localhost:3001 to point at a running `next dev`.
  */
 
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, dialog } from 'electron';
 import * as path from 'path';
 import { autoUpdater } from 'electron-updater';
 import {
@@ -27,8 +28,14 @@ import {
 import { activate, validate, LicenseError } from './license/validator';
 import { getMachineIdShortHash } from './license/machineId';
 import { isCachedLicenseFresh } from './license/freshness';
+import { startLocalWebServer } from './server';
 
-const WEB_URL = process.env.GROONE_WEB_URL || 'https://app.groone.in';
+// Dev-only override: point the main window at an already-running web dev
+// server instead of the bundled one. Empty in production.
+const WEB_URL_OVERRIDE = process.env.GROONE_WEB_URL || '';
+
+// Memoized URL of the bundled UI server once started.
+let webUrl: string | null = null;
 
 // 24h heartbeat cadence while main window is open.
 const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -64,7 +71,20 @@ function openGateWindow(): BrowserWindow {
   return w;
 }
 
-function openMainWindow(): BrowserWindow {
+/**
+ * Resolve the URL the main window should load. In production this boots the
+ * bundled Next server once and memoizes its 127.0.0.1 URL. In dev, a
+ * GROONE_WEB_URL override short-circuits to a running `next dev`.
+ */
+async function ensureWebUrl(): Promise<string> {
+  if (WEB_URL_OVERRIDE) return WEB_URL_OVERRIDE;
+  if (webUrl) return webUrl;
+  webUrl = await startLocalWebServer();
+  return webUrl;
+}
+
+async function openMainWindow(): Promise<BrowserWindow> {
+  const url = await ensureWebUrl();
   const w = new BrowserWindow({
     width: 1366,
     height: 850,
@@ -77,7 +97,7 @@ function openMainWindow(): BrowserWindow {
       nodeIntegration: false,
     },
   });
-  w.loadURL(WEB_URL);
+  w.loadURL(url);
   w.on('closed', () => {
     mainWindow = null;
     if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -112,13 +132,13 @@ async function bootSequence(): Promise<void> {
   // even if our local cache says it's fresh.
   const hb = await tryHeartbeat(blob);
   if (hb.ok) {
-    mainWindow = openMainWindow();
+    mainWindow = await openMainWindow();
     startHeartbeatLoop();
     return;
   }
   if (hb.networkError && isCachedLicenseFresh(blob)) {
     // Offline grace path: backend unreachable but cache is fresh.
-    mainWindow = openMainWindow();
+    mainWindow = await openMainWindow();
     startHeartbeatLoop();
     return;
   }
@@ -168,13 +188,19 @@ ipcMain.handle(
         validUntil: result.validUntil,
       });
       // Swap windows.
-      mainWindow = openMainWindow();
+      mainWindow = await openMainWindow();
       startHeartbeatLoop();
       gateWindow?.close();
       return { ok: true };
     } catch (e) {
-      const err = e as LicenseError;
-      return { ok: false, code: err.code, message: err.message };
+      const err = e as Partial<LicenseError> & { message?: string };
+      // A LicenseError carries `code`; a UI-server-start failure does not.
+      if (!err.code) {
+        const msg = err.message || 'Unknown error';
+        dialog.showErrorBox('GroOne', `Could not start the app UI:\n${msg}`);
+        return { ok: false, code: 'UNKNOWN', message: msg };
+      }
+      return { ok: false, code: err.code, message: err.message || 'Activation failed' };
     }
   },
 );

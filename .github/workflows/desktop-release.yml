@@ -34,20 +34,30 @@ jobs:
         with:
           node-version: '20'
 
+      # Root workspace install builds web + its workspace packages.
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Build web (standalone, prod API baked in)
+        working-directory: web
+        env:
+          NEXT_PUBLIC_API_URL: https://api.groone.in/api/v1
+        run: npm run build
+
       - name: Install desktop dependencies
         working-directory: desktop
         run: npm ci
 
-      - name: Run unit tests
+      - name: Run desktop unit tests
         working-directory: desktop
         run: npm test
 
-      - name: Build + publish installer
+      - name: Bundle UI + build + publish installer
         working-directory: desktop
         env:
           # electron-builder uses this to create the Release + upload assets.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build && npx electron-builder --win nsis --x64 --publish always
+        run: npm run build && npm run bundle:web && npx electron-builder --win nsis --x64 --publish always
 
       - name: Upload installer as workflow artifact (fallback)
         uses: actions/upload-artifact@v4
