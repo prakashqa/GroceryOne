@@ -28,12 +28,10 @@ import { loadLicense, saveLicense, clearLicense, LicenseBlob } from './store';
 const datPath = () => path.join(app.getPath('userData'), 'license.dat');
 
 const sample: LicenseBlob = {
-  key: 'GROD-AAAA-BBBB-CCCC-DDDD',
-  tenantSlug: 'siri-general-stores',
+  token: 'payloadB64.signatureB64',
+  customer: 'Siri General Stores',
   plan: 'desktop_yearly',
-  activatedAt: '2026-06-01T00:00:00.000Z',
-  lastValidatedAt: '2026-06-01T00:00:00.000Z',
-  validUntil: '2027-06-01T00:00:00.000Z',
+  expiresAt: '2027-06-01T00:00:00.000Z',
 };
 
 afterEach(() => {

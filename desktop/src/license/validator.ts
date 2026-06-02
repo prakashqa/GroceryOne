@@ -1,122 +1,90 @@
 /**
- * License validator — talks to api.groone.in /licenses/{activate,validate}.
+ * Offline license verification.
  *
- * Errors surface as { code, message } where `code` is one of:
- *   NOT_FOUND        – key not recognised (HTTP 404)
- *   REVOKED          – key was revoked (HTTP 401)
- *   EXPIRED          – key validity past (HTTP 410)
- *   MACHINE_LOCKED   – key bound to another machine (HTTP 403 or 409)
- *   TENANT_MISMATCH  – key/tenantSlug mismatch (HTTP 403)
- *   NETWORK          – fetch failed (no internet, DNS, etc.)
- *   VALIDATION       – DTO rejected by backend (HTTP 400)
- *   UNKNOWN          – anything else
+ * A license token is `base64url(payloadJSON) + "." + base64url(ed25519_sig)`,
+ * minted by the vendor's gen.js with the private key. The app verifies the
+ * signature against the embedded public key and checks expiry — entirely
+ * offline, no network, no machine binding (keys work on any PC).
  *
- * The license gate UI reads `code` to render a tailored message.
+ * Payload shape:
+ *   { customer: string, plan: 'desktop_yearly', issuedAt: ISO, expiresAt: ISO, v: 1 }
  */
 
-import { getRawMachineId } from './machineId';
+import * as crypto from 'crypto';
+import { LICENSE_PUBLIC_KEY_PEM } from './publicKey';
 
-const DEFAULT_API_URL = 'https://api.groone.in/api/v1';
-
-export interface ActivateResult {
-  key: string;
+export interface LicensePayload {
+  customer: string;
   plan: string;
-  status: string;
-  validUntil: string;
-  activatedAt: string;
-  tenantSlug: string;
-}
-
-export interface ValidateResult {
-  status: string;
-  validUntil: string;
+  issuedAt: string;
+  expiresAt: string;
+  v?: number;
 }
 
 export interface LicenseError {
-  code:
-    | 'NOT_FOUND'
-    | 'REVOKED'
-    | 'EXPIRED'
-    | 'MACHINE_LOCKED'
-    | 'TENANT_MISMATCH'
-    | 'NETWORK'
-    | 'VALIDATION'
-    | 'UNKNOWN';
+  code: 'MALFORMED' | 'BAD_SIGNATURE' | 'EXPIRED';
   message: string;
-  httpStatus?: number;
 }
 
-function apiUrl(): string {
-  // GROONE_API_URL overrides at runtime for staging/test environments.
-  return process.env.GROONE_API_URL || DEFAULT_API_URL;
+function fail(code: LicenseError['code'], message: string): never {
+  const err: LicenseError = { code, message };
+  throw err;
 }
 
-function statusToCode(status: number): LicenseError['code'] {
-  switch (status) {
-    case 401:
-      return 'REVOKED';
-    case 403:
-      // Could be tenant mismatch OR machine mismatch — server message
-      // distinguishes; default to MACHINE_LOCKED for UI simplicity, the
-      // caller can re-classify by inspecting `message`.
-      return 'MACHINE_LOCKED';
-    case 404:
-      return 'NOT_FOUND';
-    case 409:
-      return 'MACHINE_LOCKED';
-    case 410:
-      return 'EXPIRED';
-    case 400:
-      return 'VALIDATION';
-    default:
-      return 'UNKNOWN';
+function fromB64url(s: string): Buffer {
+  // Restore padding + url-safe → standard base64.
+  const std = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = std.length % 4 === 0 ? '' : '='.repeat(4 - (std.length % 4));
+  return Buffer.from(std + pad, 'base64');
+}
+
+/**
+ * Verify a pasted/imported license token. Returns the validated payload or
+ * throws a typed LicenseError.
+ */
+export function verifyLicense(rawToken: string): LicensePayload {
+  const token = (rawToken || '').trim();
+  const parts = token.split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    fail('MALFORMED', 'License is not in the expected format.');
   }
-}
+  const [payloadB64, sigB64] = parts;
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  let res: Response;
+  // Verify the Ed25519 signature over the payload-b64 bytes.
+  let signatureOk = false;
   try {
-    res = await fetch(`${apiUrl()}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    const err: LicenseError = {
-      code: 'NETWORK',
-      message: (e as Error).message || 'Network request failed',
-    };
-    throw err;
+    signatureOk = crypto.verify(
+      null,
+      Buffer.from(payloadB64),
+      LICENSE_PUBLIC_KEY_PEM,
+      fromB64url(sigB64),
+    );
+  } catch {
+    signatureOk = false;
   }
-  if (!res.ok) {
-    let serverMsg = res.statusText;
-    try {
-      const json: any = await res.json();
-      serverMsg = json?.message || json?.error || serverMsg;
-    } catch {
-      /* not JSON */
-    }
-    const code = statusToCode(res.status);
-    // Disambiguate 403 tenant vs machine
-    const final: LicenseError['code'] =
-      code === 'MACHINE_LOCKED' && /tenant/i.test(serverMsg) ? 'TENANT_MISMATCH' : code;
-    const err: LicenseError = { code: final, message: serverMsg, httpStatus: res.status };
-    throw err;
+  if (!signatureOk) {
+    fail('BAD_SIGNATURE', 'License signature is invalid.');
   }
-  return (await res.json()) as T;
-}
 
-export async function activate(key: string, tenantSlug: string): Promise<ActivateResult> {
-  return post<ActivateResult>('/licenses/activate', {
-    key: key.trim().toUpperCase(),
-    machineId: getRawMachineId(),
-    tenantSlug: tenantSlug.trim().toLowerCase(),
-  });
-}
+  // Decode + parse the payload.
+  let payload: LicensePayload;
+  try {
+    payload = JSON.parse(fromB64url(payloadB64).toString('utf8'));
+  } catch {
+    fail('MALFORMED', 'License payload could not be read.');
+  }
+  if (!payload || typeof payload.customer !== 'string' || typeof payload.expiresAt !== 'string') {
+    fail('MALFORMED', 'License payload is missing required fields.');
+  }
 
-export async function validate(key: string): Promise<ValidateResult> {
-  return post<ValidateResult>('/licenses/validate', {
-    key: key.trim().toUpperCase(),
-    machineId: getRawMachineId(),
-  });
+  // Enforce expiry.
+  const expiresAt = Date.parse(payload.expiresAt);
+  if (Number.isNaN(expiresAt)) {
+    fail('MALFORMED', 'License expiry date is invalid.');
+  }
+  if (expiresAt <= Date.now()) {
+    fail('EXPIRED', 'License has expired.');
+  }
+
+  return payload;
 }

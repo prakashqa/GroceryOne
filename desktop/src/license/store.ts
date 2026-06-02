@@ -21,12 +21,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export interface LicenseBlob {
-  key: string;
-  tenantSlug: string;
+  /** The full signed license token (offline-verifiable). */
+  token: string;
+  customer: string;
   plan: string;
-  activatedAt: string;
-  lastValidatedAt: string;
-  validUntil: string;
+  /** ISO expiry, mirrored from the token payload for quick display. */
+  expiresAt: string;
 }
 
 const FILE_NAME = 'license.dat';

@@ -49,21 +49,50 @@ form label {
   font-weight: 600;
   color: #333;
 }
-form input {
+form input,
+form textarea {
   display: block;
   width: 100%;
   padding: 10px 12px;
   margin-top: 6px;
   border: 1px solid #ccd0d5;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   background: white;
   font-family: 'Menlo', 'Consolas', monospace;
+  resize: vertical;
+  word-break: break-all;
 }
-form input:focus {
+form input:focus,
+form textarea:focus {
   outline: none;
   border-color: #2e7d32;
   box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15);
+}
+.success {
+  background: #eafaef;
+  border-left: 3px solid #2e7d32;
+  padding: 9px 12px;
+  border-radius: 4px;
+  margin: 6px 0 14px;
+  color: #1b5e20;
+  font-size: 13px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.actions button {
+  flex: 1;
+}
+button.secondary {
+  background: #eef2f0;
+  color: #2e7d32;
+  border: 1px solid #cfe0d4;
+}
+button.secondary:hover {
+  background: #e2ebe5;
 }
 .hint {
   display: block;

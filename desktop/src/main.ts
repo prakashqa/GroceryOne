@@ -1,55 +1,40 @@
 /**
- * Electron main process.
+ * Electron main process — offline, self-contained desktop app.
  *
  * Boot flow:
- *   1. App ready → load cached license (if any).
- *   2. If cached license is fresh (validUntil > now + small margin) AND
- *      we can heartbeat the backend successfully → open main window.
- *   3. If cached license is fresh but heartbeat fails with NETWORK → open
- *      main window anyway (offline grace).
- *   4. Otherwise → show the license-gate window.
- *   5. After successful activate from the gate → swap to main window.
+ *   1. Load the stored license token → verify OFFLINE (Ed25519 sig + expiry).
+ *      - valid   → start the app (Postgres → backend → UI → window).
+ *      - missing/invalid/expired → show the license gate.
+ *   2. Gate: user pastes/imports a license → verify → store → start the app.
  *
- * The main window loads the UI from a Next.js server bundled INSIDE the app
- * and spawned on a local 127.0.0.1 port (see ./server). There's no external
- * web host. For local UI development you can still override with
- * GROONE_WEB_URL=http://localhost:3001 to point at a running `next dev`.
+ * Everything runs locally on 127.0.0.1: embedded Postgres, the bundled
+ * NestJS backend, and the bundled Next.js UI. No network, no Vultr.
  */
 
-import { app, BrowserWindow, ipcMain, session, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
-import {
-  loadLicense,
-  saveLicense,
-  clearLicense,
-  LicenseBlob,
-} from './license/store';
-import { activate, validate, LicenseError } from './license/validator';
-import { getMachineIdShortHash } from './license/machineId';
-import { isCachedLicenseFresh } from './license/freshness';
-import { startLocalWebServer } from './server';
+import { loadLicense, saveLicense, clearLicense } from './license/store';
+import { verifyLicense, LicenseError, LicensePayload } from './license/validator';
+import { startLocalWebServer, stopLocalWebServer } from './server';
+import { startPostgres, stopPostgres } from './db';
+import { startBackend, stopBackend } from './backend';
 
-// Dev-only override: point the main window at an already-running web dev
-// server instead of the bundled one. Empty in production.
-const WEB_URL_OVERRIDE = process.env.GROONE_WEB_URL || '';
-
-// Memoized URL of the bundled UI server once started.
-let webUrl: string | null = null;
-
-// 24h heartbeat cadence while main window is open.
-const HEARTBEAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const WEB_URL_OVERRIDE = process.env.GROONE_WEB_URL || ''; // dev-only
 
 let gateWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 let mainWindow: BrowserWindow | null = null;
-let heartbeatTimer: NodeJS.Timeout | null = null;
+let started = false; // app stack started (guards double-start)
+
+// ─── Windows ─────────────────────────────────────────────────────────
 
 function openGateWindow(): BrowserWindow {
   const w = new BrowserWindow({
-    width: 520,
-    height: 560,
+    width: 560,
+    height: 600,
     resizable: false,
-    minimizable: false,
     maximizable: false,
     fullscreenable: false,
     title: 'GroOne — License Activation',
@@ -61,35 +46,48 @@ function openGateWindow(): BrowserWindow {
   });
   w.removeMenu();
   w.loadFile(path.join(__dirname, 'windows', 'license-gate.html'));
-  // Helpful in dev. Remove for production builds via electron-builder.
   if (process.env.GROONE_DEVTOOLS === '1') w.webContents.openDevTools({ mode: 'detach' });
   w.on('closed', () => {
     gateWindow = null;
-    // If the gate is closed before a main window opens, quit the app.
-    if (!mainWindow) app.quit();
+    if (!mainWindow && !splashWindow) app.quit();
   });
   return w;
 }
 
-/**
- * Resolve the URL the main window should load. In production this boots the
- * bundled Next server once and memoizes its 127.0.0.1 URL. In dev, a
- * GROONE_WEB_URL override short-circuits to a running `next dev`.
- */
-async function ensureWebUrl(): Promise<string> {
-  if (WEB_URL_OVERRIDE) return WEB_URL_OVERRIDE;
-  if (webUrl) return webUrl;
-  webUrl = await startLocalWebServer();
-  return webUrl;
+function openSplash(): BrowserWindow {
+  const w = new BrowserWindow({
+    width: 420,
+    height: 240,
+    frame: false,
+    resizable: false,
+    center: true,
+    title: 'GroOne',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  w.removeMenu();
+  const html =
+    `<!doctype html><meta charset="utf-8"><style>` +
+    `html,body{margin:0;height:100%;font-family:Segoe UI,Arial,sans-serif;background:#2e7d32;color:#fff;` +
+    `display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}` +
+    `.logo{font-size:30px;font-weight:700;letter-spacing:.5px}.msg{opacity:.9;font-size:14px}` +
+    `.bar{width:160px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);overflow:hidden}` +
+    `.bar::before{content:"";display:block;height:100%;width:40%;background:#fff;animation:s 1.1s infinite}` +
+    `@keyframes s{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>` +
+    `<div class="logo">GroOne</div><div class="msg">Starting up…</div><div class="bar"></div>`;
+  w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+  w.on('closed', () => {
+    splashWindow = null;
+  });
+  return w;
 }
 
-async function openMainWindow(): Promise<BrowserWindow> {
-  const url = await ensureWebUrl();
+function openMainWindow(url: string): BrowserWindow {
   const w = new BrowserWindow({
     width: 1366,
     height: 850,
     minWidth: 1024,
     minHeight: 600,
+    show: false,
     title: 'GroOne',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -98,137 +96,137 @@ async function openMainWindow(): Promise<BrowserWindow> {
     },
   });
   w.loadURL(url);
+  w.once('ready-to-show', () => {
+    w.show();
+    splashWindow?.close();
+    gateWindow?.close();
+  });
   w.on('closed', () => {
     mainWindow = null;
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
   });
   return w;
 }
 
-async function tryHeartbeat(blob: LicenseBlob): Promise<{ ok: boolean; networkError: boolean }> {
+// ─── App stack orchestration ─────────────────────────────────────────
+
+/** Start Postgres → backend → UI, then open the main window. */
+async function startApp(): Promise<void> {
+  if (started) return;
+  started = true;
+  if (!gateWindow) splashWindow = openSplash();
   try {
-    const result = await validate(blob.key);
-    blob.lastValidatedAt = new Date().toISOString();
-    blob.validUntil = result.validUntil;
-    saveLicense(blob);
-    return { ok: true, networkError: false };
+    const db = await startPostgres();
+    await startBackend(db);
+    const url = WEB_URL_OVERRIDE || (await startLocalWebServer());
+    mainWindow = openMainWindow(url);
   } catch (e) {
-    const err = e as LicenseError;
-    if (err.code === 'NETWORK') {
-      return { ok: false, networkError: true };
-    }
-    return { ok: false, networkError: false };
+    started = false;
+    const msg = (e as Error)?.message || String(e);
+    console.error('startApp failed:', e);
+    splashWindow?.close();
+    dialog.showErrorBox(
+      'GroOne could not start',
+      `${msg}\n\nIf this keeps happening, please contact support@groone.in.`,
+    );
+    app.quit();
+  }
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────
+
+function verifyStored(): LicensePayload | null {
+  const blob = loadLicense();
+  if (!blob?.token) return null;
+  try {
+    return verifyLicense(blob.token);
+  } catch {
+    clearLicense();
+    return null;
   }
 }
 
 async function bootSequence(): Promise<void> {
-  const blob = loadLicense();
-  if (!blob) {
+  const valid = verifyStored();
+  if (valid) {
+    await startApp();
+  } else {
     gateWindow = openGateWindow();
-    return;
   }
-  // Try fresh heartbeat first so a revoked license is caught immediately
-  // even if our local cache says it's fresh.
-  const hb = await tryHeartbeat(blob);
-  if (hb.ok) {
-    mainWindow = await openMainWindow();
-    startHeartbeatLoop();
-    return;
-  }
-  if (hb.networkError && isCachedLicenseFresh(blob)) {
-    // Offline grace path: backend unreachable but cache is fresh.
-    mainWindow = await openMainWindow();
-    startHeartbeatLoop();
-    return;
-  }
-  // Otherwise (revoked, expired, machine moved, or grace expired) → gate.
-  clearLicense();
-  gateWindow = openGateWindow();
 }
 
-function startHeartbeatLoop(): void {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  heartbeatTimer = setInterval(async () => {
-    const blob = loadLicense();
-    if (!blob) return;
-    const hb = await tryHeartbeat(blob);
-    if (!hb.ok && !hb.networkError) {
-      // Hard failure — license is no longer valid. Drop back to gate.
-      clearLicense();
-      if (mainWindow) mainWindow.close();
-      gateWindow = openGateWindow();
-    }
-  }, HEARTBEAT_INTERVAL_MS);
-  // Don't keep the process alive solely because of the interval.
-  heartbeatTimer.unref?.();
-}
-
-// ─── IPC handlers from the license-gate renderer ─────────────────────
-
-ipcMain.handle('groone:license:getMachineHash', () => getMachineIdShortHash());
+// ─── IPC (license gate) ──────────────────────────────────────────────
 
 ipcMain.handle(
-  'groone:license:activate',
+  'groone:license:submit',
   async (
-    _event,
-    payload: { key: string; tenantSlug: string },
-  ): Promise<
-    { ok: true } | { ok: false; code: LicenseError['code']; message: string }
-  > => {
+    _e,
+    token: string,
+  ): Promise<{ ok: true; customer: string; expiresAt: string } | { ok: false; code: string; message: string }> => {
     try {
-      const result = await activate(payload.key, payload.tenantSlug);
-      const now = new Date().toISOString();
+      const payload = verifyLicense(token);
       saveLicense({
-        key: result.key,
-        tenantSlug: result.tenantSlug,
-        plan: result.plan,
-        activatedAt: result.activatedAt || now,
-        lastValidatedAt: now,
-        validUntil: result.validUntil,
+        token: token.trim(),
+        customer: payload.customer,
+        plan: payload.plan,
+        expiresAt: payload.expiresAt,
       });
-      // Swap windows.
-      mainWindow = await openMainWindow();
-      startHeartbeatLoop();
-      gateWindow?.close();
-      return { ok: true };
+      // Boot the app stack (gate window stays until the main window is ready).
+      startApp();
+      return { ok: true, customer: payload.customer, expiresAt: payload.expiresAt };
     } catch (e) {
-      const err = e as Partial<LicenseError> & { message?: string };
-      // A LicenseError carries `code`; a UI-server-start failure does not.
-      if (!err.code) {
-        const msg = err.message || 'Unknown error';
-        dialog.showErrorBox('GroOne', `Could not start the app UI:\n${msg}`);
-        return { ok: false, code: 'UNKNOWN', message: msg };
-      }
-      return { ok: false, code: err.code, message: err.message || 'Activation failed' };
+      const err = e as LicenseError;
+      return { ok: false, code: err.code || 'UNKNOWN', message: err.message || 'Invalid license' };
     }
   },
 );
 
-ipcMain.handle('groone:app:openExternal', async (_event, url: string) => {
-  const { shell } = await import('electron');
-  if (/^https?:\/\//.test(url)) await shell.openExternal(url);
+ipcMain.handle('groone:license:importFile', async (): Promise<string | null> => {
+  const res = await dialog.showOpenDialog({
+    title: 'Select your GroOne license (.lic)',
+    filters: [{ name: 'License', extensions: ['lic', 'txt'] }],
+    properties: ['openFile'],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  try {
+    return fs.readFileSync(res.filePaths[0], 'utf8');
+  } catch {
+    return null;
+  }
 });
 
-// ─── App lifecycle ──────────────────────────────────────────────────
+ipcMain.handle('groone:app:openExternal', async (_e, url: string) => {
+  const { shell } = await import('electron');
+  if (/^(https?|mailto):/.test(url)) await shell.openExternal(url);
+});
+
+// ─── Lifecycle ───────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
-  // Lock down navigation: only allow our web origin in main window.
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, cb) => {
-    cb({});
-  });
-
-  // electron-updater fires automatically (no-op if not packaged).
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch((e) => {
-      // Updater errors are non-fatal — log + carry on.
-      console.error('Auto-update check failed:', e);
-    });
+    autoUpdater.checkForUpdatesAndNotify().catch((e) => console.error('Auto-update check failed:', e));
   }
-
   bootSequence().catch((e) => {
     console.error('Boot sequence failed:', e);
     app.quit();
+  });
+});
+
+// Graceful shutdown: UI → backend → Postgres (data integrity).
+let quitting = false;
+app.on('before-quit', () => {
+  stopLocalWebServer();
+  stopBackend();
+});
+app.on('will-quit', (e) => {
+  if (quitting) return; // allow the forced exit below to proceed
+  quitting = true;
+  e.preventDefault();
+  // Stop Postgres cleanly, but never hang the quit longer than 6s.
+  const done = () => app.exit(0);
+  const timer = setTimeout(done, 6000);
+  stopPostgres().finally(() => {
+    clearTimeout(timer);
+    done();
   });
 });
 

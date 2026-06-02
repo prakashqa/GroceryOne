@@ -12,12 +12,22 @@ files:
   - "node_modules/**/*"
   - "!node_modules/**/{CHANGELOG.md,README.md,readme.md,test,__tests__,tests,*.d.ts,*.map}"
 
-# The bundled Next.js UI server runs as a child Node process, so it must live
-# OUTSIDE the asar archive (asar-packed files can't be spawned/required by a
-# separate process reliably). extraResources copies it to resources/web-bundle.
+# Embedded Postgres ships real .exe binaries that the main process executes.
+# They cannot run from inside the asar archive, so unpack them to
+# app.asar.unpacked (embedded-postgres resolves them relative to its own dir).
+asarUnpack:
+  - "node_modules/@embedded-postgres/**"
+  - "node_modules/embedded-postgres/**"
+
+# The bundled Next.js UI server AND the bundled NestJS backend run as child
+# Node processes, so they live OUTSIDE the asar (asar-packed files can't be
+# spawned/required by a separate process reliably). extraResources copies them
+# to resources/web-bundle and resources/backend-bundle.
 extraResources:
   - from: "web-bundle"
     to: "web-bundle"
+  - from: "backend-bundle"
+    to: "backend-bundle"
 
 # Windows NSIS installer
 win:

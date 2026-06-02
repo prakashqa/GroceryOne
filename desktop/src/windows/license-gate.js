@@ -1,94 +1,87 @@
-/* Renderer script for license-gate.html. Talks to main via window.groone (preload). */
+/* Renderer for the offline license gate. Talks to main via window.groone (preload). */
 /* eslint-disable no-undef */
 
 const errorBox = document.getElementById('error');
+const successBox = document.getElementById('success');
 const form = document.getElementById('activate-form');
 const submitBtn = document.getElementById('submit');
-const tenantInput = document.getElementById('tenant');
-const keyInput = document.getElementById('key');
+const importBtn = document.getElementById('import');
+const tokenInput = document.getElementById('token');
 const supportLink = document.getElementById('support-link');
 
 function showError(msg) {
+  successBox.hidden = true;
   errorBox.hidden = false;
   errorBox.textContent = msg;
 }
-function clearError() {
+function showSuccess(msg) {
   errorBox.hidden = true;
-  errorBox.textContent = '';
+  successBox.hidden = false;
+  successBox.textContent = msg;
 }
-
+function clearMsgs() {
+  errorBox.hidden = true;
+  successBox.hidden = true;
+}
 function setBusy(busy) {
   submitBtn.disabled = busy;
-  submitBtn.textContent = busy ? 'Activating…' : 'Activate';
+  importBtn.disabled = busy;
+  submitBtn.textContent = busy ? 'Starting…' : 'Activate';
 }
-
-// Auto-uppercase the key as the user types, preserve dashes
-keyInput.addEventListener('input', (e) => {
-  const v = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-  if (v !== e.target.value) e.target.value = v;
-});
-tenantInput.addEventListener('input', (e) => {
-  const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-  if (v !== e.target.value) e.target.value = v;
-});
 
 function friendly(code, message) {
   switch (code) {
-    case 'NOT_FOUND':
-      return 'License key not recognised. Check for typos.';
-    case 'REVOKED':
-      return 'This license has been revoked. Contact support.';
+    case 'MALFORMED':
+      return 'That doesn\'t look like a valid license key. Check you copied all of it.';
+    case 'BAD_SIGNATURE':
+      return 'This license key is not valid (signature check failed).';
     case 'EXPIRED':
-      return 'This license has expired. Renew at support@groone.in.';
-    case 'MACHINE_LOCKED':
-      return 'This key is already activated on another machine. Ask support to transfer it.';
-    case 'TENANT_MISMATCH':
-      return 'License does not belong to that business slug. Double-check the slug.';
-    case 'VALIDATION':
-      return message || 'Please check the key + business slug format.';
-    case 'NETWORK':
-      return 'No internet connection. Check your network and try again.';
+      return 'This license has expired. Contact support@groone.in to renew.';
+    case 'STARTUP':
+      return message || 'The app could not start. Please restart, or contact support.';
     default:
       return message || 'Activation failed. Please try again or contact support.';
   }
 }
 
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  clearError();
+async function submitToken(token) {
+  clearMsgs();
   setBusy(true);
-  const tenant = tenantInput.value.trim().toLowerCase();
-  const key = keyInput.value.trim().toUpperCase();
-  if (!/^GROD-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(key)) {
-    setBusy(false);
-    showError('Key must look like GROD-XXXX-XXXX-XXXX-XXXX (no I/L/O/U, no 0/1).');
-    return;
-  }
-  if (!tenant) {
-    setBusy(false);
-    showError('Business slug is required.');
-    return;
-  }
   try {
-    const result = await window.groone.license.activate(key, tenant);
+    const result = await window.groone.license.submit(token);
     if (result.ok) {
-      // Main process is opening the main window — this gate window will close itself.
-      submitBtn.textContent = 'Activated ✓';
+      showSuccess(`Licensed to ${result.customer}. Starting GroOne…`);
+      // Main process is booting the app + will swap windows.
       return;
     }
     setBusy(false);
     showError(friendly(result.code, result.message));
   } catch (err) {
     setBusy(false);
-    showError(friendly('UNKNOWN', err.message));
+    showError(friendly('UNKNOWN', err && err.message));
+  }
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const token = tokenInput.value.trim();
+  if (!token) {
+    showError('Paste your license key first.');
+    return;
+  }
+  submitToken(token);
+});
+
+importBtn.addEventListener('click', async () => {
+  clearMsgs();
+  const token = await window.groone.license.importFile();
+  if (token) {
+    tokenInput.value = token.trim();
+    submitToken(token.trim());
   }
 });
 
 supportLink.addEventListener('click', (e) => {
   e.preventDefault();
   window.groone.openExternal('mailto:support@groone.in?subject=GroOne%20Desktop%20License');
-});
-
-window.groone.license.getMachineHash().then((hash) => {
-  document.getElementById('machine-hash').textContent = hash;
 });

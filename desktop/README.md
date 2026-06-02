@@ -1,84 +1,94 @@
-# GroOne Desktop (Windows)
+# GroOne Desktop (Windows) — offline, self-contained
 
-Standalone Windows app gating on a per-tenant yearly license key (₹2,000 / year).
+A fully offline Windows app for a single shop. Each install runs its **own
+backend + database on the customer's PC** — no internet, no Vultr, no central
+server. Licensing is **offline**: the vendor signs a per-customer key that the
+app verifies locally with a built-in public key.
+
+> This is a separate product from the cloud app (api.groone.in + the Android
+> app). They share the same `backend` and `web` source; the desktop build just
+> runs them locally against an embedded Postgres.
 
 ## Architecture
 
-**Self-contained / standalone.** The `.exe` carries its own UI — there is no
-external web host. On launch the main process spawns the bundled **Next.js
-standalone server** (from `web/`) on a local `127.0.0.1` port using Electron's
-own Node runtime, then points the BrowserWindow at it. The UI talks to the
-cloud API (`https://api.groone.in`) directly for data — only the HTML/JS is
-served locally. (This is unavoidable for a multi-tenant cloud POS; the same
-as the Android app. Truly offline data would need a separate local-sync layer.)
-
-- **Electron 30** main process — license gate + window lifecycle + auto-update + local UI server.
-- **Bundled UI** — `desktop/web-bundle/` holds the Next standalone output (server.js + traced node_modules + static assets), shipped via electron-builder `extraResources` (outside asar so it can be spawned). Built with `NEXT_PUBLIC_API_URL=https://api.groone.in/api/v1` baked in.
-- License lives in `%APPDATA%\GroOne\license.dat`, encrypted via Electron's `safeStorage` (Windows DPAPI under the hood — file is bound to the OS user account).
-- Heartbeat: `POST /licenses/validate` on launch + every 24h. 7-day offline grace if backend unreachable.
-- Machine binding: `node-machine-id` reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid`. Sent raw; backend SHA-256s it before storage.
-- **Dev override**: set `GROONE_WEB_URL=http://localhost:3001` to point the window at a running `next dev` instead of the bundled server.
-
-## Folder layout
-
 ```
-src/
-├── main.ts                 Electron main process
-├── preload.ts              IPC bridge (contextIsolation = on)
-├── license/
-│   ├── machineId.ts        node-machine-id wrapper
-│   ├── store.ts            Encrypted license blob persistence
-│   └── validator.ts        HTTP calls to /licenses/{activate,validate}
-└── windows/
-    ├── license-gate.html   Pre-launch UI
-    ├── license-gate.css
-    └── license-gate.js     Renderer script
+GroOne.exe (Electron main process)
+ ├─ License gate (OFFLINE)  — verify Ed25519-signed key + expiry. No network.
+ └─ On unlock, orchestrates 3 local processes (all 127.0.0.1):
+     1. Embedded PostgreSQL   → %APPDATA%/GroOne/pgdata, port 47632 (UTF8)
+     2. NestJS backend (reuse) → port 47600, DB_SYNCHRONIZE + REDIS_DISABLED
+                                  + SUBSCRIPTION_ENFORCED=false
+     3. Next.js UI (reuse)     → NEXT_PUBLIC_API_URL=http://127.0.0.1:47600/api/v1
+   BrowserWindow → local UI → local backend → local Postgres.
 ```
 
-## Development
+- **Embedded Postgres** (`src/db.ts`): PostgreSQL 18.3 via `embedded-postgres`;
+  initialised UTF8 on first run, started each launch, stopped gracefully on quit.
+- **Bundled backend** (`src/backend.ts` + `scripts/bundle-backend.js`): the
+  NestJS app compiled + isolated-installed into `backend-bundle/`, spawned under
+  Electron's Node. bcrypt (native) loads under Electron's ABI — no rebuild.
+- **Bundled UI** (`src/server.ts` + `scripts/bundle-web.js`): Next.js standalone
+  in `web-bundle/`, served locally.
+- **Offline licensing** (`src/license/`): `validator.ts` verifies an
+  Ed25519-signed token offline; `store.ts` keeps it (encrypted, DPAPI). Keys
+  work on any PC; expiry is enforced on every launch.
+
+## Issuing a license to a customer (vendor)
+
+The private key (`tools/license-gen/license-private.pem`) is generated once and
+**kept secret / backed up** (gitignored, never shipped). The matching public key
+is embedded in `src/license/publicKey.ts`.
+
+```bash
+cd desktop/tools/license-gen
+node gen.js --customer "Siri General Stores" --years 1
+# → prints the license key + writes Siri-General-Stores.lic
+```
+
+Email that key (or the `.lic` file) to the customer. They paste it (or "Import
+.lic file") into the app's license gate.
+
+> If the private key is ever lost or leaks, generate a new keypair, update
+> `src/license/publicKey.ts`, ship a new build, and re-issue customer keys.
+
+## Build the installer
 
 ```bash
 cd desktop
 npm install
-npm start             # builds + launches Electron in dev
+npm run dist:fresh     # rebuild web (local API) + bundle backend + package
+# → build/GroOne-Setup-<version>.exe
 ```
 
-Environment overrides:
-- `GROONE_API_URL` — default `https://api.groone.in/api/v1`
-- `GROONE_WEB_URL` — default `https://app.groone.in`
-- `GROONE_DEVTOOLS=1` — open Chrome DevTools on the license-gate window
+- `dist:fresh` runs `build:web` (bakes the local API URL) + `bundle:web` +
+  `bundle:backend` + electron-builder.
+- `dist` skips the web rebuild (use when `web/.next` is already built for local).
+- Installer is large (~180–250 MB): Electron + Next + NestJS + node_modules +
+  Postgres binaries.
 
-## Build the Windows installer
+Environment overrides (dev):
+- `GROONE_WEB_URL=http://localhost:3001` — point the window at a running
+  `next dev` instead of the bundled UI.
+- `GROONE_DEVTOOLS=1` — open DevTools on the license gate.
+
+## First run (customer)
+
+1. Install + launch → license gate → paste key → app starts (splash while
+   Postgres + backend + UI come up, a few seconds).
+2. The shop owner does first-run signup (creates the local shop + admin in the
+   embedded DB). Subsequent launches go straight in.
+3. All data lives in `%APPDATA%/GroOne/pgdata`. Back it up by copying that folder.
+
+## Tests
 
 ```bash
-npm run dist          # produces build/GroOne-Setup-1.0.0.exe (NSIS)
-npm run dist:dir      # unpacked build for quick smoke tests
+npm test    # validator (offline crypto) + store (encrypted persistence)
 ```
-
-The first `npm run dist` after a fresh checkout will download Electron + NSIS binaries (~200 MB cached under `%LOCALAPPDATA%\electron-builder\Cache`).
-
-**Code signing**: disabled in v1. Windows SmartScreen will show a warning at install time — click **More info → Run anyway**. Phase 3 adds an EV code-signing certificate.
-
-## Manual activation flow
-
-1. Customer pays ₹2,000 via UPI to `groone@upi`.
-2. Customer emails the payment screenshot + business slug to `support@groone.in`.
-3. Support runs `POST /licenses/generate` with their admin JWT:
-   ```bash
-   curl -X POST https://api.groone.in/api/v1/licenses/generate \
-     -H "Authorization: Bearer <admin-jwt>" \
-     -H "Content-Type: application/json" \
-     -d '{"tenantSlug":"<slug>","plan":"desktop_yearly","paymentRef":"manual-UPI-2026-05-15"}'
-   ```
-4. Support emails the returned `GROD-XXXX-XXXX-XXXX-XXXX` key to the customer.
-5. Customer pastes the key into the desktop license gate → main window opens.
-
-## Auto-update
-
-`electron-updater` checks GitHub Releases for new versions on launch. Configure `GH_TOKEN` in CI to publish. See `electron-builder.yml` → `publish` section.
 
 ## Roadmap
 
-- **Phase 2**: in-app Razorpay checkout (no email round-trip).
-- **Phase 3**: EV code-signing cert; admin "transfer to new machine" UI; Sentry crash reporting.
-- **Phase 4**: macOS + Linux targets (`electron-builder.yml` adds two lines).
+- Dynamic backend port (drop the fixed 47600 assumption).
+- Slimmer local first-run wizard (shop name + PIN).
+- Automatic local backups (zip pgdata on quit).
+- License-renewal UX (warn before expiry; re-import).
+- EV code-signing cert (kills SmartScreen).

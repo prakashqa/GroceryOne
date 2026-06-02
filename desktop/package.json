@@ -8,21 +8,21 @@
     "build:ts": "tsc -p tsconfig.json",
     "copy:static": "node scripts/copy-static.js",
     "build": "npm run build:ts && npm run copy:static",
-    "build:web": "cross-env NEXT_PUBLIC_API_URL=https://api.groone.in/api/v1 npm --prefix ../web run build",
+    "build:web": "cross-env NEXT_PUBLIC_API_URL=http://127.0.0.1:47600/api/v1 npm --prefix ../web run build",
     "bundle:web": "node scripts/bundle-web.js",
-    "prepare:web": "npm run build:web && npm run bundle:web",
+    "bundle:backend": "node scripts/bundle-backend.js",
+    "prepare:all": "npm run build:web && npm run bundle:web && npm run bundle:backend",
     "start": "npm run build && electron .",
-    "dist": "npm run build && npm run bundle:web && electron-builder --win nsis --x64",
-    "dist:full": "npm run build && npm run prepare:web && electron-builder --win nsis --x64",
-    "dist:dir": "npm run build && npm run bundle:web && electron-builder --win dir --x64",
+    "dist": "npm run build && npm run bundle:web && npm run bundle:backend && electron-builder --win nsis --x64",
+    "dist:fresh": "npm run build && npm run prepare:all && electron-builder --win nsis --x64",
+    "dist:dir": "npm run build && npm run bundle:web && npm run bundle:backend && electron-builder --win dir --x64",
     "test": "jest",
     "test:watch": "jest --watch",
     "clean": "rimraf dist build"
   },
   "dependencies": {
     "electron-updater": "^6.2.1",
-    "embedded-postgres": "^18.3.0-beta.17",
-    "node-machine-id": "^1.1.12"
+    "embedded-postgres": "^18.3.0-beta.17"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

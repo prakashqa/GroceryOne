@@ -6,16 +6,18 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 
-type ActivateResult =
-  | { ok: true }
+type SubmitResult =
+  | { ok: true; customer: string; expiresAt: string }
   | { ok: false; code: string; message: string };
 
 contextBridge.exposeInMainWorld('groone', {
   license: {
-    getMachineHash: (): Promise<string> =>
-      ipcRenderer.invoke('groone:license:getMachineHash'),
-    activate: (key: string, tenantSlug: string): Promise<ActivateResult> =>
-      ipcRenderer.invoke('groone:license:activate', { key, tenantSlug }),
+    /** Verify + store a pasted license token, then boot the app. */
+    submit: (token: string): Promise<SubmitResult> =>
+      ipcRenderer.invoke('groone:license:submit', token),
+    /** Open a file picker for a .lic file; resolves to its text (or null). */
+    importFile: (): Promise<string | null> =>
+      ipcRenderer.invoke('groone:license:importFile'),
   },
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke('groone:app:openExternal', url),
