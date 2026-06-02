@@ -17,7 +17,13 @@
  * import it at the top of `main.ts`, before any other local module.
  */
 
-import * as child_process from 'child_process';
+// Use require() not `import * as`. TypeScript compiles `import * as` to a
+// SYNTHETIC namespace object whose re-exports are getter-only (for ESM
+// interop), and assigning into that object throws
+//   "Cannot set property spawn of #<Object> which has only a getter".
+// require() returns the real CJS module, which is writable.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const child_process: any = require('child_process');
 
 const ASAR = `app.asar${require('path').sep}`;
 const UNPACKED = `app.asar.unpacked${require('path').sep}`;
@@ -56,18 +62,26 @@ export function installAsarSpawnFix(): void {
   const origExecFile = child_process.execFile;
   const origExecFileSync = child_process.execFileSync;
 
-  // We have to overwrite the exported binding so dynamic imports / required
-  // modules pick up the patched versions.
-  (child_process as any).spawn = function patchedSpawn(cmd: string, ...rest: unknown[]) {
-    return (origSpawn as any).call(this, rewriteIfNeeded(cmd), ...rest);
+  // Use defineProperty in case a future Node version makes these getters.
+  // Functions are unwrapped via `.call(this, …)` so behaviour is identical.
+  const replace = (name: string, fn: Function): void => {
+    Object.defineProperty(child_process, name, {
+      value: fn,
+      configurable: true,
+      writable: true,
+    });
   };
-  (child_process as any).spawnSync = function patchedSpawnSync(cmd: string, ...rest: unknown[]) {
-    return (origSpawnSync as any).call(this, rewriteIfNeeded(cmd), ...rest);
-  };
-  (child_process as any).execFile = function patchedExecFile(cmd: string, ...rest: unknown[]) {
-    return (origExecFile as any).call(this, rewriteIfNeeded(cmd), ...rest);
-  };
-  (child_process as any).execFileSync = function patchedExecFileSync(cmd: string, ...rest: unknown[]) {
-    return (origExecFileSync as any).call(this, rewriteIfNeeded(cmd), ...rest);
-  };
+
+  replace('spawn', function patchedSpawn(this: unknown, cmd: string, ...rest: unknown[]) {
+    return origSpawn.call(this, rewriteIfNeeded(cmd), ...rest);
+  });
+  replace('spawnSync', function patchedSpawnSync(this: unknown, cmd: string, ...rest: unknown[]) {
+    return origSpawnSync.call(this, rewriteIfNeeded(cmd), ...rest);
+  });
+  replace('execFile', function patchedExecFile(this: unknown, cmd: string, ...rest: unknown[]) {
+    return origExecFile.call(this, rewriteIfNeeded(cmd), ...rest);
+  });
+  replace('execFileSync', function patchedExecFileSync(this: unknown, cmd: string, ...rest: unknown[]) {
+    return origExecFileSync.call(this, rewriteIfNeeded(cmd), ...rest);
+  });
 }

@@ -4,7 +4,8 @@
  * the library's own __dirname (which resolves inside the asar virtual FS).
  */
 
-import { rewriteIfNeeded } from './asar-spawn-fix';
+import { rewriteIfNeeded, installAsarSpawnFix } from './asar-spawn-fix';
+import * as child_process from 'child_process';
 
 describe('rewriteIfNeeded', () => {
   it('rewrites embedded-postgres initdb.exe (Windows backslash)', () => {
@@ -54,5 +55,71 @@ describe('rewriteIfNeeded', () => {
     expect(rewriteIfNeeded(undefined)).toBeUndefined();
     // @ts-expect-error: deliberately wrong type
     expect(rewriteIfNeeded(123)).toBe(123);
+  });
+});
+
+describe('installAsarSpawnFix', () => {
+  // The real test of the regression: just calling installAsarSpawnFix must
+  // not throw. Production threw "Cannot set property spawn of #<Object>
+  // which has only a getter" because tsc had compiled `import * as
+  // child_process` to a getter-only namespace.
+  const cp = require('child_process');
+  const realSpawn = cp.spawn;
+  const realSpawnSync = cp.spawnSync;
+  const realExecFile = cp.execFile;
+  const realExecFileSync = cp.execFileSync;
+
+  afterEach(() => {
+    // Restore the originals so a later test isn't poisoned by our patch.
+    Object.defineProperty(cp, 'spawn', { value: realSpawn, configurable: true, writable: true });
+    Object.defineProperty(cp, 'spawnSync', { value: realSpawnSync, configurable: true, writable: true });
+    Object.defineProperty(cp, 'execFile', { value: realExecFile, configurable: true, writable: true });
+    Object.defineProperty(cp, 'execFileSync', { value: realExecFileSync, configurable: true, writable: true });
+  });
+
+  it('does not throw (regression for getter-only namespace bug)', () => {
+    expect(() => installAsarSpawnFix()).not.toThrow();
+  });
+
+  it('replaces the spawn binding on child_process', () => {
+    installAsarSpawnFix();
+    expect(child_process.spawn).not.toBe(realSpawn);
+    expect(cp.spawn).not.toBe(realSpawn);
+  });
+
+  it('the patched spawn forwards a REWRITTEN path to the original', () => {
+    // Plant a spy as the "original" BEFORE installing the patch — the patch
+    // will capture this spy as origSpawn and call it with the rewritten cmd.
+    const calls: string[] = [];
+    Object.defineProperty(cp, 'spawn', {
+      value: (cmd: string) => {
+        calls.push(cmd);
+        return { on: () => {}, kill: () => {} };
+      },
+      configurable: true,
+      writable: true,
+    });
+    installAsarSpawnFix();
+    (cp.spawn as Function)(
+      'C:\\app.asar\\node_modules\\@embedded-postgres\\windows-x64\\bin\\initdb.exe',
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('app.asar.unpacked');
+    expect(calls[0]).not.toMatch(/app\.asar\\node_modules/);
+  });
+
+  it('passes unrelated commands through unchanged', () => {
+    const calls: string[] = [];
+    Object.defineProperty(cp, 'spawn', {
+      value: (cmd: string) => {
+        calls.push(cmd);
+        return { on: () => {}, kill: () => {} };
+      },
+      configurable: true,
+      writable: true,
+    });
+    installAsarSpawnFix();
+    (cp.spawn as Function)('node');
+    expect(calls[0]).toBe('node');
   });
 });
