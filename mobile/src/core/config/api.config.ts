@@ -21,10 +21,14 @@ import Constants from 'expo-constants';
 // auto-syncs .env to the current machine IP.
 const LOCAL_MACHINE_IP_FALLBACK = '192.168.0.100';
 
-// Production API URL — hosted on Railway against the Neon Postgres.
-// The previous Cloud Run URL (groceryone-backend-…run.app) stopped serving
-// after the Firebase project was downgraded to Spark (Cloud Billing detached).
-const CLOUD_API_URL = 'https://groceryone-production.up.railway.app/api/v1';
+// Production API URL — hosted on Vultr Compute (Bangalore) against the
+// Vultr Managed Postgres, served via Caddy with Let's Encrypt at
+// api.groone.in. Previous hosts (kept as comments for migration history):
+//   - Cloud Run: groceryone-backend-…run.app  (deprecated when Firebase
+//     project was downgraded to Spark / Cloud Billing detached)
+//   - Railway:   groceryone-production.up.railway.app/api/v1  (decommissioned
+//     after Vultr migration)
+const CLOUD_API_URL = 'https://api.groone.in/api/v1';
 
 // Set to true to use Cloud Run backend even in dev mode (for testing with cloud services)
 // Set to false to use local backend (for local development)
@@ -83,7 +87,7 @@ const getDevBaseUrl = (): string => {
 
 export const API_CONFIG = {
   // Base URL - automatically configured based on platform.
-  // Prod builds hit Railway (see CLOUD_API_URL above for the migration note).
+  // Prod builds hit Vultr Compute (see CLOUD_API_URL above for the migration history).
   BASE_URL: __DEV__
     ? getDevBaseUrl()
     : CLOUD_API_URL,
