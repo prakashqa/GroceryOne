@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSelector } from 'react-redux';
 import { useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectCategories,
@@ -30,8 +29,8 @@ export default function CategoryManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = useSelector(selectIsAdmin);
-  const tenant = useSelector(selectTenant);
+  const isAdmin = useAppSelector(selectIsAdmin);
+  const tenant = useAppSelector(selectTenant);
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
 

@@ -1,16 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Lock } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch';
-import { selectTenant, setCredentials } from '@groceryone/store';
+import { selectTenant, setCredentials, setTenant } from '@groceryone/store';
 import {
   savePersistedTokens,
   saveLastIdentifier,
   loadLastIdentifier,
 } from '@/lib/auth/authStorage';
+import { loadLastLogin, saveLastLogin } from '@/lib/auth/lastLogin';
 
 /**
  * PIN login: POST /auth/login/pin with `{ identifier, pin }` and
@@ -20,6 +21,53 @@ import {
  * The identifier (email or phone) is remembered per tenant in
  * localStorage so the user only types it once per browser/tenant pair.
  */
+/**
+ * POST /auth/resolve-tenant for a given identifier and write the result into
+ * Redux + localStorage. Returns the resolved slug, or null when the backend
+ * has no account for that identifier.
+ *
+ * Shared between the auto-resolve-on-mount effect and the submit-time
+ * fallback so the behavior is identical in both places.
+ */
+async function resolveTenantFor(identifier: string, dispatch: ReturnType<typeof useAppDispatch>): Promise<string | null> {
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const res = await fetch(`${apiUrl}/auth/resolve-tenant`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Version': '1.0' },
+      body: JSON.stringify({ identifier }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => ({}));
+    const data = json.data || json;
+    if (!data?.tenantSlug) return null;
+
+    const tenantObj = {
+      id: data.tenantSlug,
+      slug: data.tenantSlug,
+      name: data.tenantName || data.tenantSlug,
+      status: 'active' as const,
+      subscriptionPlan: 'basic',
+      branding: { primaryColor: '#2E7D32', secondaryColor: '#66BB6A', fontFamily: 'system' },
+      defaultLanguage: 'en',
+      supportedLanguages: ['en', 'te'],
+      currency: 'INR',
+      timezone: 'Asia/Kolkata',
+      config: { features: {}, limits: {}, paymentGateways: [] },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('@tenant_id', data.tenantSlug);
+      localStorage.setItem('@tenant_data', JSON.stringify(tenantObj));
+    }
+    dispatch(setTenant(tenantObj as any));
+    return data.tenantSlug;
+  } catch {
+    return null;
+  }
+}
+
 export default function PinLoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [pin, setPin] = useState('');
@@ -31,6 +79,9 @@ export default function PinLoginPage() {
   const tenant = useAppSelector(selectTenant);
   const tenantSlug = tenant?.slug || '';
 
+  // Auto-resolve guard so the mount-effect only fires once per page.
+  const autoResolveAttempted = useRef(false);
+
   // Pre-fill identifier from a previous successful login on this device.
   useEffect(() => {
     if (!tenantSlug) return;
@@ -40,14 +91,45 @@ export default function PinLoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantSlug]);
 
+  // Self-heal: if the page is mounted without a Redux tenant (e.g. after a
+  // logout that cleared session state), look up the last-login hint and
+  // auto-resolve the tenant + identifier. The user lands on a ready-to-go
+  // PIN keypad without retyping their email or jumping through
+  // /tenant-setup.
+  useEffect(() => {
+    if (tenantSlug) return; // already have a tenant
+    if (autoResolveAttempted.current) return;
+    autoResolveAttempted.current = true;
+    const hint = loadLastLogin();
+    if (!hint) return;
+    setIdentifier((current) => current || hint.identifier);
+    void resolveTenantFor(hint.identifier, dispatch);
+  }, [tenantSlug, dispatch]);
+
   const submitPin = useCallback(
     async (fullPin: string) => {
-      if (!tenantSlug) {
-        setError(t('error.noTenant', 'No store selected. Please set up your store first.'));
-        return;
-      }
       if (!identifier.trim()) {
         setError(t('error.identifierRequired', 'Enter your email or phone first.'));
+        setPin('');
+        return;
+      }
+
+      // Defence-in-depth: if Redux still has no tenant (auto-resolve on
+      // mount may have failed or not yet completed), try one more time with
+      // the identifier the user just typed. Single user action, no extra
+      // navigation.
+      let effectiveSlug = tenantSlug;
+      if (!effectiveSlug) {
+        const resolved = await resolveTenantFor(identifier.trim(), dispatch);
+        if (resolved) effectiveSlug = resolved;
+      }
+      if (!effectiveSlug) {
+        setError(
+          t(
+            'error.noStore',
+            "This device isn't linked to a store yet. Tap \"Setup New Store\" to get started.",
+          ),
+        );
         setPin('');
         return;
       }
@@ -61,7 +143,7 @@ export default function PinLoginPage() {
           headers: {
             'Content-Type': 'application/json',
             'X-API-Version': '1.0',
-            'X-Tenant-ID': tenantSlug,
+            'X-Tenant-ID': effectiveSlug,
           },
           body: JSON.stringify({ identifier: identifier.trim(), pin: fullPin }),
         });
@@ -77,12 +159,15 @@ export default function PinLoginPage() {
         }
 
         // Persist tokens (namespaced per-tenant) so reload keeps the user signed in.
-        savePersistedTokens(tenantSlug, {
+        savePersistedTokens(effectiveSlug, {
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
-          tenantSlug,
+          tenantSlug: effectiveSlug,
         });
-        saveLastIdentifier(tenantSlug, identifier.trim());
+        saveLastIdentifier(effectiveSlug, identifier.trim());
+        // Save the global last-login hint so logout → re-launch auto-fills
+        // the email AND resolves the tenant without any user typing.
+        saveLastLogin({ tenantSlug: effectiveSlug, identifier: identifier.trim() });
 
         dispatch(
           setCredentials({

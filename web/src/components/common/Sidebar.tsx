@@ -10,9 +10,10 @@ import {
 import { useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
-import { logout, clearTenant, selectIsAdmin } from '@groceryone/store';
+import { selectIsAdmin } from '@groceryone/store';
 import { useSidebar } from '@/hooks/useSidebar';
 import { useTranslation } from 'react-i18next';
+import { performLogout } from '@/lib/auth/logoutClient';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -44,17 +45,7 @@ export function Sidebar() {
     { name: t('navigation.licenses', 'Desktop licenses'), href: '/admin/licenses', icon: KeyRound, adminOnly: true },
   ].filter((item) => !item.adminOnly || isAdmin);
 
-  const handleLogout = () => {
-    dispatch(logout());
-    dispatch(clearTenant());
-    const keysToRemove = Object.keys(localStorage).filter(
-      (k) => k.startsWith('@tenant') || k.startsWith('@catalog') ||
-             k.startsWith('@multicart') || k.startsWith('@settings') ||
-             k.startsWith('@groone') || k === 'i18nextLng'
-    );
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-    router.push('/pin-login');
-  };
+  const handleLogout = () => performLogout(dispatch, router);
 
   const sidebarContent = (
     <>

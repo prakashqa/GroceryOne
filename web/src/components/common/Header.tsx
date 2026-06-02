@@ -4,12 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectTenant, selectCurrentLanguage, selectThemeMode, setThemeMode,
-  logout, clearTenant,
 } from '@groceryone/store';
 import { Sun, Moon, Globe, Menu, Monitor, User, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { useSidebar } from '@/hooks/useSidebar';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
+import { performLogout } from '@/lib/auth/logoutClient';
 
 export function Header() {
   const tenant = useAppSelector(selectTenant);
@@ -54,15 +54,7 @@ export function Header() {
 
   const handleLogout = () => {
     setMenuOpen(false);
-    dispatch(logout());
-    dispatch(clearTenant());
-    const keysToRemove = Object.keys(localStorage).filter(
-      (k) => k.startsWith('@tenant') || k.startsWith('@catalog') ||
-             k.startsWith('@multicart') || k.startsWith('@settings') ||
-             k.startsWith('@groone') || k === 'i18nextLng'
-    );
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-    router.push('/pin-login');
+    performLogout(dispatch, router);
   };
 
   return (

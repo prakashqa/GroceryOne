@@ -7,6 +7,7 @@ import { setCredentials, setTenant } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
 import { UserPlus } from 'lucide-react';
 import { savePersistedTokens, saveLastIdentifier } from '@/lib/auth/authStorage';
+import { saveLastLogin } from '@/lib/auth/lastLogin';
 
 interface FormData {
   businessName: string;
@@ -110,6 +111,9 @@ export default function SignupPage() {
         tenantSlug,
       });
       saveLastIdentifier(tenantSlug, form.email.trim().toLowerCase());
+      // Global last-login hint — lets logout → re-launch auto-fill the email
+      // and resolve the tenant without any user typing.
+      saveLastLogin({ tenantSlug, identifier: form.email.trim().toLowerCase() });
 
       dispatch(setTenant({
         id: tenantSlug, slug: tenantSlug, name: form.businessName.trim(),

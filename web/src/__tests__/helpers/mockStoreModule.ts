@@ -81,5 +81,8 @@ export const authSlice = _createSlice({
   },
   reducers: {},
 });
-export const selectUserRole = (state: any) => state.auth?.user?.role ?? null;
-export const selectIsAdmin = (state: any) => state.auth?.user?.role === 'admin';
+// Null-safe selectors so tests that invoke the selector with no state
+// (mocked `useAppSelector: (sel) => sel()`) don't crash.
+export const selectUserRole = (state: any) => state?.auth?.user?.role ?? null;
+export const selectIsAdmin = (state: any) => state?.auth?.user?.role === 'admin';
+// selectTenant is exported above (line 2); don't redeclare here.
