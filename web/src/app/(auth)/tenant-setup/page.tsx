@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
 import { setTenant } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
+import { Store } from 'lucide-react';
 
 export default function TenantSetupPage() {
   const [email, setEmail] = useState('');
@@ -69,41 +70,47 @@ export default function TenantSetupPage() {
   };
 
   return (
-    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-lg p-8">
-      <h2 className="text-xl font-semibold text-center mb-2">
+    <div className="card bg-white dark:bg-card-dark rounded-2xl shadow-card-lg p-7 sm:p-8 animate-fade-up">
+      <div className="flex justify-center mb-4">
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 dark:bg-primary/15 flex items-center justify-center">
+          <Store size={22} className="text-primary dark:text-primary-light" strokeWidth={1.8} />
+        </div>
+      </div>
+      <h2 className="text-xl font-semibold text-center text-gray-900 dark:text-gray-100 tracking-tight">
         {t('welcomeBack', 'Welcome Back')}
       </h2>
-      <p className="text-gray-500 dark:text-gray-400 text-center text-sm mb-6">
+      <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-1 mb-6">
         {t('enterEmailToFindStore', 'Enter your email to find your store')}
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1.5">Email</label>
+          <label className="label">Email</label>
           <input
             type="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); setError(null); }}
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            className={`input ${error ? 'input-error' : ''}`}
             placeholder="owner@store.com"
             disabled={loading}
           />
         </div>
 
-        {error && <p className="text-error text-sm">{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading || !email.trim()}
-          className="w-full py-3 rounded-xl bg-primary text-white font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Finding store...' : 'Find My Store'}
+        <button type="submit" disabled={loading || !email.trim()} className="btn-primary btn-lg w-full mt-2">
+          {loading ? 'Finding store…' : 'Find My Store'}
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <a href="/signup" className="text-sm text-primary dark:text-primary-light hover:underline">
+      <div className="section-divider mt-7 mb-4" />
+      <div className="text-center">
+        <a
+          href="/signup"
+          className="inline-flex items-center gap-1.5 text-sm text-primary dark:text-primary-light font-medium hover:underline underline-offset-4"
+        >
           {t('registerNewBusiness', 'Register a new business')}
+          <span aria-hidden>→</span>
         </a>
       </div>
     </div>

@@ -9,9 +9,10 @@ import { Item } from './entities/item.entity';
 import { ProductsService } from './products.service';
 import { ProductsController } from './products.controller';
 import { CategoriesModule } from '../categories/categories.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Item]), CategoriesModule],
+  imports: [TypeOrmModule.forFeature([Item]), CategoriesModule, InventoryModule],
   controllers: [ProductsController],
   providers: [ProductsService],
   exports: [ProductsService],

@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Request,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request as ExpressRequest } from 'express';
@@ -113,5 +114,29 @@ export class SeedController {
     @Request() req: JwtAuthenticatedRequest,
   ): Promise<{ alreadySeeded: boolean; categories: number; items: number }> {
     return this.seedService.seedSampleDataForTenant(req.user.tenantId);
+  }
+
+  /**
+   * Testing helper: assign valid EAN-13 test barcodes to the caller-tenant's
+   * existing items that don't have one, so barcode scanning can be exercised.
+   *
+   * GATED: only available when TEST_TOOLS_ENABLED=true (set by the offline
+   * desktop build). In the cloud product the flag is unset, so this returns
+   * 403 — keeping a test-only mutation out of production. tenantId comes from
+   * the JWT, never the body.
+   */
+  @Post('test-barcodes')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Assign EAN-13 test barcodes to the caller's items (admin, test-tools only)" })
+  @ApiResponse({ status: 200, description: '{ updated, skipped, assignments }' })
+  @ApiResponse({ status: 403, description: 'Test tools are disabled' })
+  async assignTestBarcodes(@Request() req: JwtAuthenticatedRequest) {
+    if (process.env.TEST_TOOLS_ENABLED !== 'true') {
+      throw new ForbiddenException('Test tools are disabled');
+    }
+    return this.seedService.assignTestBarcodes(req.user.tenantId);
   }
 }

@@ -6,9 +6,12 @@ import {
   selectAllCarts, selectActiveCartId, selectTodaysCarts, selectYesterdaysCarts,
   setActiveCart, deleteCart, renameCart, createCart,
 } from '@groceryone/store';
-import { Plus, Trash2, Edit2, ChevronRight, Receipt } from 'lucide-react';
+import { Plus, Trash2, Edit2, ChevronRight, Receipt, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import { Segmented } from '@/components/common/Segmented';
+import { EmptyState } from '@/components/common/EmptyState';
+import { cartStatusBadge } from '@/lib/cartStatus';
 
 type DateFilter = 'today' | 'yesterday' | 'all';
 
@@ -60,70 +63,55 @@ export default function ManageOrdersPage() {
     }
   };
 
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-      case 'printed': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'completed': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
-      default: return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-    }
-  };
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{t('manageCarts.title')}</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
-        >
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">{t('manageCarts.title')}</h1>
+        <button onClick={() => setShowCreate(true)} className="btn-primary">
           <Plus size={16} /> {t('picking.newCart')}
         </button>
       </div>
 
       {/* Date Filter + Search */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        {(['today', 'yesterday', 'all'] as DateFilter[]).map((f) => {
-          const filterLabels: Record<DateFilter, string> = {
-            today: t('manageCarts.today'),
-            yesterday: t('manageCarts.yesterday'),
-            all: t('manageCarts.allCarts'),
-          };
-          return (
-            <button
-              key={f}
-              onClick={() => setDateFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                dateFilter === f ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              {filterLabels[f]}
-            </button>
-          );
-        })}
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t('manageCarts.searchCarts')}
-          className="w-full sm:w-48 sm:ml-auto px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <Segmented<DateFilter>
+          options={[
+            { value: 'today', label: t('manageCarts.today') },
+            { value: 'yesterday', label: t('manageCarts.yesterday') },
+            { value: 'all', label: t('manageCarts.allCarts') },
+          ]}
+          value={dateFilter}
+          onChange={setDateFilter}
+          size="sm"
         />
+        <div className="search-wrap w-full sm:w-56 sm:ml-auto">
+          <Search size={16} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('manageCarts.searchCarts')}
+            className="search-input"
+          />
+        </div>
       </div>
 
       {/* Orders List */}
       {filteredCarts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-          <Receipt size={48} className="text-gray-300 dark:text-gray-600 mb-3" />
-          <p className="text-lg font-medium">{t('manageCarts.noCartsYet')}</p>
-          <p className="text-sm mt-1">{t('manageCarts.createFirstCart')}</p>
+        <div className="card">
+          <EmptyState
+            icon={<Receipt size={26} strokeWidth={1.8} />}
+            title={t('manageCarts.noCartsYet')}
+            hint={t('manageCarts.createFirstCart')}
+          />
         </div>
       ) : (
         <div className="space-y-2">
           {filteredCarts.map((cart) => (
             <div
               key={cart.id}
-              className={`bg-white dark:bg-surface-dark rounded-xl border p-4 flex items-center gap-4 transition-all ${
-                cart.id === activeCartId ? 'border-primary/50 ring-1 ring-primary/20' : 'border-gray-100 dark:border-gray-800'
+              className={`card p-4 flex items-center gap-4 transition-all ${
+                cart.id === activeCartId ? 'border-primary/50 ring-1 ring-primary/20' : ''
               }`}
             >
               <div className="flex-1 min-w-0">
@@ -132,7 +120,7 @@ export default function ManageOrdersPage() {
                     <input
                       value={renameName}
                       onChange={(e) => setRenameName(e.target.value)}
-                      className="px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="input w-48"
                       autoFocus
                       onKeyDown={(e) => { if (e.key === 'Enter') handleRename(cart.id); if (e.key === 'Escape') setRenameId(null); }}
                     />
@@ -141,8 +129,8 @@ export default function ManageOrdersPage() {
                   </div>
                 ) : (
                   <>
-                    <p className="font-medium truncate">{cart.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="font-medium truncate text-gray-900 dark:text-gray-100">{cart.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {cart.paidItemCount ?? cart.items.length} {t('picking.items')} &middot; {new Date(cart.createdAt).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
                       {cart.paidAmount ? ` &middot; ₹${cart.paidAmount.toFixed(0)}` : ''}
                     </p>
@@ -150,22 +138,22 @@ export default function ManageOrdersPage() {
                 )}
               </div>
 
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor(cart.status)}`}>
-                {statusLabel(cart.status)}
-              </span>
+              <span className={cartStatusBadge(cart.status)}>{statusLabel(cart.status)}</span>
 
               <div className="flex items-center gap-1">
                 {cart.status !== 'paid' && (
                   <>
                     <button
                       onClick={() => { setRenameId(cart.id); setRenameName(cart.name); }}
-                      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="btn-icon"
+                      aria-label={t('manageCarts.rename', 'Rename')}
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => dispatch(deleteCart(cart.id))}
-                      className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 transition-colors"
+                      className="btn-icon hover:text-error dark:hover:text-error"
+                      aria-label={t('delete', 'Delete')}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -174,7 +162,8 @@ export default function ManageOrdersPage() {
                 <Link
                   href={`/orders/${cart.id}`}
                   onClick={() => dispatch(setActiveCart(cart.id))}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="btn-icon"
+                  aria-label={t('manageCarts.open', 'Open')}
                 >
                   <ChevronRight size={16} />
                 </Link>
@@ -184,24 +173,24 @@ export default function ManageOrdersPage() {
         </div>
       )}
 
-      <p className="text-center text-xs text-gray-400 mt-4">{filteredCarts.length} {t('manageCarts.cartsTotal')}</p>
+      <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-4">{filteredCarts.length} {t('manageCarts.cartsTotal')}</p>
 
       {/* Create Order Dialog */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowCreate(false)}>
-          <div className="bg-white dark:bg-surface-dark rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl animate-slide-up" onClick={(e) => e.stopPropagation()}>
+          <div className="card p-6 w-full max-w-sm mx-4 shadow-card-lg animate-slide-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">{t('picking.createCart')}</h3>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder={t('picking.enterCartName')}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30 mb-4"
+              className="input mb-4"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowCreate(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium">{t('cancel')}</button>
-              <button onClick={handleCreate} disabled={!newName.trim()} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-medium disabled:opacity-50">{t('picking.create')}</button>
+              <button onClick={() => setShowCreate(false)} className="btn-secondary flex-1">{t('cancel')}</button>
+              <button onClick={handleCreate} disabled={!newName.trim()} className="btn-primary flex-1">{t('picking.create')}</button>
             </div>
           </div>
         </div>

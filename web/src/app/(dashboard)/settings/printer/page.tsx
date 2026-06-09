@@ -19,6 +19,9 @@ import { ArrowLeft, Bluetooth, Info } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
+import { Toggle } from '@/components/common/Toggle';
+import { Segmented } from '@/components/common/Segmented';
+import { SettingRow } from '@/components/common/SettingRow';
 
 export default function PrinterSettingsPage() {
   const dispatch = useAppDispatch();
@@ -55,71 +58,6 @@ export default function PrinterSettingsPage() {
     );
   };
 
-  const Toggle = ({
-    checked,
-    onChange,
-    disabled,
-    testId,
-  }: {
-    checked: boolean;
-    onChange: (v: boolean) => void;
-    disabled?: boolean;
-    testId?: string;
-  }) => (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      data-testid={testId}
-      className={`w-11 h-6 rounded-full transition-colors ${
-        disabled ? 'opacity-50 cursor-not-allowed' : ''
-      } ${checked ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
-    >
-      <div
-        className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
-          checked ? 'translate-x-[22px]' : 'translate-x-0.5'
-        }`}
-      />
-    </button>
-  );
-
-  // Reusable segmented control for { value, label } sets.
-  function Segmented<T extends string | number>({
-    options,
-    value,
-    onChange,
-    disabled,
-  }: {
-    options: { value: T; label: string }[];
-    value: T;
-    onChange: (v: T) => void;
-    disabled?: boolean;
-  }) {
-    return (
-      <div className="flex flex-wrap gap-3">
-        {options.map((opt) => (
-          <button
-            key={String(opt.value)}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(opt.value)}
-            className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
-              disabled ? 'opacity-50 cursor-not-allowed' : ''
-            } ${
-              value === opt.value
-                ? 'border-primary text-primary'
-                : 'border-gray-200 dark:border-gray-700'
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    );
-  }
-
   const connectionTypeOptions: { value: PrinterConnectionType; label: string }[] = [
     { value: 'none', label: t('settings.printer.none', 'None') },
     { value: 'bluetooth', label: t('settings.printer.bluetooth', 'Bluetooth') },
@@ -140,52 +78,40 @@ export default function PrinterSettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/settings" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-          <ArrowLeft size={20} />
+    <div className="page page-container">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/settings" className="btn-icon" aria-label="Back">
+          <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-xl font-bold">{t('settings.printer.title')}</h1>
+        <h1 className="page-title">{t('settings.printer.title')}</h1>
       </div>
 
       <div className="space-y-4">
         {/* Enable + auto-print */}
-        <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-800">
-          <div className="px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">{t('settings.printer.enabled')}</p>
-              <p className="text-xs text-gray-500">{t('settings.printer.enabledDescription')}</p>
-            </div>
-            <Toggle
-              checked={printer.enabled}
-              onChange={(v) => dispatch(setPrinterEnabled(v))}
-              testId="printer-enabled-toggle"
-            />
-          </div>
-          <div className="px-5 py-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">{t('settings.printer.autoPrint')}</p>
-              <p className="text-xs text-gray-500">{t('settings.printer.autoPrintDescription')}</p>
-            </div>
-            <Toggle
-              checked={printer.autoPrint}
-              onChange={(v) => dispatch(setAutoPrint(v))}
-              testId="auto-print-toggle"
-            />
-          </div>
+        <div className="card row-divider">
+          <SettingRow
+            label={t('settings.printer.enabled')}
+            description={t('settings.printer.enabledDescription')}
+            control={<Toggle checked={printer.enabled} label={t('settings.printer.enabled')} testId="printer-enabled-toggle" onChange={(v) => dispatch(setPrinterEnabled(v))} />}
+          />
+          <SettingRow
+            label={t('settings.printer.autoPrint')}
+            description={t('settings.printer.autoPrintDescription')}
+            control={<Toggle checked={printer.autoPrint} label={t('settings.printer.autoPrint')} testId="auto-print-toggle" onChange={(v) => dispatch(setAutoPrint(v))} />}
+          />
         </div>
 
-        {/* Bluetooth & Device card (new) */}
-        <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 p-5 space-y-5">
+        {/* Bluetooth & Device card */}
+        <div className="card p-5 space-y-5">
           <div className="flex items-center gap-2">
-            <Bluetooth size={18} className="text-primary" />
-            <p className="text-sm font-semibold">
+            <Bluetooth size={18} className="text-primary dark:text-primary-light" />
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               {t('settings.printer.bluetoothSection', 'Bluetooth & Device')}
             </p>
           </div>
 
           {/* Mobile-only banner */}
-          <div className="flex gap-2 items-start px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 text-xs">
+          <div className="flex gap-2 items-start px-3 py-2.5 rounded-lg bg-info-bg dark:bg-info/15 text-info dark:text-blue-200 text-xs">
             <Info size={14} className="mt-0.5 shrink-0" />
             <p>
               {t(
@@ -197,9 +123,7 @@ export default function PrinterSettingsPage() {
 
           {/* Connection Type */}
           <div>
-            <label className="text-sm font-medium block mb-2">
-              {t('settings.printer.connectionType', 'Connection Type')}
-            </label>
+            <label className="label">{t('settings.printer.connectionType', 'Connection Type')}</label>
             <Segmented<PrinterConnectionType>
               options={connectionTypeOptions}
               value={printer.connectionType}
@@ -210,12 +134,7 @@ export default function PrinterSettingsPage() {
           {/* Selected printer */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label
-                htmlFor="printer-device-name"
-                className="text-sm font-medium block mb-2"
-              >
-                {t('settings.printer.deviceName', 'Printer Name')}
-              </label>
+              <label htmlFor="printer-device-name" className="label">{t('settings.printer.deviceName', 'Printer Name')}</label>
               <input
                 id="printer-device-name"
                 type="text"
@@ -223,16 +142,11 @@ export default function PrinterSettingsPage() {
                 onChange={(e) => setDeviceName(e.target.value)}
                 onBlur={commitSelectedPrinter}
                 placeholder={t('settings.printer.deviceNamePlaceholder', 'e.g. POS-80 Printer')}
-                className="w-full rounded-lg border-2 border-gray-200 dark:border-gray-700 px-3 py-2 text-sm bg-transparent focus:border-primary outline-none"
+                className="input"
               />
             </div>
             <div>
-              <label
-                htmlFor="printer-device-address"
-                className="text-sm font-medium block mb-2"
-              >
-                {t('settings.printer.deviceAddress', 'Printer Address (MAC / IP)')}
-              </label>
+              <label htmlFor="printer-device-address" className="label">{t('settings.printer.deviceAddress', 'Printer Address (MAC / IP)')}</label>
               <input
                 id="printer-device-address"
                 type="text"
@@ -240,14 +154,14 @@ export default function PrinterSettingsPage() {
                 onChange={(e) => setDeviceAddress(e.target.value)}
                 onBlur={commitSelectedPrinter}
                 placeholder="00:11:22:33:44:55"
-                className="w-full rounded-lg border-2 border-gray-200 dark:border-gray-700 px-3 py-2 text-sm bg-transparent focus:border-primary outline-none font-mono"
+                className="input font-mono"
               />
             </div>
           </div>
 
           {/* Connection status */}
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('settings.printer.status', 'Status')}:
             </span>
             <span
@@ -261,9 +175,7 @@ export default function PrinterSettingsPage() {
 
           {/* Image width / DPI */}
           <div>
-            <label className="text-sm font-medium block mb-2">
-              {t('settings.printer.imageWidth', 'Image Width (DPI)')}
-            </label>
+            <label className="label">{t('settings.printer.imageWidth', 'Image Width (DPI)')}</label>
             <Segmented<number>
               options={[
                 { value: 576, label: t('settings.printer.imageWidth576', '576 — Standard 203 DPI') },
@@ -275,28 +187,15 @@ export default function PrinterSettingsPage() {
           </div>
 
           {/* Auto Cut */}
-          <div className="flex items-center justify-between pt-1">
-            <div>
-              <p className="font-medium text-sm">{t('settings.printer.autoCut', 'Auto Cut')}</p>
-              <p className="text-xs text-gray-500">
-                {t(
-                  'settings.printer.autoCutDescription',
-                  'Send a cut command to the printer after each print',
-                )}
-              </p>
-            </div>
-            <Toggle
-              checked={printer.autoCut ?? true}
-              onChange={(v) => dispatch(setAutoCut(v))}
-              testId="auto-cut-toggle"
-            />
-          </div>
+          <SettingRow
+            label={t('settings.printer.autoCut', 'Auto Cut')}
+            description={t('settings.printer.autoCutDescription', 'Send a cut command to the printer after each print')}
+            control={<Toggle checked={printer.autoCut ?? true} label={t('settings.printer.autoCut', 'Auto Cut')} testId="auto-cut-toggle" onChange={(v) => dispatch(setAutoCut(v))} />}
+          />
 
-          {/* Cut Mode — visually disabled when Auto Cut is off */}
+          {/* Cut Mode — disabled when Auto Cut is off */}
           <div>
-            <label className="text-sm font-medium block mb-2">
-              {t('settings.printer.cutMode', 'Cut Mode')}
-            </label>
+            <label className="label">{t('settings.printer.cutMode', 'Cut Mode')}</label>
             <Segmented<CutMode>
               options={cutModeOptions}
               value={printer.cutMode ?? 'full'}
@@ -307,43 +206,29 @@ export default function PrinterSettingsPage() {
         </div>
 
         {/* Paper size */}
-        <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 p-5">
-          <p className="text-sm font-medium mb-3">{t('settings.printer.paperSize')}</p>
-          <div className="flex gap-3">
-            {(['80mm', '58mm'] as const).map((size) => (
-              <button
-                key={size}
-                onClick={() => dispatch(setPaperSize(size))}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium ${
-                  printer.paperSize === size
-                    ? 'border-primary text-primary'
-                    : 'border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
+        <div className="card p-5">
+          <p className="label">{t('settings.printer.paperSize')}</p>
+          <Segmented<'80mm' | '58mm'>
+            options={[
+              { value: '80mm', label: '80mm' },
+              { value: '58mm', label: '58mm' },
+            ]}
+            value={printer.paperSize}
+            onChange={(v) => dispatch(setPaperSize(v))}
+          />
         </div>
 
         {/* Print format */}
-        <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 p-5">
-          <p className="text-sm font-medium mb-3">{t('settings.printer.printFormat')}</p>
-          <div className="flex gap-3">
-            {(['receipt', 'detailed', 'compact'] as const).map((fmt) => (
-              <button
-                key={fmt}
-                onClick={() => dispatch(setPrintFormat(fmt))}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-medium capitalize ${
-                  printer.printFormat === fmt
-                    ? 'border-primary text-primary'
-                    : 'border-gray-200 dark:border-gray-700'
-                }`}
-              >
-                {t(`settings.printer.format${fmt}`)}
-              </button>
-            ))}
-          </div>
+        <div className="card p-5">
+          <p className="label">{t('settings.printer.printFormat')}</p>
+          <Segmented<'receipt' | 'detailed' | 'compact'>
+            options={(['receipt', 'detailed', 'compact'] as const).map((fmt) => ({
+              value: fmt,
+              label: t(`settings.printer.format${fmt}`),
+            }))}
+            value={printer.printFormat}
+            onChange={(v) => dispatch(setPrintFormat(v))}
+          />
         </div>
       </div>
     </div>

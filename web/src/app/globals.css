@@ -107,10 +107,68 @@
     @apply rounded-xl bg-white dark:bg-card-dark border border-line dark:border-line-dark shadow-card;
   }
   .card-hover {
-    @apply transition-shadow hover:shadow-card-hover;
+    @apply transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px;
   }
   .card-padded {
     @apply card p-5;
+  }
+  /* Clickable card/row that lifts on hover (settings rows, list cards). */
+  .card-interactive {
+    @apply card transition-all duration-200 cursor-pointer
+           hover:shadow-card-hover hover:border-gray-300 dark:hover:border-gray-600;
+  }
+
+  /* Metric / stat tile — the small KPI card repeated across Dashboard
+     and Reports. Refined elevation + gentle hover lift; semibold value
+     for a lighter, more elegant rhythm than the old inline font-bold. */
+  .stat-card {
+    @apply rounded-xl bg-white dark:bg-card-dark
+           border border-line dark:border-line-dark
+           shadow-stat p-5
+           transition-all duration-200
+           hover:shadow-card-hover hover:-translate-y-px;
+  }
+  .stat-card-header {
+    @apply flex items-center justify-between mb-3;
+  }
+  .stat-label {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+  .stat-value {
+    @apply text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100;
+  }
+  .stat-meta {
+    @apply text-xs text-gray-400 dark:text-gray-500 mt-1;
+  }
+
+  /* Filter / tab pill used in the horizontally-scrolling filter bars on
+     Picking, Orders, Reports. Base is muted; pair with one active variant. */
+  .filter-tab {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap
+           text-gray-500 dark:text-gray-400
+           hover:bg-gray-100 dark:hover:bg-white/[0.05]
+           transition-colors;
+  }
+  .filter-tab-active {
+    @apply bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light
+           hover:bg-primary/10 dark:hover:bg-primary/20;
+  }
+  .filter-tab-solid {
+    @apply bg-primary text-white hover:bg-primary;
+  }
+  .filter-tab-dashed {
+    @apply border border-dashed border-gray-300 dark:border-gray-600
+           text-gray-500 hover:border-primary hover:text-primary
+           bg-transparent;
+  }
+
+  /* Standard centered page width for focused/single-column screens
+     (settings, profile, auth-adjacent, detail pages). */
+  .page-container {
+    @apply max-w-2xl mx-auto;
+  }
+  .page-container-wide {
+    @apply max-w-4xl mx-auto;
   }
 
   /* Section divider used between groups of controls */
@@ -186,6 +244,19 @@
   }
   .error-text {
     @apply mt-1 text-xs text-error;
+  }
+
+  /* Search box — a leading icon inside a relative wrapper, with the input
+     padded to clear it. Inherits all .input tokens (border, focus ring,
+     dark surface) so every search field matches the design system. */
+  .search-wrap {
+    @apply relative;
+  }
+  .search-wrap > svg:first-child {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none;
+  }
+  .search-input {
+    @apply input pl-9;
   }
 
   /* ----- Empty state -----

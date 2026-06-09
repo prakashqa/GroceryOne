@@ -105,17 +105,16 @@ export const useCatalog = (): UseCatalogResult => {
 
   const items = useMemo(() => {
     const rawItems = apiItems ?? storeItems;
-    // Exclude inventory items (trackInventory === true) — only show order/POS items
-    return rawItems
-      .filter(item => (item as ApiItem).trackInventory !== true)
-      .map(item => {
-        // Ensure mrp is populated from compareAtPrice for items from API
-        const apiItem = item as ApiItem;
-        if (item.mrp === undefined && apiItem.compareAtPrice != null) {
-          return { ...item, mrp: Number(apiItem.compareAtPrice) };
-        }
-        return item;
-      });
+    // Inventory-tracked items ARE included now (so stock-tracked products show
+    // in management + can be scanned/sold).
+    return rawItems.map(item => {
+      // Ensure mrp is populated from compareAtPrice for items from API
+      const apiItem = item as ApiItem;
+      if (item.mrp === undefined && apiItem.compareAtPrice != null) {
+        return { ...item, mrp: Number(apiItem.compareAtPrice) };
+      }
+      return item;
+    });
   }, [apiItems, storeItems]);
 
   // Combined loading state

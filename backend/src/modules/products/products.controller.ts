@@ -36,7 +36,8 @@ export class ProductsController {
     @Req() req: Request,
     @Body() createItemDto: CreateItemDto,
   ): Promise<Item> {
-    return this.productsService.create(createItemDto, req.tenantId!);
+    const userId = (req as any).user?.userId;
+    return this.productsService.create(createItemDto, req.tenantId!, userId);
   }
 
   @Get()
@@ -119,7 +120,8 @@ export class ProductsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateItemDto: UpdateItemDto,
   ): Promise<Item> {
-    return this.productsService.update(id, updateItemDto, req.tenantId!);
+    const userId = (req as any).user?.userId;
+    return this.productsService.update(id, updateItemDto, req.tenantId!, userId);
   }
 
   @Delete(':id')

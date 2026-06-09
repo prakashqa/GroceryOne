@@ -25,6 +25,28 @@ export function isTenantRequired(url: string): boolean {
 }
 
 /**
+ * Parse an API response body, tolerating empty/204 responses.
+ *
+ * DELETE endpoints return `204 No Content` (empty body); calling
+ * `response.json()` on an empty body throws `SyntaxError: Unexpected end of
+ * JSON input`, which fetchBaseQuery turns into a PARSING_ERROR — surfacing a
+ * spurious "Something went wrong" even though the request succeeded. We read
+ * the body as text first and only JSON-parse when there is content. The
+ * `{ success, data }` envelope is still unwrapped; plain JSON passes through.
+ */
+export async function parseApiResponse(response: Response): Promise<unknown> {
+  // 204 No Content / 205 Reset Content carry no body — nothing to parse.
+  if (response.status === 204 || response.status === 205) return undefined;
+  const text = await response.text();
+  if (!text) return undefined;
+  const json = JSON.parse(text);
+  if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+    return (json as { data: unknown }).data;
+  }
+  return json;
+}
+
+/**
  * API configuration that must be set by the platform before use.
  * Mobile sets this to its API_CONFIG, web sets it to env-based config.
  */
@@ -74,13 +96,7 @@ const baseQuery = fetchBaseQuery({
     return headers;
   },
   timeout: 30000,
-  responseHandler: async (response) => {
-    const json = await response.json();
-    if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
-      return json.data;
-    }
-    return json;
-  },
+  responseHandler: parseApiResponse,
 });
 
 // Wrap baseQuery to inject dynamic baseUrl

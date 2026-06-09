@@ -46,6 +46,7 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
+    "@jest/transform": "^30.4.1",
     "typeorm": "^0.3.28"
   }
 }

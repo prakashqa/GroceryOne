@@ -71,4 +71,46 @@ describe('mapApiItemsToStore', () => {
     ]);
     expect(mapped[0].nameTe).toBe('బాస్మతి బియ్యం');
   });
+
+  it('preserves barcode so scanning, the Product List, and Edit see it', () => {
+    // Bug: the mapping dropped `barcode`, so items hydrated from the backend
+    // lost their code — rows showed "No barcode", Edit was empty, and the
+    // local scan lookup never matched, even when the DB had the barcode.
+    const mapped = mapApiItemsToStore([
+      {
+        id: 'item-1',
+        slug: 'basmati',
+        name: 'Basmati Rice',
+        unit: 'kg',
+        defaultQuantity: 5,
+        price: 140,
+        barcode: '2000000000022',
+        category: { slug: 'rice' },
+      } as any,
+    ]);
+    expect(mapped[0].barcode).toBe('2000000000022');
+  });
+
+  it('leaves barcode undefined when the item has none', () => {
+    const mapped = mapApiItemsToStore([
+      { id: 'i2', slug: 's2', name: 'Salt', unit: 'kg', defaultQuantity: 1 } as any,
+    ]);
+    expect(mapped[0].barcode).toBeUndefined();
+  });
+
+  it('preserves stock fields (stockQuantity, lowStockThreshold, trackInventory, costPrice)', () => {
+    // costPrice was being dropped (same bug class as barcode) — the Stock tab
+    // and Inventory page need it.
+    const mapped = mapApiItemsToStore([
+      {
+        id: 'i3', slug: 'rice', name: 'Rice', unit: 'kg', defaultQuantity: 5,
+        stockQuantity: 8, lowStockThreshold: 10, trackInventory: true, costPrice: 120,
+        category: { slug: 'rice' },
+      } as any,
+    ]);
+    expect(mapped[0].stockQuantity).toBe(8);
+    expect(mapped[0].lowStockThreshold).toBe(10);
+    expect(mapped[0].trackInventory).toBe(true);
+    expect(mapped[0].costPrice).toBe(120);
+  });
 });

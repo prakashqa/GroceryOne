@@ -51,6 +51,30 @@ export const useCreateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promi
 export const useUpdateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useDeleteItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 
+// RTK Query lazy barcode lookup — default resolves to "no item". Tests that
+// exercise the backend-fallback path override this export.
+export const useLazyGetItemByBarcodeQuery = () => [
+  jest.fn(() => ({ unwrap: () => Promise.resolve(null) })),
+  {},
+];
+export const selectItemByBarcode = () => null;
+
+// Seed/test-tool mutations (route through baseApi). Tests that drive the
+// "Load sample data" / "Generate test barcodes" buttons override these.
+export type TestBarcodeResult = {
+  updated: number;
+  skipped: number;
+  assignments: { name: string; barcode: string }[];
+};
+export const useSeedSampleDataMutation = () => [
+  jest.fn(() => ({ unwrap: () => Promise.resolve({ alreadySeeded: false, categories: 0, items: 0 }) })),
+  { isLoading: false },
+];
+export const useAssignTestBarcodesMutation = () => [
+  jest.fn(() => ({ unwrap: () => Promise.resolve({ updated: 0, skipped: 0, assignments: [] }) })),
+  { isLoading: false },
+];
+
 // Utils namespace (mirrors packages/store/src/utils)
 export const StoreUtils = {
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-') + '-test',

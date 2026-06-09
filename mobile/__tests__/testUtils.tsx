@@ -11,6 +11,7 @@ import { I18nextProvider } from 'react-i18next';
 import { configureStore } from '@reduxjs/toolkit';
 
 import { rootReducer, RootState } from '../src/store/rootReducer';
+import { baseApi } from '../src/data/api/baseApi';
 import i18n from '../src/i18n/i18n.config';
 import { TenantProvider } from '../src/tenant/TenantProvider';
 import { ThemeProvider } from '../src/presentation/theme';
@@ -29,7 +30,7 @@ export function createTestStore(preloadedState?: Partial<RootState>) {
       getDefaultMiddleware({
         serializableCheck: false,
         immutableCheck: false,
-      }),
+      }).concat(baseApi.middleware),
   });
 }
 

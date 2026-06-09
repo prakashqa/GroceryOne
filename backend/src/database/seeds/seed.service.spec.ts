@@ -939,6 +939,76 @@ describe('SeedService', () => {
       expect(qbMock.where).not.toHaveBeenCalled();
     });
   });
+
+  describe('assignTestBarcodes (tenant-scoped, idempotent)', () => {
+    const TENANT_A = 'tenant-a-uuid';
+    const TENANT_B = 'tenant-b-uuid';
+
+    it('reads and writes ONLY the caller tenant\'s items', async () => {
+      itemRepo.find.mockResolvedValue([
+        { id: 'i1', name: 'Rice', tenantId: TENANT_A, barcode: null } as any,
+      ]);
+      await service.assignTestBarcodes(TENANT_A);
+      expect(itemRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tenantId: TENANT_A, isActive: true } }),
+      );
+    });
+
+    it('assigns a valid EAN-13 to items lacking a barcode and returns the mapping', async () => {
+      itemRepo.find.mockResolvedValue([
+        { id: 'i1', name: 'Rice', tenantId: TENANT_A, barcode: null } as any,
+        { id: 'i2', name: 'Salt', tenantId: TENANT_A, barcode: '' } as any,
+      ]);
+
+      const res = await service.assignTestBarcodes(TENANT_A);
+
+      expect(res.updated).toBe(2);
+      expect(res.skipped).toBe(0);
+      expect(res.assignments).toEqual([
+        { name: 'Rice', barcode: '2000000000015' },
+        { name: 'Salt', barcode: '2000000000022' },
+      ]);
+      // Persisted exactly the two mutated items.
+      const saved = itemRepo.save.mock.calls[0][0] as any[];
+      expect(saved.map((i) => i.barcode)).toEqual(['2000000000015', '2000000000022']);
+    });
+
+    it('skips items that already have a barcode (idempotent re-run)', async () => {
+      itemRepo.find.mockResolvedValue([
+        { id: 'i1', name: 'Rice', tenantId: TENANT_A, barcode: '2000000000015' } as any,
+        { id: 'i2', name: 'Salt', tenantId: TENANT_A, barcode: null } as any,
+      ]);
+
+      const res = await service.assignTestBarcodes(TENANT_A);
+
+      expect(res.updated).toBe(1);
+      expect(res.skipped).toBe(1);
+      // Salt keeps its stable position-based code (index 1 → seq 2).
+      expect(res.assignments).toEqual([{ name: 'Salt', barcode: '2000000000022' }]);
+    });
+
+    it('does not save when there is nothing to assign', async () => {
+      itemRepo.find.mockResolvedValue([
+        { id: 'i1', name: 'Rice', tenantId: TENANT_A, barcode: '2000000000015' } as any,
+      ]);
+      const res = await service.assignTestBarcodes(TENANT_A);
+      expect(res.updated).toBe(0);
+      expect(itemRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('requires a tenantId', async () => {
+      await expect(service.assignTestBarcodes('' as any)).rejects.toThrow();
+      expect(itemRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('a tenant run never references another tenant\'s id', async () => {
+      itemRepo.find.mockResolvedValue([]);
+      await service.assignTestBarcodes(TENANT_B);
+      const whereArg = (itemRepo.find.mock.calls[0][0] as any).where;
+      expect(whereArg.tenantId).toBe(TENANT_B);
+      expect(whereArg.tenantId).not.toBe(TENANT_A);
+    });
+  });
 });
 
 describe('Seed Data Isolation', () => {

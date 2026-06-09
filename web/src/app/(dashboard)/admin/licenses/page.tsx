@@ -95,24 +95,19 @@ function AdminLicensesContent() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="page page-container">
       <div className="flex items-center gap-2 mb-1">
-        <KeyRound size={22} className="text-primary" />
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-          {t('licenses.title', 'Desktop license keys')}
-        </h1>
+        <KeyRound size={22} className="text-primary dark:text-primary-light" />
+        <h1 className="page-title">{t('licenses.title', 'Desktop license keys')}</h1>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+      <p className="page-subtitle mb-6">
         {t(
           'licenses.subtitle',
           'Mint a yearly desktop license (₹2,000) after a customer pays. The key is shown once — copy it before leaving.',
         )}
       </p>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mb-6 p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 space-y-3"
-      >
+      <form onSubmit={handleSubmit} className="card p-5 space-y-3 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field
             label={t('licenses.plan', 'Plan')}
@@ -141,8 +136,8 @@ function AdminLicensesContent() {
         </div>
 
         {formError && (
-          <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
-            <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-2 error-text" role="alert">
+            <AlertCircle size={16} className="mt-px flex-shrink-0" />
             <span>{formError}</span>
           </div>
         )}
@@ -151,7 +146,7 @@ function AdminLicensesContent() {
           <button
             type="submit"
             disabled={submitting || !tenantSlug}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors"
+            className="btn-primary"
             data-testid="lic-submit"
           >
             {submitting && <Loader2 className="animate-spin" size={16} />}
@@ -161,21 +156,18 @@ function AdminLicensesContent() {
       </form>
 
       {minted && (
-        <div className="p-4 rounded-lg border border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
-          <div className="text-sm font-medium text-green-800 dark:text-green-300 mb-2">
+        <div className="card p-4 border-success/40 bg-success-bg dark:bg-success/10 animate-scale-in">
+          <div className="text-sm font-medium text-success dark:text-green-300 mb-2">
             {t('licenses.minted', 'Key generated — copy it now and email it to the customer:')}
           </div>
           <div className="flex items-center gap-2">
             <code
-              className="flex-1 px-3 py-2 rounded-md bg-white dark:bg-gray-900 border border-green-300 dark:border-green-700 font-mono text-base tracking-wider text-gray-900 dark:text-gray-100 select-all"
+              className="flex-1 px-3 py-2 rounded-md bg-white dark:bg-card-dark border border-success/30 dark:border-success/40 font-mono text-base tracking-wider text-gray-900 dark:text-gray-100 select-all"
               data-testid="lic-key"
             >
               {minted.key}
             </code>
-            <button
-              onClick={copyKey}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-green-300 dark:border-green-700 text-sm text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
-            >
+            <button onClick={copyKey} className="btn-secondary btn-sm">
               {copied ? <Check size={15} /> : <Copy size={15} />}
               {copied ? t('licenses.copied', 'Copied') : t('licenses.copy', 'Copy')}
             </button>
@@ -206,14 +198,10 @@ function Field({
   readOnly?: boolean;
 }) {
   return (
-    <label className="flex flex-col text-sm">
-      <span className="mb-1 text-gray-500 dark:text-gray-400">{label}</span>
-      <input
-        value={value}
-        readOnly={readOnly}
-        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none"
-      />
-    </label>
+    <div>
+      <label className="label">{label}</label>
+      <input value={value} readOnly={readOnly} className="input bg-gray-50 dark:bg-surface-dark" />
+    </div>
   );
 }
 
@@ -233,17 +221,17 @@ function EditableField({
   testid?: string;
 }) {
   return (
-    <label className="flex flex-col text-sm">
-      <span className="mb-1 text-gray-500 dark:text-gray-400">{label}</span>
+    <div>
+      <label className="label">{label}</label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testid}
-        className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+        className="input"
       />
-    </label>
+    </div>
   );
 }
 

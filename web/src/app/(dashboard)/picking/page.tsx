@@ -1,22 +1,26 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectCategories, selectItems, selectActiveCart, selectActiveCartItems,
   selectActiveCartItemCount, selectActiveCartGrandTotal, selectCartCount, selectAllCarts,
   addItemToActiveCart, incrementItemInActiveCart, decrementItemInActiveCart,
-  createCart, setActiveCart,
+  createCart, setActiveCart, useLazyGetItemByBarcodeQuery,
 } from '@groceryone/store';
 import type { DomainTypes } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
-import { ShoppingCart, Search, ScanLine } from 'lucide-react';
+import { ShoppingCart, Search, ScanLine, CheckCircle2, AlertTriangle, PackagePlus, X } from 'lucide-react';
 import Link from 'next/link';
 import { ProductCard } from '@/components/common/ProductCard';
 import { BarcodeScannerModal } from '@/components/barcode/BarcodeScannerModal';
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
+import { resolveBarcode } from '@/lib/barcode/resolveBarcode';
 
 export default function PickingPage() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const categories = useAppSelector(selectCategories);
   const allItems = useAppSelector(selectItems);
   const activeCart = useAppSelector(selectActiveCart);
@@ -32,6 +36,10 @@ export default function PickingPage() {
   const [showNewCartDialog, setShowNewCartDialog] = useState(false);
   const [newCartName, setNewCartName] = useState('');
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  // Transient feedback for USB-scanner (keyboard-wedge) scans that happen
+  // without the camera modal open.
+  const [scanToast, setScanToast] = useState<{ kind: 'added' | 'missing'; text: string } | null>(null);
+  const [triggerBarcode] = useLazyGetItemByBarcodeQuery();
 
   // Filter items by category and search
   const filteredItems = useMemo(() => {
@@ -68,34 +76,58 @@ export default function PickingPage() {
     }
   };
 
+  // Open the new-item form prefilled with an unrecognised barcode.
+  const goAddProduct = useCallback((barcode: string) => {
+    setShowBarcodeScanner(false);
+    setScanToast(null);
+    router.push(`/management/items?barcode=${encodeURIComponent(barcode)}`);
+  }, [router]);
+
+  // A code arrived from a USB/Bluetooth keyboard-wedge scanner (no modal open).
+  // Resolve local→backend, then add to cart or surface a not-found toast.
+  const handleScannedCode = useCallback(async (code: string) => {
+    const res = await resolveBarcode<DomainTypes.Item>({
+      barcode: code,
+      items: allItems,
+      lazyFetch: (b) => triggerBarcode(b).unwrap(),
+    });
+    if (res.status === 'not-found') {
+      setScanToast({ kind: 'missing', text: code.trim() });
+      return;
+    }
+    handleAddItem(res.item);
+    setScanToast({ kind: 'added', text: res.item.name });
+  }, [allItems, triggerBarcode, handleAddItem]);
+
+  // Listen for USB-scanner bursts on this page. The default focus-guard lets
+  // the search box and cart-name dialog keep normal human typing.
+  useBarcodeScanner({ onScan: handleScannedCode });
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold">{t('picking.cartReview')}</h1>
+        <h1 className="page-title">{t('picking.cartReview')}</h1>
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-none">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="search-wrap flex-1 sm:flex-none">
+            <Search size={16} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('picking.searchItems')}
-              className="pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface-dark text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="search-input sm:w-64"
             />
           </div>
           <button
             onClick={() => setShowBarcodeScanner(true)}
-            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="btn-icon border border-line dark:border-line-dark"
             aria-label="Scan barcode"
             title={t('scan.title', 'Scan Barcode')}
           >
-            <ScanLine size={18} className="text-gray-600 dark:text-gray-400" />
+            <ScanLine size={18} />
           </button>
-          <Link
-            href="/orders"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors whitespace-nowrap"
-          >
+          <Link href="/orders" className="btn-primary whitespace-nowrap">
             <ShoppingCart size={16} />
             {cartItemCount > 0 && <span>{cartItemCount} {t('picking.items')}</span>}
           </Link>
@@ -109,19 +141,12 @@ export default function PickingPage() {
             <button
               key={cart.id}
               onClick={() => dispatch(setActiveCart(cart.id))}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                activeCart?.id === cart.id
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'
-              }`}
+              className={`filter-tab ${activeCart?.id === cart.id ? 'filter-tab-solid' : ''}`}
             >
               {cart.name} ({cart.items.length})
             </button>
           ))}
-          <button
-            onClick={() => setShowNewCartDialog(true)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-primary hover:text-primary transition-colors"
-          >
+          <button onClick={() => setShowNewCartDialog(true)} className="filter-tab filter-tab-dashed">
             {t('picking.newCart')}
           </button>
         </div>
@@ -131,9 +156,7 @@ export default function PickingPage() {
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         <button
           onClick={() => setSelectedCategory(null)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-            !selectedCategory ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-          }`}
+          className={`filter-tab ${!selectedCategory ? 'filter-tab-active' : ''}`}
         >
           {t('manageItems.all')}
         </button>
@@ -141,9 +164,7 @@ export default function PickingPage() {
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              selectedCategory === cat.id ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+            className={`filter-tab ${selectedCategory === cat.id ? 'filter-tab-active' : ''}`}
           >
             {cat.icon} {cat.name}
           </button>
@@ -179,22 +200,19 @@ export default function PickingPage() {
 
       {/* Cart Footer — View Cart / Pay */}
       {cartItemCount > 0 && activeCart && (
-        <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 px-4 py-3 -mx-6 -mb-6 mt-4 flex items-center justify-between shadow-lg">
+        <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-surface-dark border-t border-line dark:border-line-dark px-4 py-3 -mx-6 -mb-6 mt-4 flex items-center justify-between shadow-card-lg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <ShoppingCart size={20} className="text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/15 flex items-center justify-center">
+              <ShoppingCart size={20} className="text-primary dark:text-primary-light" />
             </div>
             <div>
-              <p className="font-semibold text-sm">{cartItemCount} {t('picking.items')}</p>
+              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{cartItemCount} {t('picking.items')}</p>
               {grandTotal > 0 && (
-                <p className="text-primary font-bold">₹{grandTotal.toFixed(2)}</p>
+                <p className="text-primary dark:text-primary-light font-bold">₹{grandTotal.toFixed(2)}</p>
               )}
             </div>
           </div>
-          <Link
-            href={`/orders/${activeCart.id}`}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
-          >
+          <Link href={`/orders/${activeCart.id}`} className="btn-primary btn-lg">
             {t('picking.viewCart')} &rarr;
           </Link>
         </div>
@@ -203,27 +221,66 @@ export default function PickingPage() {
       {/* New Cart Dialog */}
       {showNewCartDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowNewCartDialog(false)}>
-          <div className="bg-white dark:bg-surface-dark rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl animate-slide-up" onClick={(e) => e.stopPropagation()}>
+          <div className="card p-6 w-full max-w-sm mx-4 shadow-card-lg animate-slide-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold mb-4">{t('picking.createCart')}</h3>
             <input
               value={newCartName}
               onChange={(e) => setNewCartName(e.target.value)}
               placeholder={t('picking.enterCartName')}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/30 mb-4"
+              className="input mb-4"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && handleCreateCart()}
             />
             <div className="flex gap-3">
-              <button onClick={() => setShowNewCartDialog(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium">{t('cancel')}</button>
-              <button onClick={handleCreateCart} disabled={!newCartName.trim()} className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-medium disabled:opacity-50">{t('picking.create')}</button>
+              <button onClick={() => setShowNewCartDialog(false)} className="btn-secondary flex-1">{t('cancel')}</button>
+              <button onClick={handleCreateCart} disabled={!newCartName.trim()} className="btn-primary flex-1">{t('picking.create')}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Barcode Scanner Modal */}
+      {/* Barcode Scanner Modal (camera). Cart-add is owned here, so the modal
+          is reusable by item management for fill-only scanning. */}
       {showBarcodeScanner && (
-        <BarcodeScannerModal onClose={() => setShowBarcodeScanner(false)} />
+        <BarcodeScannerModal
+          onClose={() => setShowBarcodeScanner(false)}
+          onItemResolved={handleAddItem}
+          onAddProduct={goAddProduct}
+        />
+      )}
+
+      {/* USB-scanner toast */}
+      {scanToast && (
+        <div
+          role="status"
+          className={`fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-card-lg animate-slide-up text-sm font-medium ${
+            scanToast.kind === 'added'
+              ? 'bg-success-bg text-success border-success/30 dark:bg-success/15 dark:text-green-300 dark:border-success/40'
+              : 'bg-warning-bg text-warning border-warning/30 dark:bg-warning/15 dark:text-amber-300 dark:border-warning/40'
+          }`}
+        >
+          {scanToast.kind === 'added' ? (
+            <>
+              <CheckCircle2 size={18} />
+              <span>{scanToast.text} — {t('picking.add', 'Added')}</span>
+            </>
+          ) : (
+            <>
+              <AlertTriangle size={18} />
+              <span className="font-mono">{scanToast.text}</span>
+              <span>{t('picking.noItemsFound', 'Item not found')}</span>
+              <button
+                onClick={() => goAddProduct(scanToast.text)}
+                className="inline-flex items-center gap-1 bg-white dark:bg-card-dark text-warning border border-warning/30 font-semibold rounded-lg px-2.5 py-1 hover:bg-warning-bg dark:hover:bg-warning/10 transition-colors"
+              >
+                <PackagePlus size={14} /> {t('scan.addProduct', 'Add product')}
+              </button>
+            </>
+          )}
+          <button onClick={() => setScanToast(null)} aria-label={t('close', 'Close')} className="ml-1 opacity-80 hover:opacity-100">
+            <X size={16} />
+          </button>
+        </div>
       )}
     </div>
   );

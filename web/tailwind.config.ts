@@ -50,7 +50,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ['system-ui', '-apple-system', 'sans-serif'],
+        sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
       },
       fontSize: {
         'xxs': '0.625rem',  // 10px
@@ -67,6 +67,8 @@ const config: Config = {
       // tinted ring instead of trying to render black-on-black shadow).
       boxShadow: {
         card: '0 1px 2px 0 rgba(16, 24, 40, 0.04), 0 1px 3px 0 rgba(16, 24, 40, 0.06)',
+        // Soft, slightly more refined elevation for metric/stat tiles.
+        stat: '0 1px 3px 0 rgba(16, 24, 40, 0.06), 0 1px 2px -1px rgba(16, 24, 40, 0.04)',
         'card-lg': '0 4px 6px -1px rgba(16, 24, 40, 0.06), 0 8px 24px -4px rgba(16, 24, 40, 0.08)',
         'card-hover': '0 4px 12px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -1px rgba(16, 24, 40, 0.04)',
         // Soft inner glow on focused inputs in dark mode.

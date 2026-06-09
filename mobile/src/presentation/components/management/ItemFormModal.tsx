@@ -35,8 +35,10 @@ interface ItemFormModalProps {
     defaultQuantity: number;
     mrp?: number;
     salePrice?: number;
+    costPrice?: number;
     stockQuantity?: number;
     lowStockThreshold?: number;
+    trackInventory?: boolean;
   }) => void;
   categories: Category[];
   editItem?: Item | null;
@@ -57,15 +59,20 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const theme = useTheme();
-  const isInventoryMode = mode === 'inventory';
+  // Unified form: pricing + an optional Stock section are always shown, so the
+  // old mutually-exclusive "inventory mode" is retired. `mode` only affects the
+  // title for backward compatibility.
+  void mode;
+  const isInventoryMode = false;
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [unit, setUnit] = useState<Item['unit']>('pcs');
   const [defaultQuantity, setDefaultQuantity] = useState('1');
   const [mrp, setMrp] = useState('');
   const [salePrice, setSalePrice] = useState('');
-  const [stockQuantity, setStockQuantity] = useState('0');
-  const [lowStockThreshold, setLowStockThreshold] = useState('10');
+  const [costPrice, setCostPrice] = useState('');
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [lowStockThreshold, setLowStockThreshold] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const isEditMode = !!editItem;
@@ -90,6 +97,9 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
         setDefaultQuantity(editItem.defaultQuantity.toString());
         setMrp(editItem.mrp?.toString() || '');
         setSalePrice(editItem.price?.toString() || '');
+        setCostPrice(editItem.costPrice != null ? editItem.costPrice.toString() : '');
+        setStockQuantity(editItem.stockQuantity != null ? editItem.stockQuantity.toString() : '');
+        setLowStockThreshold(editItem.lowStockThreshold != null ? editItem.lowStockThreshold.toString() : '');
       } else {
         setName('');
         setCategoryId(initialCategoryId || categories[0]?.id || '');
@@ -97,14 +107,15 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
         setDefaultQuantity('1');
         setMrp('');
         setSalePrice('');
-        setStockQuantity('0');
-        setLowStockThreshold('10');
+        setCostPrice('');
+        setStockQuantity('');
+        setLowStockThreshold('');
       }
       setError(null);
     }
   }, [visible, editItem, initialCategoryId, categories]);
 
-  // Validate inputs
+  // Validate inputs. Pricing (MRP) is always required; stock fields are optional.
   useEffect(() => {
     const trimmedName = name.trim();
     const qty = parseFloat(defaultQuantity);
@@ -115,14 +126,14 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
       setError(t('validation.selectCategory'));
     } else if (defaultQuantity && (isNaN(qty) || qty <= 0)) {
       setError(t('validation.positiveQuantity'));
-    } else if (!isInventoryMode && trimmedName && categoryId && (!mrp || isNaN(mrpNum) || mrpNum <= 0)) {
+    } else if (trimmedName && categoryId && (!mrp || isNaN(mrpNum) || mrpNum <= 0)) {
       setError(t('validation.mrpRequired'));
-    } else if (!isInventoryMode && mrp && salePrice && !isNaN(mrpNum) && !isNaN(salePriceNum) && salePriceNum > mrpNum) {
+    } else if (mrp && salePrice && !isNaN(mrpNum) && !isNaN(salePriceNum) && salePriceNum > mrpNum) {
       setError(t('validation.salePriceExceedsMrp'));
     } else {
       setError(null);
     }
-  }, [name, categoryId, defaultQuantity, mrp, salePrice, t, isInventoryMode]);
+  }, [name, categoryId, defaultQuantity, mrp, salePrice, t]);
 
   const handleSubmit = () => {
     const trimmedName = name.trim();
@@ -133,33 +144,28 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
     if (!trimmedName || !categoryId || error) {
       return;
     }
-
-    if (isInventoryMode) {
-      // Inventory mode: submit stock fields, no price fields
-      const stockQty = parseFloat(stockQuantity) || 0;
-      const threshold = parseFloat(lowStockThreshold) || 0;
-      onSubmit({
-        name: trimmedName,
-        categoryId,
-        unit,
-        defaultQuantity: qty,
-        stockQuantity: stockQty,
-        lowStockThreshold: threshold,
-      });
-    } else {
-      // Order mode: submit price fields (MRP required)
-      if (!mrp || isNaN(mrpNum) || mrpNum <= 0) {
-        return;
-      }
-      onSubmit({
-        name: trimmedName,
-        categoryId,
-        unit,
-        defaultQuantity: qty,
-        mrp: mrpNum,
-        ...(salePrice && !isNaN(salePriceNum) && { salePrice: salePriceNum }),
-      });
+    if (!mrp || isNaN(mrpNum) || mrpNum <= 0) {
+      return;
     }
+
+    // Optional stock fields. An opening quantity auto-enables inventory
+    // tracking; the backend records it as an 'initial'/'correction' txn.
+    const opening = stockQuantity !== '' ? parseFloat(stockQuantity) : undefined;
+    const costPriceNum = costPrice !== '' ? parseFloat(costPrice) : undefined;
+    const threshold = lowStockThreshold !== '' ? parseFloat(lowStockThreshold) : undefined;
+
+    onSubmit({
+      name: trimmedName,
+      categoryId,
+      unit,
+      defaultQuantity: qty,
+      mrp: mrpNum,
+      ...(salePrice && !isNaN(salePriceNum) && { salePrice: salePriceNum }),
+      ...(costPriceNum != null && !isNaN(costPriceNum) && { costPrice: costPriceNum }),
+      ...(threshold != null && !isNaN(threshold) && { lowStockThreshold: threshold }),
+      ...(opening != null && !isNaN(opening) && { stockQuantity: opening }),
+      ...(opening != null && !isNaN(opening) && opening > 0 && { trackInventory: true }),
+    });
     onClose();
   };
 
@@ -170,16 +176,15 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
     setDefaultQuantity('1');
     setMrp('');
     setSalePrice('');
-    setStockQuantity('0');
-    setLowStockThreshold('10');
+    setCostPrice('');
+    setStockQuantity('');
+    setLowStockThreshold('');
     setError(null);
     onClose();
   };
 
   const mrpNum = parseFloat(mrp);
-  const isSubmitDisabled = isInventoryMode
-    ? !name.trim() || !categoryId || !!error
-    : !name.trim() || !categoryId || !mrp || isNaN(mrpNum) || mrpNum <= 0 || !!error;
+  const isSubmitDisabled = !name.trim() || !categoryId || !mrp || isNaN(mrpNum) || mrpNum <= 0 || !!error;
 
   return (
     <ModalContainer
@@ -577,6 +582,88 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({
             )}
           </>
         )}
+
+        {/* Stock (optional) — opening quantity wires the item into Inventory */}
+        <View style={{ marginBottom: theme.spacing.md }}>
+          <Text
+            style={[
+              styles.label,
+              { color: theme.colors.textSecondary, fontSize: theme.typography.fontSize.md, marginBottom: theme.spacing.sm },
+            ]}
+          >
+            {t('manageItems.tabStock', 'Stock')}
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.colors.inputBackground,
+                color: theme.colors.text,
+                borderColor: theme.colors.border,
+                borderRadius: theme.borderRadius.md,
+                fontSize: theme.typography.fontSize.lg,
+                paddingHorizontal: theme.spacing.md,
+                paddingVertical: theme.spacing.md - 2,
+                marginBottom: theme.spacing.sm,
+              },
+            ]}
+            placeholder={t('manageItems.openingQuantity', 'Opening Quantity')}
+            placeholderTextColor={theme.colors.placeholder}
+            value={stockQuantity}
+            onChangeText={setStockQuantity}
+            keyboardType="decimal-pad"
+            maxLength={10}
+            testID={testID ? `${testID}-opening-quantity-input` : undefined}
+          />
+          <View style={[styles.priceContainer, { gap: theme.spacing.md }]}>
+            <TextInput
+              style={[
+                styles.input,
+                styles.priceInput,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.borderRadius.md,
+                  fontSize: theme.typography.fontSize.lg,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.md - 2,
+                  flex: 1,
+                },
+              ]}
+              placeholder={t('manageItems.atPrice', 'At Price (cost)')}
+              placeholderTextColor={theme.colors.placeholder}
+              value={costPrice}
+              onChangeText={setCostPrice}
+              keyboardType="decimal-pad"
+              maxLength={10}
+              testID={testID ? `${testID}-cost-price-input` : undefined}
+            />
+            <TextInput
+              style={[
+                styles.input,
+                styles.priceInput,
+                {
+                  backgroundColor: theme.colors.inputBackground,
+                  color: theme.colors.text,
+                  borderColor: theme.colors.border,
+                  borderRadius: theme.borderRadius.md,
+                  fontSize: theme.typography.fontSize.lg,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.md - 2,
+                  flex: 1,
+                },
+              ]}
+              placeholder={t('manageItems.minStock', 'Min Stock To Maintain')}
+              placeholderTextColor={theme.colors.placeholder}
+              value={lowStockThreshold}
+              onChangeText={setLowStockThreshold}
+              keyboardType="decimal-pad"
+              maxLength={10}
+              testID={testID ? `${testID}-low-stock-threshold-input` : undefined}
+            />
+          </View>
+        </View>
 
         {/* Error */}
         {error && (

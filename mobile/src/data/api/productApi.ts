@@ -72,6 +72,9 @@ export interface UpdateItemDto {
   costPrice?: number;
   sortOrder?: number;
   isActive?: boolean;
+  stockQuantity?: number;
+  lowStockThreshold?: number;
+  trackInventory?: boolean;
 }
 
 // Inject endpoints into the base API

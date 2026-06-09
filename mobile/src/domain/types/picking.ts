@@ -36,6 +36,8 @@ export interface Item {
   defaultQuantity: number;
   price?: number; // Sale price (selling price per unit)
   mrp?: number; // MRP / compareAtPrice (Maximum Retail Price)
+  costPrice?: number; // Cost / purchase price (for inventory valuation)
+  barcode?: string; // Product barcode (EAN-13, etc.)
   sortOrder?: number; // Display order within category
   stockQuantity?: number; // Current stock level (0 if not set)
   lowStockThreshold?: number; // Threshold for low stock alerts

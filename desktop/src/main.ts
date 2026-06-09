@@ -100,6 +100,15 @@ function openMainWindow(url: string): BrowserWindow {
       nodeIntegration: false,
     },
   });
+
+  // Grant ONLY camera/microphone ('media') so the in-app barcode scanner
+  // (html5-qrcode getUserMedia) works in the packaged build. The window only
+  // ever loads the local app origin (http://127.0.0.1), so this is safe; every
+  // other permission (geolocation, notifications, …) stays denied by default.
+  w.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media');
+  });
+
   w.loadURL(url);
   w.once('ready-to-show', () => {
     w.show();

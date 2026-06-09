@@ -10,6 +10,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { Item } from './entities/item.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { InventoryService } from '../inventory/inventory.service';
 import {
   TENANT_A_ID,
   TENANT_B_ID,
@@ -47,6 +48,11 @@ describe('ProductsService', () => {
     findOne: jest.fn(),
   };
 
+  const mockInventoryService = {
+    addStock: jest.fn(),
+    setStock: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +64,10 @@ describe('ProductsService', () => {
         {
           provide: CategoriesService,
           useValue: mockCategoriesService,
+        },
+        {
+          provide: InventoryService,
+          useValue: mockInventoryService,
         },
       ],
     }).compile();
@@ -295,6 +305,116 @@ describe('ProductsService', () => {
     it('should require tenantId parameter', async () => {
       await expect(service.findBySlug('atta-1kg', undefined as any))
         .rejects.toThrow();
+    });
+  });
+
+  describe('create/update → inventory wiring', () => {
+    it('records opening stock via inventory (initial) without double-counting, and auto-tracks', async () => {
+      const dto = { slug: 's', name: 'Rice', categoryId: 'cat-uuid', compareAtPrice: 100, stockQuantity: 8 };
+      mockItemRepository.findOne.mockResolvedValueOnce(null); // dup-slug check
+      mockItemRepository.create.mockImplementation((d: any) => d);
+      mockItemRepository.save.mockResolvedValue({ ...dto, id: 'item-1', stockQuantity: 0, tenantId: TENANT_A_ID });
+      // re-read after addStock
+      mockItemRepository.findOne.mockResolvedValueOnce({ ...dto, id: 'item-1', stockQuantity: 8, tenantId: TENANT_A_ID });
+
+      await service.create(dto as any, TENANT_A_ID, 'user-1');
+
+      // Item persisted with stockQuantity 0 (not 8) + trackInventory true.
+      expect(mockItemRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stockQuantity: 0, trackInventory: true, tenantId: TENANT_A_ID }),
+      );
+      // Opening qty recorded once via inventory, tenant-scoped.
+      expect(mockInventoryService.addStock).toHaveBeenCalledWith(
+        'item-1', 8, 'initial', TENANT_A_ID, 'Opening stock', 'user-1',
+      );
+    });
+
+    it('does NOT touch inventory or auto-track when no opening stock', async () => {
+      const dto = { slug: 's2', name: 'Salt', categoryId: 'cat-uuid', compareAtPrice: 20 };
+      mockItemRepository.findOne.mockResolvedValue(null);
+      mockItemRepository.create.mockImplementation((d: any) => d);
+      mockItemRepository.save.mockResolvedValue({ ...dto, id: 'item-2', tenantId: TENANT_A_ID });
+
+      await service.create(dto as any, TENANT_A_ID, 'user-1');
+
+      expect(mockInventoryService.addStock).not.toHaveBeenCalled();
+      expect(mockItemRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ trackInventory: false }),
+      );
+    });
+
+    it('routes a quantity change on update through setStock (correction), not a plain save', async () => {
+      const current = buildMockItem({ id: 'item-3', stockQuantity: 5, tenantId: TENANT_A_ID });
+      mockItemRepository.findOne.mockResolvedValue(current);
+      mockItemRepository.save.mockResolvedValue(current);
+
+      await service.update('item-3', { stockQuantity: 12, costPrice: 90 } as any, TENANT_A_ID, 'user-1');
+
+      // setStock owns the quantity write (audit), tenant-scoped.
+      expect(mockInventoryService.setStock).toHaveBeenCalledWith(
+        'item-3', 12, TENANT_A_ID, 'Manual correction', 'user-1',
+      );
+      // The plain save must NOT have written stockQuantity (no double-write).
+      const savedArg = mockItemRepository.save.mock.calls[0][0];
+      expect(savedArg.stockQuantity).toBe(5); // unchanged by Object.assign
+      expect(savedArg.costPrice).toBe(90); // settings flowed through
+    });
+
+    it('does NOT call setStock when the quantity is unchanged or absent', async () => {
+      const current = buildMockItem({ id: 'item-4', stockQuantity: 5, tenantId: TENANT_A_ID });
+      mockItemRepository.findOne.mockResolvedValue(current);
+      mockItemRepository.save.mockResolvedValue(current);
+
+      await service.update('item-4', { stockQuantity: 5, lowStockThreshold: 3 } as any, TENANT_A_ID, 'user-1');
+      expect(mockInventoryService.setStock).not.toHaveBeenCalled();
+    });
+
+    it('create opening stock is tenant-scoped (B never referenced for an A create)', async () => {
+      const dto = { slug: 's5', name: 'Dal', categoryId: 'cat-uuid', compareAtPrice: 100, stockQuantity: 3 };
+      mockItemRepository.findOne.mockResolvedValueOnce(null);
+      mockItemRepository.create.mockImplementation((d: any) => d);
+      mockItemRepository.save.mockResolvedValue({ ...dto, id: 'item-5', tenantId: TENANT_A_ID });
+      mockItemRepository.findOne.mockResolvedValueOnce({ ...dto, id: 'item-5', stockQuantity: 3, tenantId: TENANT_A_ID });
+
+      await service.create(dto as any, TENANT_A_ID, 'user-1');
+      const tenantArg = mockInventoryService.addStock.mock.calls[0][3];
+      expect(tenantArg).toBe(TENANT_A_ID);
+      expect(tenantArg).not.toBe(TENANT_B_ID);
+    });
+  });
+
+  describe('findByBarcode (tenant-scoped)', () => {
+    it('should return the item when the barcode matches within the tenant', async () => {
+      mockItemRepository.findOne.mockResolvedValue(mockItemTenantA);
+
+      const result = await service.findByBarcode('8901234567890', TENANT_A_ID);
+
+      expect(result).toEqual(mockItemTenantA);
+      // Query MUST carry the tenantId so a barcode can never resolve a row
+      // owned by another tenant.
+      expect(mockItemRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: '8901234567890', tenantId: TENANT_A_ID },
+        relations: ['category'],
+      });
+    });
+
+    it('should throw NotFoundException when the same barcode is looked up under a different tenant', async () => {
+      // Tenant B scanning a code that only exists for Tenant A: the
+      // tenant-scoped query returns null → not found. No cross-tenant leak.
+      mockItemRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findByBarcode('8901234567890', TENANT_B_ID))
+        .rejects.toThrow(NotFoundException);
+      expect(mockItemRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: '8901234567890', tenantId: TENANT_B_ID },
+        relations: ['category'],
+      });
+    });
+
+    it('should require a tenantId parameter (no global barcode lookup)', async () => {
+      await expect(service.findByBarcode('8901234567890', undefined as any))
+        .rejects.toThrow();
+      expect(mockItemRepository.findOne).not.toHaveBeenCalled();
     });
   });
 

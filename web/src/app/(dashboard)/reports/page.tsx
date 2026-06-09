@@ -8,6 +8,9 @@ import {
 } from '@groceryone/store';
 import { BarChart3, TrendingUp, Package, Receipt } from 'lucide-react';
 import { RoleGate } from '@/components/common/RoleGate';
+import { Segmented } from '@/components/common/Segmented';
+import { StatCard } from '@/components/common/StatCard';
+import { EmptyState } from '@/components/common/EmptyState';
 
 type DatePreset = 'today' | 'week' | 'month' | 'all';
 
@@ -63,63 +66,70 @@ function ReportsPageContent() {
   }, [filteredCarts]);
 
   return (
-    <div>
+    <div className="page">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">{t('reports.title')}</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {(['today', 'week', 'month', 'all'] as DatePreset[]).map((p) => (
-            <button key={p} onClick={() => setDatePreset(p)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize ${datePreset === p ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-              {p === 'today' ? t('reports.today') : p === 'week' ? t('reports.thisWeek') : p === 'month' ? t('reports.thisMonth') : t('manageCarts.allCarts')}
-            </button>
-          ))}
-        </div>
+        <h1 className="page-title">{t('reports.title')}</h1>
+        <Segmented<DatePreset>
+          options={[
+            { value: 'today', label: t('reports.today') },
+            { value: 'week', label: t('reports.thisWeek') },
+            { value: 'month', label: t('reports.thisMonth') },
+            { value: 'all', label: t('manageCarts.allCarts') },
+          ]}
+          value={datePreset}
+          onChange={setDatePreset}
+          size="sm"
+        />
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white dark:bg-surface-dark rounded-xl p-5 border border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-2"><span className="text-sm text-gray-500">{t('reports.totalSales')}</span><TrendingUp size={18} className="text-primary" /></div>
-          <p className="text-2xl font-bold">₹{metrics.totalRevenue.toFixed(0)}</p>
-          <p className="text-xs text-gray-400 mt-1">{metrics.paidCount} {t('reports.paidCarts')}</p>
-        </div>
-        <div className="bg-white dark:bg-surface-dark rounded-xl p-5 border border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-2"><span className="text-sm text-gray-500">{t('reports.totalCarts')}</span><Receipt size={18} className="text-blue-600" /></div>
-          <p className="text-2xl font-bold">{metrics.totalOrders}</p>
-          <p className="text-xs text-gray-400 mt-1">{statusCounts.draft} {t('dashboard.draft')}, {statusCounts.paid} {t('dashboard.paid')}</p>
-        </div>
-        <div className="bg-white dark:bg-surface-dark rounded-xl p-5 border border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-2"><span className="text-sm text-gray-500">{t('dashboard.uniqueItems')}</span><Package size={18} className="text-orange-600" /></div>
-          <p className="text-2xl font-bold">{metrics.uniqueItems}</p>
-        </div>
-        <div className="bg-white dark:bg-surface-dark rounded-xl p-5 border border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-2"><span className="text-sm text-gray-500">{t('reports.avgCartValue')}</span><BarChart3 size={18} className="text-purple-600" /></div>
-          <p className="text-2xl font-bold">₹{metrics.avgOrderValue.toFixed(0)}</p>
-        </div>
+        <StatCard
+          label={t('reports.totalSales')}
+          value={`₹${metrics.totalRevenue.toFixed(0)}`}
+          icon={<TrendingUp size={18} />}
+          meta={`${metrics.paidCount} ${t('reports.paidCarts')}`}
+        />
+        <StatCard
+          label={t('reports.totalCarts')}
+          value={metrics.totalOrders.toString()}
+          icon={<Receipt size={18} />}
+          meta={`${statusCounts.draft} ${t('dashboard.draft')}, ${statusCounts.paid} ${t('dashboard.paid')}`}
+        />
+        <StatCard
+          label={t('dashboard.uniqueItems')}
+          value={metrics.uniqueItems.toString()}
+          icon={<Package size={18} />}
+        />
+        <StatCard
+          label={t('reports.avgCartValue')}
+          value={`₹${metrics.avgOrderValue.toFixed(0)}`}
+          icon={<BarChart3 size={18} />}
+        />
       </div>
 
       {/* Top Products */}
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800">
-        <div className="p-5 border-b border-gray-100 dark:border-gray-800">
+      <div className="card">
+        <div className="p-5 border-b border-line dark:border-line-dark">
           <h2 className="text-lg font-semibold">{t('reports.topProducts')}</h2>
         </div>
         {metrics.topProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-gray-400">
-            <BarChart3 size={48} className="text-gray-300 dark:text-gray-600 mb-3" />
-            <p className="text-lg font-medium">{t('reports.noSalesData')}</p>
-            <p className="text-sm mt-1">Try selecting a different date range</p>
-          </div>
+          <EmptyState
+            icon={<BarChart3 size={26} strokeWidth={1.8} />}
+            title={t('reports.noSalesData')}
+            hint="Try selecting a different date range"
+          />
         ) : (
-          <div className="divide-y divide-gray-50 dark:divide-gray-800">
+          <div className="row-divider">
             {metrics.topProducts.map((p, i) => (
-              <div key={i} className="px-5 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                  <span className="font-medium text-sm">{p.name}</span>
+              <div key={i} className="row justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary-light text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{p.name}</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold">₹{p.revenue.toFixed(0)}</p>
-                  <p className="text-xs text-gray-400">{p.count} {t('reports.units')}</p>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">₹{p.revenue.toFixed(0)}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{p.count} {t('reports.units')}</p>
                 </div>
               </div>
             ))}
