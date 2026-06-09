@@ -2,6 +2,7 @@
 
 import '@/lib/i18n/config';
 import { AuthHydration } from '@/components/common/AuthHydration';
+import { Wordmark } from '@/components/common/Wordmark';
 
 export default function AuthLayout({
   children,
@@ -16,13 +17,8 @@ export default function AuthLayout({
         <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl" />
 
         <div className="w-full max-w-md relative z-10">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
-              <span className="text-3xl font-bold text-primary dark:text-primary-light">G</span>
-            </div>
-            <h1 className="text-3xl font-bold text-primary dark:text-primary-light">
-              GroOne
-            </h1>
+          <div className="flex flex-col items-center text-center mb-8">
+            <Wordmark size="lg" className="mb-2" />
             <p className="text-gray-500 dark:text-gray-400 mt-1">
               Smart Store Management
             </p>

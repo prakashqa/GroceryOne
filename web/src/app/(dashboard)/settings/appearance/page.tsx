@@ -19,23 +19,26 @@ export default function AppearanceSettingsPage() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/settings" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"><ArrowLeft size={20} /></Link>
-        <h1 className="text-xl font-bold">{t('settings.appearance.title')}</h1>
+    <div className="page page-container">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/settings" className="btn-icon" aria-label="Back"><ArrowLeft size={18} /></Link>
+        <h1 className="page-title">{t('settings.appearance.title')}</h1>
       </div>
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 p-5">
-        <p className="text-sm font-medium mb-3">{t('settings.appearance.theme')}</p>
+      <div className="card p-5">
+        <p className="label mb-3">{t('settings.appearance.theme')}</p>
         <div className="grid grid-cols-3 gap-3">
-          {themes.map(({ mode, label, icon: Icon }) => (
-            <button key={mode} onClick={() => dispatch(setThemeMode(mode))}
-              className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${
-                currentTheme === mode ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-              }`}>
-              <Icon size={24} className={currentTheme === mode ? 'text-primary' : 'text-gray-400'} />
-              <span className="text-sm font-medium">{label}</span>
-            </button>
-          ))}
+          {themes.map(({ mode, label, icon: Icon }) => {
+            const active = currentTheme === mode;
+            return (
+              <button key={mode} onClick={() => dispatch(setThemeMode(mode))}
+                className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all duration-150 ${
+                  active ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-line dark:border-line-dark hover:border-primary/50'
+                }`}>
+                <Icon size={24} className={active ? 'text-primary dark:text-primary-light animate-scale-in' : 'text-gray-400 dark:text-gray-500'} />
+                <span className={`text-sm font-medium ${active ? 'text-primary dark:text-primary-light' : 'text-gray-700 dark:text-gray-300'}`}>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

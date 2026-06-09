@@ -88,6 +88,12 @@
     color: inherit;
   }
 
+  /* Respect reduced-motion: disable decorative shimmer + staggered entrance. */
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after { animation: none; }
+    .stagger > * { animation: none; }
+  }
+
   /* Heading rhythm */
   h1 { @apply text-2xl font-semibold tracking-tight; }
   h2 { @apply text-xl font-semibold tracking-tight; }
@@ -258,6 +264,40 @@
   .search-input {
     @apply input pl-9;
   }
+
+  /* ----- Skeleton loading ----- */
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700;
+  }
+  /* Opt-in shimmer sweep — a subtle sheen travels across the placeholder. */
+  .skeleton-shimmer::after {
+    content: '';
+    @apply absolute inset-0 bg-skeleton-sheen dark:bg-skeleton-sheen-dark animate-shimmer;
+    background-size: 200% 100%;
+  }
+  .skeleton-text { @apply skeleton h-3.5 w-full; }
+  .skeleton-card { @apply skeleton h-24 w-full; }
+
+  /* ----- Premium accents (on-brand, used sparingly) ----- */
+  .hero-surface {
+    @apply bg-hero-surface dark:bg-hero-surface-dark border border-line dark:border-line-dark rounded-2xl;
+  }
+  .accent-bar {
+    @apply h-[3px] w-full rounded-full bg-accent-bar;
+  }
+  .title-gradient {
+    @apply bg-gradient-to-r from-primary via-primary-light to-teal-500 bg-clip-text text-transparent;
+  }
+
+  /* Staggered entrance for grids/lists (children fade-up in sequence). */
+  .stagger > * { @apply animate-fade-up; }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .stagger > *:nth-child(n+7) { animation-delay: 240ms; }
 
   /* ----- Empty state -----
      Centered, generous, with a primary-tinted icon halo. Use inside any

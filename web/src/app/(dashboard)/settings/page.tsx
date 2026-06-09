@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Palette, Globe, Bell, Printer, CreditCard, Info } from 'lucide-react';
+import { Palette, Globe, Bell, Printer, CreditCard, Info, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function SettingsPage() {
@@ -17,20 +17,19 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">{t('common:more.settings')}</h1>
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 divide-y divide-gray-50 dark:divide-gray-800">
+    <div className="page page-container">
+      <h1 className="page-title mb-6">{t('common:more.settings')}</h1>
+      <div className="card row-divider">
         {settingsItems.map((item) => (
-          <Link key={item.href} href={item.href}
-            className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <item.icon size={20} className="text-primary" />
+          <Link key={item.href} href={item.href} className="row">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/15 flex items-center justify-center flex-shrink-0">
+              <item.icon size={20} className="text-primary dark:text-primary-light" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm">{item.name}</p>
-              <p className="text-xs text-gray-500">{item.description}</p>
+              <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{item.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{item.description}</p>
             </div>
-            <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+            <ChevronRight size={18} className="text-gray-400 flex-shrink-0" />
           </Link>
         ))}
       </div>

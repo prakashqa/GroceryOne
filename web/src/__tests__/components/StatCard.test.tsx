@@ -26,6 +26,12 @@ describe('StatCard', () => {
     render(<StatCard label="Items" value="42" icon={<span data-testid="stat-icon" />} />);
     expect(screen.getByTestId('stat-icon')).toBeInTheDocument();
   });
+
+  it('applies the semantic tone to the icon halo', () => {
+    render(<StatCard label="Out" value="2" tone="error" icon={<span data-testid="tone-icon" />} />);
+    const halo = screen.getByTestId('tone-icon').parentElement as HTMLElement;
+    expect(halo.className).toContain('text-error');
+  });
 });
 
 describe('cartStatusBadge', () => {

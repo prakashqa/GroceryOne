@@ -119,8 +119,8 @@ export default function ScanBarcodePage() {
           however slowly. Submits on Enter. */}
       <div className="card p-3 mb-4">
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <ScanLine size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="search-wrap flex-1">
+            <ScanLine size={18} />
             <input
               ref={manualRef}
               value={manualCode}
@@ -130,7 +130,7 @@ export default function ScanBarcodePage() {
               autoComplete="off"
               placeholder={t('scan.manualPlaceholder', 'Scan or type a barcode, then press Enter')}
               aria-label={t('scan.manualPlaceholder', 'Scan or type a barcode, then press Enter')}
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="search-input font-mono"
             />
           </div>
           <button onClick={() => void submitManual()} disabled={!manualCode.trim()} className="btn-primary">
@@ -161,8 +161,8 @@ export default function ScanBarcodePage() {
           )}
 
           {missing && (
-            <div className="border-t border-line dark:border-line-dark p-4 bg-orange-50 dark:bg-orange-500/10">
-              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+            <div className="border-t border-line dark:border-line-dark p-4 bg-warning-bg dark:bg-warning/10">
+              <div className="flex items-center gap-2 text-warning">
                 <AlertTriangle size={18} />
                 <span className="font-medium">{t('scan.notFoundTitle', 'Item not found')}</span>
                 <span className="font-mono text-sm">{missing}</span>

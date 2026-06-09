@@ -1,15 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { ClipboardList } from 'lucide-react';
+import { EmptyState } from '@/components/common/EmptyState';
 
 export default function ScanReviewPage() {
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Review Scanned Items</h1>
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 p-8 text-center">
-        <p className="text-gray-400 mb-4">No scanned items to review.</p>
-        <p className="text-sm text-gray-500 mb-4">Upload an order image first to scan and match items.</p>
-        <Link href="/scan/upload" className="text-primary hover:underline text-sm font-medium">Upload Image</Link>
+    <div className="page page-container">
+      <h1 className="page-title mb-6">Review Scanned Items</h1>
+      <div className="card">
+        <EmptyState
+          icon={<ClipboardList size={26} strokeWidth={1.8} />}
+          title="No scanned items to review."
+          hint="Upload an order image first to scan and match items."
+          action={<Link href="/scan/upload" className="btn-secondary btn-sm">Upload Image</Link>}
+        />
       </div>
     </div>
   );

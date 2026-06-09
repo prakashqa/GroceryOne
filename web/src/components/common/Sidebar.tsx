@@ -14,6 +14,7 @@ import { selectIsAdmin } from '@groceryone/store';
 import { useSidebar } from '@/hooks/useSidebar';
 import { useTranslation } from 'react-i18next';
 import { performLogout } from '@/lib/auth/logoutClient';
+import { Wordmark } from '@/components/common/Wordmark';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -52,11 +53,7 @@ export function Sidebar() {
     <>
       {/* Brand row */}
       <div className="flex items-center justify-between px-4 h-14 border-b border-line dark:border-line-dark">
-        {!collapsed && (
-          <span className="text-lg font-semibold tracking-tight text-primary dark:text-primary-light">
-            {t('appName', 'GroOne')}
-          </span>
-        )}
+        {!collapsed && <Wordmark />}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="btn-icon hidden md:inline-flex"

@@ -1,10 +1,23 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useAppSelector } from '@/hooks/useAppDispatch';
 import { selectTenant, selectCurrentUser } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Mail, Phone, Building2, Calendar, Shield, Globe } from 'lucide-react';
 import Link from 'next/link';
+
+function InfoRow({ icon, halo, label, value, mono }: { icon: ReactNode; halo: string; label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <div className="px-5 py-3.5 flex items-center gap-4">
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${halo}`}>{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+        <p className={`text-sm font-medium text-gray-900 dark:text-gray-100 truncate ${mono ? 'font-mono' : ''}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const { t } = useTranslation(['profile', 'common']);
@@ -16,16 +29,16 @@ export default function ProfilePage() {
   const displaySubtitle = tenant?.slug ? `@${tenant.slug}` : '';
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard" className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-          <ArrowLeft size={20} />
+    <div className="page max-w-3xl mx-auto">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/dashboard" className="btn-icon" aria-label="Back">
+          <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-2xl font-bold">{t('profile:title', 'Profile')}</h1>
+        <h1 className="page-title">{t('profile:title', 'Profile')}</h1>
       </div>
 
       {/* Profile Card */}
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden mb-6">
+      <div className="card overflow-hidden mb-6">
         {/* Gradient banner */}
         <div className="h-24 bg-gradient-to-r from-primary/20 via-emerald-400/20 to-teal-400/20" />
 
@@ -36,7 +49,7 @@ export default function ProfilePage() {
               {initial}
             </span>
           </div>
-          <h2 className="text-xl font-bold">{displayName}</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{displayName}</h2>
           {displaySubtitle && (
             <p className="text-sm text-gray-500 dark:text-gray-400">{displaySubtitle}</p>
           )}
@@ -44,102 +57,42 @@ export default function ProfilePage() {
       </div>
 
       {/* Store Details */}
-      <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+      <div className="card overflow-hidden mb-6">
+        <div className="px-5 py-4 border-b border-line dark:border-line-dark">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             {t('profile:settings.title', 'Store Information')}
           </h3>
         </div>
-        <div className="divide-y divide-gray-50 dark:divide-gray-800">
-          <div className="px-5 py-3 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <Building2 size={18} className="text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Store Name</p>
-              <p className="text-sm font-medium truncate">{tenant?.name || '—'}</p>
-            </div>
-          </div>
-
-          <div className="px-5 py-3 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-              <Shield size={18} className="text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Store Slug</p>
-              <p className="text-sm font-medium font-mono truncate">{tenant?.slug || '—'}</p>
-            </div>
-          </div>
-
-          <div className="px-5 py-3 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-              <Globe size={18} className="text-purple-600 dark:text-purple-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Language</p>
-              <p className="text-sm font-medium">{tenant?.defaultLanguage === 'te' ? 'తెలుగు (Telugu)' : 'English'}</p>
-            </div>
-          </div>
-
+        <div className="row-divider">
+          <InfoRow halo="bg-primary/10 dark:bg-primary/15" icon={<Building2 size={18} className="text-primary dark:text-primary-light" />} label="Store Name" value={tenant?.name || '—'} />
+          <InfoRow halo="bg-blue-50 dark:bg-blue-900/20" icon={<Shield size={18} className="text-blue-600 dark:text-blue-400" />} label="Store Slug" value={tenant?.slug || '—'} mono />
+          <InfoRow halo="bg-purple-50 dark:bg-purple-900/20" icon={<Globe size={18} className="text-purple-600 dark:text-purple-400" />} label="Language" value={tenant?.defaultLanguage === 'te' ? 'తెలుగు (Telugu)' : 'English'} />
           {tenant?.currency && (
-            <div className="px-5 py-3 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-base font-bold text-amber-600 dark:text-amber-400">₹</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Currency</p>
-                <p className="text-sm font-medium">{tenant.currency}</p>
-              </div>
-            </div>
+            <InfoRow halo="bg-amber-50 dark:bg-amber-900/20" icon={<span className="text-base font-bold text-amber-600 dark:text-amber-400">₹</span>} label="Currency" value={tenant.currency} />
           )}
         </div>
       </div>
 
       {/* User Details (if available) */}
       {user && (
-        <div className="bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden mb-6">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+        <div className="card overflow-hidden mb-6">
+          <div className="px-5 py-4 border-b border-line dark:border-line-dark">
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Account</h3>
           </div>
-          <div className="divide-y divide-gray-50 dark:divide-gray-800">
+          <div className="row-divider">
             {(user.firstName || user.lastName) && (
-              <div className="px-5 py-3 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-semibold text-primary dark:text-primary-light">
-                    {(user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Name</p>
-                  <p className="text-sm font-medium truncate">
-                    {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
-                  </p>
-                </div>
-              </div>
+              <InfoRow
+                halo="bg-primary/10 dark:bg-primary/15"
+                icon={<span className="text-sm font-semibold text-primary dark:text-primary-light">{(user.firstName?.charAt(0) || '') + (user.lastName?.charAt(0) || '')}</span>}
+                label="Name"
+                value={[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
+              />
             )}
-
             {user.email && (
-              <div className="px-5 py-3 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                  <Mail size={18} className="text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
-                  <p className="text-sm font-medium truncate">{user.email}</p>
-                </div>
-              </div>
+              <InfoRow halo="bg-blue-50 dark:bg-blue-900/20" icon={<Mail size={18} className="text-blue-600 dark:text-blue-400" />} label="Email" value={user.email} />
             )}
-
             {user.phone && (
-              <div className="px-5 py-3 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center flex-shrink-0">
-                  <Phone size={18} className="text-green-600 dark:text-green-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Phone</p>
-                  <p className="text-sm font-medium">{user.phone}</p>
-                </div>
-              </div>
+              <InfoRow halo="bg-green-50 dark:bg-green-900/20" icon={<Phone size={18} className="text-green-600 dark:text-green-400" />} label="Phone" value={user.phone} />
             )}
           </div>
         </div>
@@ -147,29 +100,23 @@ export default function ProfilePage() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 p-4 bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 hover:border-primary/50 hover:shadow-md transition-all"
-        >
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Calendar size={18} className="text-primary" />
+        <Link href="/settings" className="card-interactive p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 dark:bg-primary/15 flex items-center justify-center flex-shrink-0">
+            <Calendar size={18} className="text-primary dark:text-primary-light" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">{t('common:more.settings')}</p>
-            <p className="text-xs text-gray-500 truncate">Manage preferences</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('common:more.settings')}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Manage preferences</p>
           </div>
         </Link>
 
-        <Link
-          href="/settings/language"
-          className="flex items-center gap-3 p-4 bg-white dark:bg-surface-dark rounded-xl border border-gray-100 dark:border-gray-800 hover:border-primary/50 hover:shadow-md transition-all"
-        >
+        <Link href="/settings/language" className="card-interactive p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
             <Globe size={18} className="text-purple-600 dark:text-purple-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">{t('profile:settings.language.title', 'Language')}</p>
-            <p className="text-xs text-gray-500 truncate">Change app language</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('profile:settings.language.title', 'Language')}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">Change app language</p>
           </div>
         </Link>
       </div>

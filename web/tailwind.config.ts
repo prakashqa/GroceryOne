@@ -52,6 +52,16 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
       },
+      backgroundImage: {
+        // Skeleton shimmer sweep (paired with the `shimmer` animation).
+        'skeleton-sheen': 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)',
+        'skeleton-sheen-dark': 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%)',
+        // Subtle on-brand hero wash for page headers / a dashboard strip.
+        'hero-surface': 'linear-gradient(135deg, rgba(46,125,50,0.06) 0%, rgba(102,187,106,0.05) 45%, rgba(20,184,166,0.04) 100%)',
+        'hero-surface-dark': 'linear-gradient(135deg, rgba(102,187,106,0.10) 0%, rgba(56,142,60,0.07) 50%, rgba(20,184,166,0.05) 100%)',
+        // Brand accent rule / gradient text.
+        'accent-bar': 'linear-gradient(90deg, #2E7D32 0%, #66BB6A 60%, #14B8A6 100%)',
+      },
       fontSize: {
         'xxs': '0.625rem',  // 10px
       },
