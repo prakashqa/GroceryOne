@@ -10,6 +10,7 @@ import { useSidebar } from '@/hooks/useSidebar';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 import { performLogout } from '@/lib/auth/logoutClient';
+import { WhatsappSupport } from '@/components/common/WhatsappSupport';
 
 export function Header() {
   const tenant = useAppSelector(selectTenant);
@@ -83,6 +84,9 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-1.5">
+        {/* WhatsApp sales support */}
+        <WhatsappSupport className="mr-1" />
+
         {/* Language button */}
         <button
           onClick={() => router.push('/settings/language')}
