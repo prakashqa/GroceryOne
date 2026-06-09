@@ -27,10 +27,12 @@ import {
   generateLicense,
 } from '@/lib/api/licenses';
 
-// GroOne's collection VPA for the ₹2,000/year desktop license. Configured via
-// build-time env so the QR points at the real account without code changes.
-// Leave unset in dev → the QR panel shows a "not configured" hint.
-const LICENSE_UPI_ID = process.env.NEXT_PUBLIC_GROONE_LICENSE_UPI_ID || '';
+// GroOne's collection VPA for the ₹2,000/year desktop license. This is the
+// SOFTWARE VENDOR's account (money paid TO GroOne), NOT a tenant/store merchant
+// VPA (that one, in Payment Settings, collects grocery sales for the shop).
+// Baked-in default works in every build; override via env if it ever changes.
+const DEFAULT_LICENSE_UPI_ID = '8523045933@ibl';
+const LICENSE_UPI_ID = process.env.NEXT_PUBLIC_GROONE_LICENSE_UPI_ID || DEFAULT_LICENSE_UPI_ID;
 const LICENSE_PAYEE = process.env.NEXT_PUBLIC_GROONE_LICENSE_PAYEE || 'GroOne';
 const LICENSE_PRICE_INR = 2000;
 
