@@ -35,7 +35,16 @@ export function mapApiCategoriesToStore(apiCategories: readonly any[]): any[] {
   }));
 }
 
-/** Map a backend Item response to the Redux store shape. */
+/**
+ * Map a backend Item response to the Redux store shape.
+ *
+ * Critical: `barcode` MUST be preserved here. Dropping it (as this mapping
+ * originally did) means every item hydrated from the backend loses its code —
+ * the Product List shows "No barcode", the Edit form is empty, and the
+ * offline scan lookup (`items.find(i => i.barcode === code)`) never matches,
+ * even though the database has the barcode. Same failure mode the categories
+ * `nameTe` drop caused. Pinned by `__tests__/hooks/catalogHydrationMapping.test.ts`.
+ */
 export function mapApiItemsToStore(apiItems: readonly any[]): any[] {
   return apiItems.map((item) => ({
     id: item.slug || item.id,
@@ -43,10 +52,12 @@ export function mapApiItemsToStore(apiItems: readonly any[]): any[] {
     categoryId: item.category?.slug || item.categoryId,
     name: item.name,
     nameTe: item.nameTe,
+    barcode: item.barcode,
     unit: item.unit as 'kg' | 'gm' | 'pcs' | 'L' | 'ml',
     defaultQuantity: item.defaultQuantity,
     price: item.price,
     mrp: item.mrp,
+    costPrice: item.costPrice,
     sortOrder: item.sortOrder,
     stockQuantity: item.stockQuantity,
     lowStockThreshold: item.lowStockThreshold,

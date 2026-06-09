@@ -8,7 +8,7 @@
     "build:ts": "tsc -p tsconfig.json",
     "copy:static": "node scripts/copy-static.js",
     "build": "npm run build:ts && npm run copy:static",
-    "build:web": "cross-env NEXT_PUBLIC_API_URL=http://127.0.0.1:47600/api/v1 npm --prefix ../web run build",
+    "build:web": "cross-env NEXT_PUBLIC_API_URL=http://127.0.0.1:47600/api/v1 NEXT_PUBLIC_ENABLE_TEST_TOOLS=1 npm --prefix ../web run build",
     "bundle:web": "node scripts/bundle-web.js",
     "bundle:backend": "node scripts/bundle-backend.js",
     "prepare:all": "npm run build:web && npm run bundle:web && npm run bundle:backend",

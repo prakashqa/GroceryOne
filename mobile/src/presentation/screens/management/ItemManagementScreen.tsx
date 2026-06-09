@@ -17,15 +17,19 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
-import {
-  selectCategories,
-  selectItems,
-  addItem,
-  updateItem,
-  deleteItem,
-} from '../../../store/slices/catalogSlice';
 import { removeItemFromCart } from '../../../store/slices/multiCartSlice';
+import { useCatalog } from '../../../hooks/useCatalog';
+import {
+  useCreateItemMutation,
+  useUpdateItemMutation,
+  useDeleteItemMutation,
+} from '../../../data/api/productApi';
 import { Category, Item } from '../../../domain/types/picking';
+
+/** Minimal slug from a name (mirrors the backend's tenant-scoped slug). */
+function slugify(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'item';
+}
 import {
   ItemListItem,
   ItemFormModal,
@@ -52,9 +56,14 @@ const ItemManagementScreen: React.FC = () => {
   const { t } = useTranslation();
   const route = useRoute<RouteProp<ItemManagementRouteParams, 'ItemManagement'>>();
 
-  const categories = useSelector(selectCategories);
-  const items = useSelector(selectItems);
+  // Read catalog from the backend (RTK Query). After a create/update/delete
+  // mutation invalidates the Product LIST, useGetItemsQuery refetches and the
+  // list updates — including inventory-tracked items.
+  const { categories, items, refetch } = useCatalog();
   const carts = useSelector((state: RootState) => state.multiCart.carts);
+  const [createItemMut] = useCreateItemMutation();
+  const [updateItemMut] = useUpdateItemMutation();
+  const [deleteItemMut] = useDeleteItemMutation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -64,24 +73,22 @@ const ItemManagementScreen: React.FC = () => {
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
-  // Filter out inventory categories — only show order/POS categories
-  const orderCategories = useMemo(() => {
-    return categories.filter((cat) => cat.trackInventory !== true);
-  }, [categories]);
+  // Show ALL categories (including inventory-tracked ones).
+  const orderCategories = useMemo(() => categories as Category[], [categories]);
 
   // Create a category lookup map
   const categoryMap = useMemo(() => {
     const map: Record<string, Category> = {};
-    categories.forEach((cat) => {
+    (categories as Category[]).forEach((cat) => {
       map[cat.id] = cat;
     });
     return map;
   }, [categories]);
 
-  // Filter items based on search query and selected category (search both English and Telugu names)
-  // Excludes inventory items (trackInventory === true) — only show order/POS items
+  // Filter items by search query and selected category (search both English and
+  // Telugu names). Inventory-tracked items ARE shown now.
   const filteredItems = useMemo(() => {
-    let filtered = items.filter((item) => item.trackInventory !== true);
+    let filtered = items as Item[];
 
     // Filter by category if selected
     if (selectedCategoryId) {
@@ -119,42 +126,44 @@ const ItemManagementScreen: React.FC = () => {
   }, []);
 
   const handleSubmitItem = useCallback(
-    (data: {
+    async (data: {
       name: string;
       categoryId: string;
       unit: Item['unit'];
       defaultQuantity: number;
       mrp: number;
       salePrice?: number;
+      costPrice?: number;
+      stockQuantity?: number;
+      lowStockThreshold?: number;
+      trackInventory?: boolean;
     }) => {
-      if (selectedItem) {
-        // Edit mode
-        dispatch(
-          updateItem({
-            id: selectedItem.id,
-            name: data.name,
-            categoryId: data.categoryId,
-            unit: data.unit,
-            defaultQuantity: data.defaultQuantity,
-            mrp: data.mrp,
-            ...(data.salePrice !== undefined && { price: data.salePrice }),
-          })
-        );
-      } else {
-        // Add mode
-        dispatch(
-          addItem({
-            name: data.name,
-            categoryId: data.categoryId,
-            unit: data.unit,
-            defaultQuantity: data.defaultQuantity,
-            mrp: data.mrp,
-            ...(data.salePrice !== undefined && { price: data.salePrice }),
-          })
-        );
+      // Common fields sent to the backend. Opening stock + trackInventory are
+      // wired into the Inventory system server-side (initial/correction txns).
+      const common = {
+        name: data.name,
+        categoryId: data.categoryId,
+        unit: data.unit,
+        defaultQuantity: data.defaultQuantity,
+        compareAtPrice: data.mrp,
+        ...(data.salePrice !== undefined && { price: data.salePrice }),
+        ...(data.costPrice !== undefined && { costPrice: data.costPrice }),
+        ...(data.lowStockThreshold !== undefined && { lowStockThreshold: data.lowStockThreshold }),
+        ...(data.stockQuantity !== undefined && { stockQuantity: data.stockQuantity }),
+        ...(data.trackInventory ? { trackInventory: true } : {}),
+      };
+      try {
+        if (selectedItem) {
+          await updateItemMut({ id: (selectedItem as any).id, data: common }).unwrap();
+        } else {
+          await createItemMut({ slug: slugify(data.name), ...common }).unwrap();
+        }
+        refetch();
+      } catch {
+        // Surface via the catalog error state on next render; keep the modal flow simple.
       }
     },
-    [dispatch, selectedItem]
+    [selectedItem, createItemMut, updateItemMut, refetch]
   );
 
   // Delete handlers
@@ -168,10 +177,10 @@ const ItemManagementScreen: React.FC = () => {
     setSelectedItem(null);
   }, []);
 
-  const handleConfirmDelete = useCallback(() => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!selectedItem) return;
 
-    // Remove item from all carts
+    // Remove item from all carts (local)
     carts.forEach((cart) => {
       const itemInCart = cart.items.some((ci) => ci.item.id === selectedItem.id);
       if (itemInCart) {
@@ -179,9 +188,14 @@ const ItemManagementScreen: React.FC = () => {
       }
     });
 
-    // Delete the item from catalog
-    dispatch(deleteItem(selectedItem.id));
-  }, [dispatch, selectedItem, carts]);
+    // Delete on the backend (soft delete) then refresh.
+    try {
+      await deleteItemMut((selectedItem as any).id).unwrap();
+      refetch();
+    } catch {
+      // ignore — catalog error surfaces on next render
+    }
+  }, [dispatch, selectedItem, carts, deleteItemMut, refetch]);
 
   const renderItemRow = useCallback(
     ({ item }: { item: Item }) => (

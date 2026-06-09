@@ -25,6 +25,7 @@ export interface Item {
   defaultQuantity: number;
   price?: number;
   mrp?: number;
+  costPrice?: number;
   sortOrder?: number;
   stockQuantity?: number;
   lowStockThreshold?: number;

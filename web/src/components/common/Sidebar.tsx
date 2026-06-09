@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, Receipt, ListChecks,
   BarChart3, Package, Settings2, Camera, Settings, FolderOpen,
-  ChevronLeft, ChevronRight, LogOut, X, Users, KeyRound,
+  ChevronLeft, ChevronRight, LogOut, X, Users, KeyRound, ScanLine,
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,7 @@ export function Sidebar() {
   const navigation = [
     { name: t('navigation.dashboard'), href: '/dashboard', icon: LayoutDashboard },
     { name: t('navigation.picking'), href: '/picking', icon: ShoppingCart },
+    { name: t('navigation.scanBarcode', 'Scan Barcode'), href: '/scan-barcode', icon: ScanLine },
     { name: t('navigation.carts'), href: '/orders', icon: Receipt },
     { name: t('navigation.items'), href: '/items', icon: ListChecks },
     { name: t('navigation.reports'), href: '/reports', icon: BarChart3, adminOnly: true },

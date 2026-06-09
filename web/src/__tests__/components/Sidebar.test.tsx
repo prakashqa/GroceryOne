@@ -116,4 +116,10 @@ describe('Sidebar RBAC', () => {
     expect(screen.getByText('Orders')).toBeInTheDocument();
     expect(screen.getByText('Items')).toBeInTheDocument();
   });
+
+  it('shows the dedicated "Scan Barcode" entry (linking to /scan-barcode) for all roles', () => {
+    renderSidebar('cashier');
+    const link = screen.getByText('Scan Barcode').closest('a');
+    expect(link).toHaveAttribute('href', '/scan-barcode');
+  });
 });

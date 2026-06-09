@@ -44,38 +44,34 @@ export default function SubscriptionPlanPage() {
   };
 
   return (
-    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-lg p-8">
-      <h2 className="text-xl font-semibold text-center mb-2">Choose Your Plan</h2>
-      <p className="text-gray-500 text-center text-sm mb-6">Start with a 14-day free trial</p>
+    <div className="card bg-white dark:bg-card-dark rounded-2xl shadow-card-lg p-7 sm:p-8 animate-fade-up">
+      <h2 className="text-xl font-semibold text-center tracking-tight text-gray-900 dark:text-gray-100">Choose Your Plan</h2>
+      <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-1 mb-6">Start with a 14-day free trial</p>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {plans.map((plan) => (
           <button
             key={plan.id}
             onClick={() => handleSelectPlan(plan.id)}
             disabled={loading}
-            className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
+            className={`w-full text-left p-5 rounded-xl border transition-all duration-200 disabled:opacity-50 ${
               selected === plan.id
-                ? 'border-primary bg-primary/5'
-                : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-            } disabled:opacity-50`}
+                ? 'border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/40'
+                : 'border-line dark:border-line-dark hover:border-primary/50 hover:shadow-card-hover'
+            }`}
           >
             <div className="flex items-center justify-between mb-3">
-              <div>
-                <span className="font-semibold text-lg">{plan.price}</span>
-                <span className="text-gray-500 text-sm">{plan.period}</span>
+              <div className="flex items-baseline gap-1">
+                <span className="font-semibold text-lg text-gray-900 dark:text-gray-100">{plan.price}</span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm">{plan.period}</span>
               </div>
-              {plan.badge && (
-                <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                  {plan.badge}
-                </span>
-              )}
+              {plan.badge && <span className="badge-primary">{plan.badge}</span>}
             </div>
-            <p className="font-medium mb-2">{plan.name}</p>
+            <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">{plan.name}</p>
             <ul className="space-y-1.5">
               {plan.features.map((f) => (
                 <li key={f} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Check size={14} className="text-primary flex-shrink-0" />
+                  <Check size={14} className="text-primary dark:text-primary-light flex-shrink-0" />
                   {f}
                 </li>
               ))}
@@ -87,9 +83,9 @@ export default function SubscriptionPlanPage() {
       <button
         onClick={handleSkip}
         disabled={loading}
-        className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        className="w-full mt-4 py-2.5 text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors"
       >
-        Skip - Start 14-day trial
+        Skip — Start 14-day trial
       </button>
     </div>
   );

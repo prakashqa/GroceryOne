@@ -4,6 +4,9 @@ import { useAppSelector } from '@/hooks/useAppDispatch';
 import { selectTodaysMetrics, selectRecentCarts } from '@groceryone/store';
 import { ShoppingCart, Package, Receipt, IndianRupee } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { StatCard } from '@/components/common/StatCard';
+import { EmptyState } from '@/components/common/EmptyState';
+import { cartStatusBadge } from '@/lib/cartStatus';
 
 export default function DashboardPage() {
   const { t } = useTranslation('common');
@@ -27,62 +30,52 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">{t('dashboard.title')}</h1>
+    <div className="page">
+      <h1 className="page-title mb-6">{t('dashboard.title')}</h1>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {metricCards.map((card) => (
-          <div
+          <StatCard
             key={card.key}
-            className="bg-white dark:bg-surface-dark rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-800"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500 dark:text-gray-400">{card.label}</span>
-              <card.icon size={20} className={card.color} />
-            </div>
-            <p className="text-2xl font-bold">{card.value}</p>
-          </div>
+            label={card.label}
+            value={card.value}
+            icon={<card.icon size={18} />}
+          />
         ))}
       </div>
 
       {/* Recent Orders */}
-      <div className="bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <div className="p-5 border-b border-gray-100 dark:border-gray-800">
+      <div className="card">
+        <div className="p-5 border-b border-line dark:border-line-dark">
           <h2 className="text-lg font-semibold">{t('dashboard.recentCarts')}</h2>
         </div>
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {recentCarts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-gray-400">
-              <ShoppingCart size={48} className="text-gray-300 dark:text-gray-600 mb-3" />
-              <p className="text-lg font-medium">{t('dashboard.noRecentCarts')}</p>
-              <p className="text-sm mt-1">{t('dashboard.startByCreating')}</p>
-            </div>
-          ) : (
-            recentCarts.map((cart) => (
-              <div key={cart.id} className="px-5 py-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{cart.name}</p>
-                  <p className="text-sm text-gray-500">
+        {recentCarts.length === 0 ? (
+          <EmptyState
+            icon={<ShoppingCart size={26} strokeWidth={1.8} />}
+            title={t('dashboard.noRecentCarts')}
+            hint={t('dashboard.startByCreating')}
+          />
+        ) : (
+          <div className="row-divider">
+            {recentCarts.map((cart) => (
+              <div key={cart.id} className="row justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{cart.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {cart.paidItemCount ?? cart.items.length} {t('picking.items')}
                   </p>
                 </div>
-                <div className="text-right">
-                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    cart.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                    cart.status === 'printed' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                  }`}>
-                    {statusLabel(cart.status)}
-                  </span>
+                <div className="text-right shrink-0">
+                  <span className={cartStatusBadge(cart.status)}>{statusLabel(cart.status)}</span>
                   {cart.paidAmount && (
-                    <p className="text-sm font-medium mt-1">₹{cart.paidAmount.toFixed(0)}</p>
+                    <p className="text-sm font-medium mt-1 text-gray-900 dark:text-gray-100">₹{cart.paidAmount.toFixed(0)}</p>
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

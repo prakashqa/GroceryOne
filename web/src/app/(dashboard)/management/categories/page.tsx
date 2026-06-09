@@ -10,10 +10,10 @@ import {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
+  useSeedSampleDataMutation,
   StoreUtils,
 } from '@groceryone/store';
 import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus } from 'lucide-react';
-import { seedSampleData, SeedApiError } from '@/lib/api/seed';
 
 export default function CategoryManagementPage() {
   const { t, i18n } = useTranslation('common');
@@ -31,28 +31,21 @@ export default function CategoryManagementPage() {
 
   const isAdmin = useAppSelector(selectIsAdmin);
   const tenant = useAppSelector(selectTenant);
-  const [seeding, setSeeding] = useState(false);
+  const [seedSample, { isLoading: seeding }] = useSeedSampleDataMutation();
   const [seedError, setSeedError] = useState<string | null>(null);
 
   const handleSeedSample = async () => {
-    if (!tenant?.slug) return;
     setSeedError(null);
-    setSeeding(true);
     try {
-      const res = await seedSampleData(tenant.slug);
+      const res = await seedSample().unwrap();
       if (res.alreadySeeded) {
-        // Shouldn't happen on empty state, but guard anyway.
         setSeedError(t('manageCategories.alreadySeeded', 'Sample data is already loaded.'));
-        setSeeding(false);
-        return;
       }
-      // Reload so the RTK Query catalog cache re-fetches and the list shows
-      // the new categories + items.
-      window.location.reload();
-    } catch (e) {
-      const msg = e instanceof SeedApiError ? e.message : (e as Error)?.message;
-      setSeedError(msg || t('error', 'Something went wrong'));
-      setSeeding(false);
+      // On success RTK Query invalidates Product/Category LIST → the catalog
+      // re-fetches and re-hydrates automatically (no full reload needed).
+    } catch (e: any) {
+      const msg = e?.data?.message || e?.data?.error?.message || (e as Error)?.message;
+      setSeedError(typeof msg === 'string' ? msg : t('error', 'Something went wrong'));
     }
   };
 
@@ -92,7 +85,7 @@ export default function CategoryManagementPage() {
   const handleDelete = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     if (!cat?.backendId) return;
-    if (!confirm(t('manageCategories.deleteConfirm'))) return;
+    if (!confirm(t('manageCategories.deleteConfirm', { name: cat.name }))) return;
 
     try {
       await deleteCategoryMut(cat.backendId).unwrap();

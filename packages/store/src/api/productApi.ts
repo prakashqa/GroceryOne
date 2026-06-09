@@ -36,6 +36,7 @@ export interface UpdateItemDto {
   slug?: string; name?: string; nameTe?: string; barcode?: string; categoryId?: string;
   unit?: ItemUnit; defaultQuantity?: number; price?: number;
   compareAtPrice?: number; costPrice?: number; sortOrder?: number; isActive?: boolean;
+  stockQuantity?: number; lowStockThreshold?: number; trackInventory?: boolean;
 }
 
 export const productApi = baseApi.injectEndpoints({

@@ -53,12 +53,12 @@ const preloadedState = {
   },
 };
 
-describe('ItemManagementScreen - Inventory Item Filtering', () => {
+describe('ItemManagementScreen - Inventory Item Display', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('should NOT display inventory items (trackInventory: true)', () => {
+  it('DOES display inventory-tracked items (trackInventory: true now shown)', () => {
     const stateWithInventory = {
       catalog: {
         categories: [
@@ -87,18 +87,16 @@ describe('ItemManagementScreen - Inventory Item Filtering', () => {
       },
     };
 
-    const { getByText, queryByText } = renderWithProviders(<ItemManagementScreen />, {
+    const { getByText } = renderWithProviders(<ItemManagementScreen />, {
       preloadedState: stateWithInventory,
     });
 
-    // Order items should appear
+    // Both order AND inventory-tracked items now appear.
     expect(getByText('Basmati Rice')).toBeTruthy();
-
-    // Inventory items should NOT appear
-    expect(queryByText('Salt')).toBeNull();
+    expect(getByText('Salt')).toBeTruthy();
   });
 
-  it('should NOT display inventory categories in category chips', () => {
+  it('DOES display inventory categories in category chips', () => {
     const stateWithInventory = {
       catalog: {
         categories: [
@@ -110,15 +108,13 @@ describe('ItemManagementScreen - Inventory Item Filtering', () => {
       },
     };
 
-    const { getByTestId, queryByTestId } = renderWithProviders(<ItemManagementScreen />, {
+    const { getByTestId } = renderWithProviders(<ItemManagementScreen />, {
       preloadedState: stateWithInventory,
     });
 
-    // Order category chip should appear
+    // Both order AND inventory category chips now appear.
     expect(getByTestId('category-chip-cat-1')).toBeTruthy();
-
-    // Inventory category chip should NOT appear
-    expect(queryByTestId('category-chip-cat-inv')).toBeNull();
+    expect(getByTestId('category-chip-cat-inv')).toBeTruthy();
   });
 });
 

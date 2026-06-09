@@ -103,6 +103,9 @@ export async function startBackend(db: DbConnection): Promise<string> {
       DB_SYNCHRONIZE: 'true',
       REDIS_DISABLED: 'true',
       SUBSCRIPTION_ENFORCED: 'false',
+      // Offline desktop is a single-operator test/sales tool: enable the
+      // "Generate test barcodes" admin helper (gated off in the cloud product).
+      TEST_TOOLS_ENABLED: 'true',
       // Auth
       JWT_SECRET: getOrCreateJwtSecret(),
       // Desktop renderer is the only client; allow it.

@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Item } from './entities/item.entity';
 import { CreateItemDto, UpdateItemDto } from './dto';
 import { CategoriesService } from '../categories/categories.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 function validateTenantId(tenantId: string | undefined): asserts tenantId is string {
   if (!tenantId) {
@@ -25,12 +26,20 @@ export class ProductsService {
     @InjectRepository(Item)
     private readonly itemRepository: Repository<Item>,
     private readonly categoriesService: CategoriesService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   /**
-   * Create a new item
+   * Create a new item.
+   *
+   * Opening stock is wired into the Inventory system: when a positive
+   * `stockQuantity` is supplied, the item is persisted with stock 0 and
+   * `trackInventory=true`, then the quantity is recorded via
+   * `InventoryService.addStock(..., 'initial')` — a single source of truth that
+   * also writes an audit transaction. We never set `stockQuantity` directly AND
+   * call addStock (that would double-count).
    */
-  async create(createItemDto: CreateItemDto, tenantId?: string): Promise<Item> {
+  async create(createItemDto: CreateItemDto, tenantId?: string, userId?: string): Promise<Item> {
     validateTenantId(tenantId);
 
     // Validate categoryId belongs to the same tenant
@@ -45,12 +54,22 @@ export class ProductsService {
       throw new ConflictException(`Item with slug '${createItemDto.slug}' already exists`);
     }
 
+    const { stockQuantity, ...rest } = createItemDto;
+    const opening = stockQuantity != null && Number(stockQuantity) > 0 ? Number(stockQuantity) : 0;
+
     const item = this.itemRepository.create({
-      ...createItemDto,
+      ...rest,
+      stockQuantity: 0, // opening recorded via inventory (addStock) — avoid double-count
+      trackInventory: opening > 0 ? true : (rest.trackInventory ?? false),
       tenantId,
     });
     const saved = await this.itemRepository.save(item);
     this.logger.log(`Created item: ${saved.name} (${saved.slug}) for tenant ${tenantId}`);
+
+    if (opening > 0) {
+      await this.inventoryService.addStock(saved.id, opening, 'initial', tenantId, 'Opening stock', userId);
+      return this.findOne(saved.id, tenantId); // re-read so stockQuantity reflects the txn
+    }
     return saved;
   }
 
@@ -220,7 +239,7 @@ export class ProductsService {
   /**
    * Update an item
    */
-  async update(id: string, updateItemDto: UpdateItemDto, tenantId?: string): Promise<Item> {
+  async update(id: string, updateItemDto: UpdateItemDto, tenantId?: string, userId?: string): Promise<Item> {
     validateTenantId(tenantId);
 
     const item = await this.findOne(id, tenantId);
@@ -241,9 +260,19 @@ export class ProductsService {
       }
     }
 
-    Object.assign(item, updateItemDto);
+    // A stock-quantity change must go through the Inventory system so it's
+    // audited — never let a plain item save overwrite stockQuantity. Strip it
+    // from the settings assign; costPrice/lowStockThreshold/trackInventory are
+    // plain settings and flow through normally.
+    const { stockQuantity, ...settings } = updateItemDto;
+    Object.assign(item, settings);
     const updated = await this.itemRepository.save(item);
     this.logger.log(`Updated item: ${updated.name} (${updated.slug})`);
+
+    if (stockQuantity != null && Number(stockQuantity) !== Number(item.stockQuantity)) {
+      await this.inventoryService.setStock(id, Number(stockQuantity), tenantId, 'Manual correction', userId);
+      return this.findOne(id, tenantId);
+    }
     return updated;
   }
 

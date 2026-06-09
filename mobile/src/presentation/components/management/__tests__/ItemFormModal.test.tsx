@@ -190,58 +190,49 @@ describe('ItemFormModal', () => {
     });
   });
 
-  describe('Inventory Mode', () => {
-    it('should NOT show MRP and Sale Price fields in inventory mode', () => {
-      const { queryByPlaceholderText, queryByText } = renderForm({ mode: 'inventory' });
-      expect(queryByPlaceholderText('Enter MRP')).toBeNull();
-      expect(queryByPlaceholderText('Enter sale price')).toBeNull();
-      expect(queryByText('MRP *')).toBeNull();
-      expect(queryByText('Sale Price')).toBeNull();
-    });
-
-    it('should show Stock Quantity and Low Stock Threshold fields in inventory mode', () => {
-      const { getByTestId } = renderForm({ mode: 'inventory', testID: 'item-form' });
-      expect(getByTestId('item-form-stock-quantity-input')).toBeTruthy();
+  describe('Stock Fields (unified Pricing + Stock form)', () => {
+    it('shows pricing AND the stock fields (Opening Quantity / At Price / Min Stock)', () => {
+      const { getByPlaceholderText, getByTestId } = renderForm({ testID: 'item-form' });
+      // Pricing still present
+      expect(getByPlaceholderText('Enter MRP')).toBeTruthy();
+      // Stock section present
+      expect(getByTestId('item-form-opening-quantity-input')).toBeTruthy();
+      expect(getByTestId('item-form-cost-price-input')).toBeTruthy();
       expect(getByTestId('item-form-low-stock-threshold-input')).toBeTruthy();
     });
 
-    it('should NOT require MRP in inventory mode', async () => {
-      const { getByPlaceholderText, getByText } = renderForm({ mode: 'inventory', initialCategoryId: 'cat1' });
-      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Test Inventory Item');
+    it('still requires MRP (pricing is mandatory)', async () => {
+      const { getByPlaceholderText, getByText } = renderForm({ initialCategoryId: 'cat1' });
+      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'No Price Item');
       fireEvent.press(getByText('Add'));
-      await waitFor(() => { expect(mockOnSubmit).toHaveBeenCalled(); });
+      await waitFor(() => { expect(mockOnSubmit).not.toHaveBeenCalled(); });
     });
 
-    it('should submit stockQuantity and lowStockThreshold in inventory mode', async () => {
-      const { getByPlaceholderText, getByTestId, getByText } = renderForm({ mode: 'inventory', initialCategoryId: 'cat1', testID: 'item-form' });
-      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Inventory Item');
-      fireEvent.changeText(getByTestId('item-form-stock-quantity-input'), '50');
-      fireEvent.changeText(getByTestId('item-form-low-stock-threshold-input'), '10');
+    it('submits stock fields + auto-track when an Opening Quantity is entered', async () => {
+      const { getByPlaceholderText, getByTestId, getByText } = renderForm({ initialCategoryId: 'cat1', testID: 'item-form' });
+      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Rice');
+      fireEvent.changeText(getByPlaceholderText('Enter MRP'), '100');
+      fireEvent.changeText(getByTestId('item-form-opening-quantity-input'), '8');
+      fireEvent.changeText(getByTestId('item-form-cost-price-input'), '90');
+      fireEvent.changeText(getByTestId('item-form-low-stock-threshold-input'), '4');
       fireEvent.press(getByText('Add'));
       await waitFor(() => {
         expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
-          name: 'Inventory Item',
-          stockQuantity: 50,
-          lowStockThreshold: 10,
+          name: 'Rice', mrp: 100, stockQuantity: 8, costPrice: 90, lowStockThreshold: 4, trackInventory: true,
         }));
-        // Should NOT have mrp or salePrice
-        expect(mockOnSubmit.mock.calls[0][0].mrp).toBeUndefined();
-        expect(mockOnSubmit.mock.calls[0][0].salePrice).toBeUndefined();
       });
     });
 
-    it('should show MRP and Sale Price in order mode (default)', () => {
-      const { getByPlaceholderText, getByText } = renderForm();
-      expect(getByPlaceholderText('Enter MRP')).toBeTruthy();
-      expect(getByPlaceholderText('Enter sale price')).toBeTruthy();
-      expect(getByText('MRP *')).toBeTruthy();
-      expect(getByText('Sale Price')).toBeTruthy();
-    });
-
-    it('should NOT show Stock Quantity and Low Stock Threshold in order mode', () => {
-      const { queryByTestId } = renderForm({ testID: 'item-form' });
-      expect(queryByTestId('item-form-stock-quantity-input')).toBeNull();
-      expect(queryByTestId('item-form-low-stock-threshold-input')).toBeNull();
+    it('omits stock/trackInventory when Opening Quantity is blank', async () => {
+      const { getByPlaceholderText, getByText } = renderForm({ initialCategoryId: 'cat1' });
+      fireEvent.changeText(getByPlaceholderText('Enter item name'), 'Loose Rice');
+      fireEvent.changeText(getByPlaceholderText('Enter MRP'), '100');
+      fireEvent.press(getByText('Add'));
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalled();
+        expect(mockOnSubmit.mock.calls[0][0].stockQuantity).toBeUndefined();
+        expect(mockOnSubmit.mock.calls[0][0].trackInventory).toBeUndefined();
+      });
     });
   });
 
@@ -251,19 +242,9 @@ describe('ItemFormModal', () => {
       expect(mockT).toHaveBeenCalledWith('manageItems.addItem');
     });
 
-    it('should show "Add Inventory Item" title in inventory mode', () => {
-      const { getByText } = renderForm({ mode: 'inventory' });
-      expect(getByText('Add Inventory Item')).toBeTruthy();
-    });
-
-    it('should show "Edit Item" title in order edit mode', () => {
+    it('should show "Edit Item" title when editing', () => {
       const { getByText } = renderForm({ editItem });
       expect(getByText('Edit Item')).toBeTruthy();
-    });
-
-    it('should show "Edit Inventory Item" title in inventory edit mode', () => {
-      const { getByText } = renderForm({ editItem, mode: 'inventory' });
-      expect(getByText('Edit Inventory Item')).toBeTruthy();
     });
   });
 

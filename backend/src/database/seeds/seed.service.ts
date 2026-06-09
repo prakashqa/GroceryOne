@@ -11,6 +11,13 @@ import { Category } from '../../modules/categories/entities/category.entity';
 import { Item } from '../../modules/products/entities/item.entity';
 import { Tenant } from '../../tenant/entities/tenant.entity';
 import { getTenantSeedData, CategorySeed, ItemSeed } from './seed-data';
+import { testBarcodeForSeq } from './ean13.util';
+
+export interface TestBarcodeResult {
+  updated: number;
+  skipped: number;
+  assignments: { name: string; barcode: string }[];
+}
 
 export interface SeedReport {
   categoriesBefore: number;
@@ -330,6 +337,52 @@ export class SeedService {
       categories: report.categoriesCreated,
       items: report.itemsCreated,
     };
+  }
+
+  /**
+   * Assign deterministic, valid EAN-13 *test* barcodes to the caller-tenant's
+   * existing items that don't have one yet — so barcode scanning can be tested
+   * end-to-end without re-creating the catalog.
+   *
+   * Tenant-scoped: reads and writes ONLY this tenant's items (`where {tenantId}`).
+   * Idempotent: items that already have a barcode are skipped, and each item is
+   * mapped to a stable sequence (by sortOrder, then createdAt, then id) so a
+   * re-run produces the same code for the same item.
+   */
+  async assignTestBarcodes(tenantId: string): Promise<TestBarcodeResult> {
+    if (!tenantId) {
+      throw new Error('tenantId is required to assign test barcodes');
+    }
+
+    const items = await this.itemRepository.find({
+      where: { tenantId, isActive: true },
+      order: { sortOrder: 'ASC', createdAt: 'ASC', id: 'ASC' },
+    });
+
+    const toSave: Item[] = [];
+    const assignments: { name: string; barcode: string }[] = [];
+    let skipped = 0;
+
+    items.forEach((item, index) => {
+      const barcode = testBarcodeForSeq(index + 1); // stable per position
+      if (item.barcode && item.barcode.trim()) {
+        skipped++;
+        return;
+      }
+      item.barcode = barcode;
+      toSave.push(item);
+      assignments.push({ name: item.name, barcode });
+    });
+
+    if (toSave.length > 0) {
+      await this.itemRepository.save(toSave);
+    }
+
+    this.logger.log(
+      `Test barcodes for tenant ${tenantId}: ${toSave.length} assigned, ${skipped} skipped`,
+    );
+
+    return { updated: toSave.length, skipped, assignments };
   }
 
   /**
