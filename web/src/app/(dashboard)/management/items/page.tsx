@@ -420,7 +420,7 @@ function ItemManagementPageInner() {
                   className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
                   {['kg', 'gm', 'pcs', 'L', 'ml'].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <input value={form.defaultQuantity} onChange={(e) => setForm((f) => ({ ...f, defaultQuantity: e.target.value }))} placeholder={t('manageItems.defaultQuantity')} type="number" step="0.1"
+                <input value={form.defaultQuantity} onChange={(e) => setForm((f) => ({ ...f, defaultQuantity: e.target.value }))} placeholder={t('manageItems.defaultQuantity')} type="number" step="any" min="0"
                   className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
               </div>
               {/* Pricing | Stock tabs */}
@@ -443,19 +443,19 @@ function ItemManagementPageInner() {
 
               {activeTab === 'pricing' ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <input value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t('manageItems.salePrice')} type="number" step="0.01"
+                  <input value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder={t('manageItems.salePrice')} type="number" step="any" min="0"
                     className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
-                  <input value={form.mrp} onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))} placeholder={t('manageItems.mrp')} type="number" step="0.01"
+                  <input value={form.mrp} onChange={(e) => setForm((f) => ({ ...f, mrp: e.target.value }))} placeholder={t('manageItems.mrp')} type="number" step="any" min="0"
                     className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <input value={form.openingQty} onChange={(e) => setForm((f) => ({ ...f, openingQty: e.target.value }))} placeholder={t('manageItems.openingQuantity', 'Opening Quantity')} type="number" step="0.1" min="0"
+                  <input value={form.openingQty} onChange={(e) => setForm((f) => ({ ...f, openingQty: e.target.value }))} placeholder={t('manageItems.openingQuantity', 'Opening Quantity')} type="number" step="any" min="0"
                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
                   <div className="grid grid-cols-2 gap-3">
-                    <input value={form.costPrice} onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))} placeholder={t('manageItems.atPrice', 'At Price (cost)')} type="number" step="0.01" min="0"
+                    <input value={form.costPrice} onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))} placeholder={t('manageItems.atPrice', 'At Price (cost)')} type="number" step="any" min="0"
                       className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
-                    <input value={form.lowStockThreshold} onChange={(e) => setForm((f) => ({ ...f, lowStockThreshold: e.target.value }))} placeholder={t('manageItems.minStock', 'Min Stock To Maintain')} type="number" step="0.1" min="0"
+                    <input value={form.lowStockThreshold} onChange={(e) => setForm((f) => ({ ...f, lowStockThreshold: e.target.value }))} placeholder={t('manageItems.minStock', 'Min Stock To Maintain')} type="number" step="any" min="0"
                       className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm" />
                   </div>
                   <p className="hint">{t('manageItems.stockHint', 'Enter an opening quantity to track this item in Inventory. Leave blank for untracked items (e.g. loose goods).')}</p>

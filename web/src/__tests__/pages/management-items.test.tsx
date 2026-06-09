@@ -228,6 +228,34 @@ describe('ItemManagementPage - Pricing|Stock tabs', () => {
   });
 });
 
+describe('ItemManagementPage - number input stepping', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockBarcodeParam = null; });
+
+  // The native number-spinner arrows step by the `step` attribute. Fractional
+  // steps (0.1 / 0.01) made the arrows nudge values to 2.1 / 35.01. step="any"
+  // makes the arrows step by whole numbers while still accepting decimals.
+  it('uses step="any" on the default-quantity and pricing fields', () => {
+    setupMocks('en');
+    render(<ItemManagementPage />);
+    fireEvent.click(screen.getAllByText('manageItems.addItem')[0]);
+
+    expect(screen.getByPlaceholderText('manageItems.defaultQuantity')).toHaveAttribute('step', 'any');
+    expect(screen.getByPlaceholderText('manageItems.salePrice')).toHaveAttribute('step', 'any');
+    expect(screen.getByPlaceholderText('manageItems.mrp')).toHaveAttribute('step', 'any');
+  });
+
+  it('uses step="any" on the Stock-tab fields', () => {
+    setupMocks('en');
+    render(<ItemManagementPage />);
+    fireEvent.click(screen.getAllByText('manageItems.addItem')[0]);
+    fireEvent.click(screen.getByText('Stock'));
+
+    expect(screen.getByPlaceholderText(/Opening Quantity/i)).toHaveAttribute('step', 'any');
+    expect(screen.getByPlaceholderText(/At Price/i)).toHaveAttribute('step', 'any');
+    expect(screen.getByPlaceholderText(/Min Stock/i)).toHaveAttribute('step', 'any');
+  });
+});
+
 describe('ItemManagementPage - delete item', () => {
   beforeEach(() => { jest.clearAllMocks(); mockBarcodeParam = null; });
 
