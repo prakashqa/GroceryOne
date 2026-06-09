@@ -89,8 +89,12 @@ export const getPaymentMethodIcon = (method: PaymentMethod): string => {
 export const generateUpiDeepLink = (
   upiId: string,
   merchantName: string,
-  amount: number
+  amount: number,
+  /** Optional UPI transaction note (`tn`) — e.g. a tenant slug, for reconciliation. */
+  note?: string
 ): string => {
   const encodedName = encodeURIComponent(merchantName);
-  return `upi://pay?pa=${upiId}&pn=${encodedName}&am=${amount.toFixed(2)}&cu=INR`;
+  let url = `upi://pay?pa=${upiId}&pn=${encodedName}&am=${amount.toFixed(2)}&cu=INR`;
+  if (note) url += `&tn=${encodeURIComponent(note)}`;
+  return url;
 };

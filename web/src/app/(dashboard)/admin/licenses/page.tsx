@@ -20,11 +20,19 @@ import { useSelector } from 'react-redux';
 import { selectTenant } from '@groceryone/store';
 import { Loader2, AlertCircle, Copy, Check, KeyRound } from 'lucide-react';
 import { RoleGate } from '@/components/common/RoleGate';
+import { LicensePaymentQr } from '@/components/payment/LicensePaymentQr';
 import {
   GeneratedLicense,
   LicensesApiError,
   generateLicense,
 } from '@/lib/api/licenses';
+
+// GroOne's collection VPA for the ₹2,000/year desktop license. Configured via
+// build-time env so the QR points at the real account without code changes.
+// Leave unset in dev → the QR panel shows a "not configured" hint.
+const LICENSE_UPI_ID = process.env.NEXT_PUBLIC_GROONE_LICENSE_UPI_ID || '';
+const LICENSE_PAYEE = process.env.NEXT_PUBLIC_GROONE_LICENSE_PAYEE || 'GroOne';
+const LICENSE_PRICE_INR = 2000;
 
 export default function AdminLicensesPage() {
   return (
@@ -106,6 +114,15 @@ function AdminLicensesContent() {
           'Mint a yearly desktop license (₹2,000) after a customer pays. The key is shown once — copy it before leaving.',
         )}
       </p>
+
+      {/* Step 1 — collect payment by UPI. Static QR: it pre-fills payee +
+          amount but does NOT confirm payment; verify receipt before minting. */}
+      <LicensePaymentQr
+        upiId={LICENSE_UPI_ID}
+        payeeName={LICENSE_PAYEE}
+        amount={LICENSE_PRICE_INR}
+        note={`GroOne license ${tenantSlug ?? ''}`.trim()}
+      />
 
       <form onSubmit={handleSubmit} className="card p-5 space-y-3 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

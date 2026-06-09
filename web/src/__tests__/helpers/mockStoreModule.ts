@@ -41,6 +41,11 @@ export const DomainTypes = {
   createCashPaymentInfo: (received?: number, change?: number) => ({ method: 'cash', received, change }),
   createUpiPaymentInfo: (upiId?: string, ref?: string) => ({ method: 'upi', upiId, ref }),
   createCardPaymentInfo: (last4?: string) => ({ method: 'card', last4 }),
+  generateUpiDeepLink: (upiId: string, name: string, amount: number, note?: string) => {
+    let url = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name)}&am=${amount.toFixed(2)}&cu=INR`;
+    if (note) url += `&tn=${encodeURIComponent(note)}`;
+    return url;
+  },
 };
 
 // RTK Query mutation hooks (used by management pages)
