@@ -157,6 +157,8 @@ export async function startPostgres(): Promise<DbConnection> {
     }
   }
 
+  await reconcileLicenseKeysColumn();
+
   return {
     host: '127.0.0.1',
     port: DB_PORT,
@@ -164,6 +166,48 @@ export async function startPostgres(): Promise<DbConnection> {
     password: DB_PASSWORD,
     database: DB_NAME,
   };
+}
+
+/**
+ * Pre-sync migration shim for the desktop's embedded DB.
+ *
+ * The backend boots with TypeORM `synchronize=true`. When the shared
+ * `LicenseKey.key` column was widened (varchar(35) → varchar(512)) and the
+ * existing `license_keys` table already had rows — or was left half-migrated
+ * by an earlier failed boot — TypeORM emits a destructive
+ * `ALTER TABLE license_keys ADD "key" varchar(512) NOT NULL`, which Postgres
+ * rejects with "column key … contains null values", so the app never starts.
+ *
+ * Desktop `license_keys` rows are NOT used by the offline license gate (it
+ * verifies the signed token in license.dat), so here we make the column match
+ * the entity in-place — add it if missing, backfill any nulls, widen, set NOT
+ * NULL — BEFORE the backend runs synchronize. That turns the sync into a
+ * no-op for this column and lets startup proceed. Idempotent + best-effort;
+ * never blocks startup.
+ */
+async function reconcileLicenseKeysColumn(): Promise<void> {
+  if (!pg) return;
+  let client: { connect(): Promise<void>; query(q: string): Promise<unknown>; end(): Promise<void> } | undefined;
+  try {
+    client = pg.getPgClient(DB_NAME, '127.0.0.1') as typeof client;
+    await client!.connect();
+    await client!.query(`
+      DO $$
+      BEGIN
+        IF to_regclass('public.license_keys') IS NOT NULL THEN
+          ALTER TABLE license_keys ADD COLUMN IF NOT EXISTS "key" varchar(512);
+          UPDATE license_keys SET "key" = 'legacy-' || id::text WHERE "key" IS NULL;
+          ALTER TABLE license_keys ALTER COLUMN "key" TYPE varchar(512);
+          ALTER TABLE license_keys ALTER COLUMN "key" SET NOT NULL;
+        END IF;
+      END $$;
+    `);
+    console.log('[pg] reconciled license_keys.key for safe schema sync');
+  } catch (e) {
+    console.error('[pg] license_keys reconcile skipped:', (e as Error)?.message || e);
+  } finally {
+    try { await client?.end(); } catch { /* ignore */ }
+  }
 }
 
 export async function stopPostgres(): Promise<void> {
