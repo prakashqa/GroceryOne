@@ -40,11 +40,17 @@ export function Sidebar() {
     { name: t('navigation.scan'), href: '/scan/upload', icon: Camera },
   ].filter((item) => !item.adminOnly || isAdmin);
 
+  // The license MINT screen is a vendor tool — hidden in the desktop build
+  // (the shop owner is admin of their local tenant, but keys are issued by
+  // GroOne only; the local backend also refuses to mint).
+  const isDesktopBuild = process.env.NEXT_PUBLIC_DESKTOP_BUILD === '1';
   const managementNav = [
     { name: t('navigation.categories'), href: '/management/categories', icon: FolderOpen },
     { name: t('navigation.productList'), href: '/management/items', icon: ListChecks },
     { name: t('navigation.employees', 'Employees'), href: '/management/employees', icon: Users, adminOnly: true },
-    { name: t('navigation.licenses', 'Desktop licenses'), href: '/admin/licenses', icon: KeyRound, adminOnly: true },
+    ...(isDesktopBuild
+      ? []
+      : [{ name: t('navigation.licenses', 'Desktop licenses'), href: '/admin/licenses', icon: KeyRound, adminOnly: true }]),
   ].filter((item) => !item.adminOnly || isAdmin);
 
   const handleLogout = () => performLogout(dispatch, router);

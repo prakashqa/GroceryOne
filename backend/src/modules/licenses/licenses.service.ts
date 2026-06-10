@@ -21,6 +21,7 @@ import * as crypto from 'crypto';
 import { LicenseKey, LicensePlanType } from './entities/license-key.entity';
 import { Tenant } from '../../tenant/entities/tenant.entity';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { signLicenseToken } from './license-token.util';
 import {
   ActivateLicenseDto,
   ValidateLicenseDto,
@@ -37,25 +38,8 @@ const PLAN_DURATION_DAYS: Record<LicensePlanType, number> = {
   desktop_yearly: 365,
 };
 
-/**
- * Base32-ish alphabet without ambiguous chars (no 0/O, 1/I, L, U, B/8 confusion):
- *   A-Z minus I/L/O/U, 2-9 (no 0/1)
- * Yields 28 symbols; 16 chars → ~76 bits of entropy.
- */
-const KEY_ALPHABET = 'ABCDEFGHJKMNPQRSTVWXYZ23456789';
-
 function hashMachineId(machineId: string): string {
   return crypto.createHash('sha256').update(machineId, 'utf8').digest('hex');
-}
-
-function generateKeyString(): string {
-  const bytes = crypto.randomBytes(16);
-  let raw = '';
-  for (let i = 0; i < 16; i++) {
-    raw += KEY_ALPHABET[bytes[i] % KEY_ALPHABET.length];
-  }
-  // Format GROD-XXXX-XXXX-XXXX-XXXX (20 chars + 4 dashes + "GROD-" = 25 char)
-  return `GROD-${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}`;
 }
 
 @Injectable()
@@ -74,8 +58,22 @@ export class LicensesService {
    * Mint a new license key. Admin-only (enforced by the controller's
    * RolesGuard) AND tenant-scoped (admin can only mint for their own
    * tenant — cross-tenant attempt → 403).
+   *
+   * The key is a REAL Ed25519-signed token (same format as the gen.js CLI)
+   * that the Windows desktop gate verifies offline against its embedded
+   * public key. Signing requires LICENSE_PRIVATE_KEY_B64 (base64 of the
+   * vendor's private-key PEM) — set ONLY on vendor infrastructure. The
+   * desktop's bundled backend never gets it, so customer installs cannot
+   * mint working keys.
    */
   async generate(dto: GenerateLicenseDto, admin: AdminContext): Promise<LicenseKey> {
+    // Capability gate: no signing key → this server cannot issue licenses.
+    const privateKeyB64 = process.env.LICENSE_PRIVATE_KEY_B64;
+    if (!privateKeyB64) {
+      throw new ForbiddenException('License minting is not available on this server');
+    }
+    const privateKeyPem = Buffer.from(privateKeyB64, 'base64').toString('utf8');
+
     const tenant = await this.tenantRepository.findOne({ where: { slug: dto.tenantSlug } });
     if (!tenant) {
       throw new NotFoundException(`Tenant '${dto.tenantSlug}' not found`);
@@ -106,13 +104,18 @@ export class LicensesService {
       ? new Date(dto.expiresAt)
       : new Date(now.getTime() + PLAN_DURATION_DAYS[dto.plan] * 24 * 60 * 60 * 1000);
 
-    // Generate a unique key; retry on the (very unlikely) collision.
-    let key = generateKeyString();
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const existing = await this.licenseRepository.findOne({ where: { key } });
-      if (!existing) break;
-      key = generateKeyString();
-    }
+    // Sign the offline-verifiable token (unique by content — issuedAt has
+    // millisecond precision, so no collision loop is needed).
+    const key = signLicenseToken(
+      {
+        customer: tenant.name || tenant.slug,
+        plan: dto.plan,
+        issuedAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        v: 1,
+      },
+      privateKeyPem,
+    );
 
     const entity = this.licenseRepository.create({
       key,

@@ -123,3 +123,25 @@ describe('Sidebar RBAC', () => {
     expect(link).toHaveAttribute('href', '/scan-barcode');
   });
 });
+
+describe('Sidebar — desktop build (vendor mint screen hidden)', () => {
+  const OLD = process.env.NEXT_PUBLIC_DESKTOP_BUILD;
+  afterEach(() => {
+    if (OLD === undefined) delete process.env.NEXT_PUBLIC_DESKTOP_BUILD;
+    else process.env.NEXT_PUBLIC_DESKTOP_BUILD = OLD;
+  });
+
+  it('admin sees Desktop licenses in the cloud build (flag unset)', () => {
+    delete process.env.NEXT_PUBLIC_DESKTOP_BUILD;
+    renderSidebar('admin');
+    expect(screen.getByText('Desktop licenses')).toBeInTheDocument();
+  });
+
+  it('admin does NOT see Desktop licenses in the desktop build (flag=1)', () => {
+    process.env.NEXT_PUBLIC_DESKTOP_BUILD = '1';
+    renderSidebar('admin');
+    expect(screen.queryByText('Desktop licenses')).not.toBeInTheDocument();
+    // Other admin items unaffected.
+    expect(screen.getByText('Employees')).toBeInTheDocument();
+  });
+});

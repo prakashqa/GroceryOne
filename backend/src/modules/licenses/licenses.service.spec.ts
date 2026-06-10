@@ -13,6 +13,7 @@
  * one cross-tenant negative test.
  */
 
+import * as crypto from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -71,16 +72,52 @@ describe('LicensesService', () => {
   describe('generate()', () => {
     const PAY_REF = 'UPI-TXN-425912345678';
 
-    it('mints a key matching GROD-XXXX-XXXX-XXXX-XXXX', async () => {
+    // Vendor signing keypair (ephemeral, per spec run). The service signs
+    // with LICENSE_PRIVATE_KEY_B64; the desktop gate verifies offline with
+    // the matching public key — replicate that exact check here.
+    const { publicKey: vendorPub, privateKey: vendorPriv } = crypto.generateKeyPairSync('ed25519');
+    const VENDOR_KEY_B64 = Buffer.from(
+      vendorPriv.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    ).toString('base64');
+    const fromB64url = (s: string) => Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+
+    beforeEach(() => {
+      process.env.LICENSE_PRIVATE_KEY_B64 = VENDOR_KEY_B64;
+    });
+    afterEach(() => {
+      delete process.env.LICENSE_PRIVATE_KEY_B64;
+    });
+
+    it('mints a signed token the desktop gate can verify offline', async () => {
       tenantRepo.findOne.mockResolvedValue(tenantA);
       const result = await service.generate(
         { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
         { tenantId: TENANT_A_ID, userId: 'admin-1' },
       );
-      expect(result.key).toMatch(/^GROD-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+      const [payloadB64, sigB64] = result.key.split('.');
+      expect(payloadB64).toBeTruthy();
+      expect(sigB64).toBeTruthy();
+      // Same verification the desktop validator performs.
+      expect(crypto.verify(null, Buffer.from(payloadB64), vendorPub, fromB64url(sigB64))).toBe(true);
+      const payload = JSON.parse(fromB64url(payloadB64).toString('utf8'));
+      expect(payload.customer).toBe(tenantA.name);
+      expect(payload.plan).toBe('desktop_yearly');
+      expect(payload.v).toBe(1);
       expect(result.plan).toBe('desktop_yearly');
       expect(result.status).toBe('pending');
       expect(licenseRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses to mint when no signing key is configured (desktop bundled backend)', async () => {
+      delete process.env.LICENSE_PRIVATE_KEY_B64;
+      tenantRepo.findOne.mockResolvedValue(tenantA);
+      await expect(
+        service.generate(
+          { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
+          { tenantId: TENANT_A_ID, userId: 'admin-1' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(licenseRepo.save).not.toHaveBeenCalled();
     });
 
     it('refuses cross-tenant minting: admin of A cannot mint for B', async () => {

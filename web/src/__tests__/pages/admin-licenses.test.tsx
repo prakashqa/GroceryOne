@@ -27,8 +27,25 @@ jest.mock('@/lib/api/licenses', () => ({
 
 import AdminLicensesPage from '@/app/(dashboard)/admin/licenses/page';
 
+describe('AdminLicensesPage — desktop build hides the vendor mint screen', () => {
+  const OLD = process.env.NEXT_PUBLIC_DESKTOP_BUILD;
+  afterEach(() => {
+    if (OLD === undefined) delete process.env.NEXT_PUBLIC_DESKTOP_BUILD;
+    else process.env.NEXT_PUBLIC_DESKTOP_BUILD = OLD;
+  });
+
+  it('shows the support panel and no mint form when NEXT_PUBLIC_DESKTOP_BUILD=1', () => {
+    process.env.NEXT_PUBLIC_DESKTOP_BUILD = '1';
+    render(<AdminLicensesPage />);
+    expect(screen.getByText(/License keys are issued by GroOne/i)).toBeInTheDocument();
+    expect(screen.getByText(/9010888871/)).toBeInTheDocument();
+    expect(screen.queryByTestId('lic-submit')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('lic-paymentRef')).not.toBeInTheDocument();
+  });
+});
+
 describe('AdminLicensesPage — payment gate', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); delete process.env.NEXT_PUBLIC_DESKTOP_BUILD; });
 
   it('disables Generate until a payment reference of at least 6 chars is entered', () => {
     render(<AdminLicensesPage />);

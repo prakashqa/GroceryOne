@@ -37,6 +37,23 @@ const LICENSE_PAYEE = process.env.NEXT_PUBLIC_GROONE_LICENSE_PAYEE || 'GroOne';
 const LICENSE_PRICE_INR = 2000;
 
 export default function AdminLicensesPage() {
+  // Vendor tool only — the desktop build hides minting entirely (the local
+  // backend also refuses, having no signing key). Customers contact support.
+  if (process.env.NEXT_PUBLIC_DESKTOP_BUILD === '1') {
+    return (
+      <div className="page page-container">
+        <div className="card p-8 text-center">
+          <KeyRound size={28} className="mx-auto text-primary dark:text-primary-light mb-3" />
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+            License keys are issued by GroOne
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            To purchase or renew a desktop license, contact support on WhatsApp: 9010888871
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <RoleGate roles={['admin']}>
       <AdminLicensesContent />
@@ -212,7 +229,7 @@ function AdminLicensesContent() {
           </div>
           <div className="flex items-center gap-2">
             <code
-              className="flex-1 px-3 py-2 rounded-md bg-white dark:bg-card-dark border border-success/30 dark:border-success/40 font-mono text-base tracking-wider text-gray-900 dark:text-gray-100 select-all"
+              className="flex-1 px-3 py-2 rounded-md bg-white dark:bg-card-dark border border-success/30 dark:border-success/40 font-mono text-xs break-all text-gray-900 dark:text-gray-100 select-all"
               data-testid="lic-key"
             >
               {minted.key}

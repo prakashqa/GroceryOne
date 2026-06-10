@@ -41,13 +41,16 @@ export class LicenseKey {
   id: string;
 
   /**
-   * The plaintext license key, e.g. "GROD-XXXX-XXXX-XXXX-XXXX".
-   * Stored as plaintext (not hashed) because the customer must paste it
-   * verbatim into the desktop app; the value's secrecy is enforced by
-   * delivery channel (email) and the machine-binding check.
+   * The plaintext license key — an Ed25519-signed token
+   * (`payloadB64.sigB64`, ~250 chars) that the desktop gate verifies
+   * offline. Stored as plaintext (not hashed) because the customer must
+   * paste it verbatim into the desktop app; the value's secrecy is enforced
+   * by delivery channel (email) and the signature itself.
+   * NOTE (cloud prod, synchronize off): widened from 35 — run
+   * `ALTER TABLE license_keys ALTER COLUMN key TYPE varchar(512)` on deploy.
    */
   @Index({ unique: true })
-  @Column({ type: 'varchar', length: 35 })
+  @Column({ type: 'varchar', length: 512 })
   key: string;
 
   @Column({ name: 'tenant_id', type: 'uuid' })
