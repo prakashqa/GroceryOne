@@ -20,6 +20,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
+import { initLogger, tailLog, getLogPath, buildErrorDetail } from './log';
 import { loadLicense, saveLicense, clearLicense } from './license/store';
 import { verifyLicense, LicenseError, LicensePayload } from './license/validator';
 import { startLocalWebServer, stopLocalWebServer } from './server';
@@ -140,7 +141,7 @@ async function startApp(): Promise<void> {
     splashWindow?.close();
     dialog.showErrorBox(
       'GroOne could not start',
-      `${msg}\n\nIf this keeps happening, please contact support@groone.in.`,
+      buildErrorDetail(msg, tailLog(15), getLogPath()),
     );
     app.quit();
   }
@@ -215,15 +216,34 @@ ipcMain.handle('groone:app:openExternal', async (_e, url: string) => {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch((e) => console.error('Auto-update check failed:', e));
-  }
-  bootSequence().catch((e) => {
-    console.error('Boot sequence failed:', e);
-    app.quit();
+// Single-instance lock: a second copy would collide with the first on the
+// fixed Postgres (47632) / backend (47600) ports and fail to start. Refuse to
+// run twice; focus the existing window instead. This also covers the common
+// "launched the updated app while the old one was still closing" case.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = mainWindow || gateWindow || splashWindow;
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
   });
-});
+
+  app.whenReady().then(() => {
+    initLogger();
+    console.log('[app] starting GroOne', app.getVersion());
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdatesAndNotify().catch((e) => console.error('Auto-update check failed:', e));
+    }
+    bootSequence().catch((e) => {
+      console.error('Boot sequence failed:', e);
+      app.quit();
+    });
+  });
+}
 
 // Graceful shutdown: UI → backend → Postgres (data integrity).
 let quitting = false;

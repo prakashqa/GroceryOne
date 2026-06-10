@@ -14,6 +14,7 @@ import { app } from 'electron';
 import type EmbeddedPostgres from 'embedded-postgres';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as net from 'net';
 
 // embedded-postgres is ESM-only. The desktop main process is CommonJS, so a
 // plain `require`/static import fails at runtime (ERR_REQUIRE_ESM). Load it
@@ -54,6 +55,51 @@ function isInitialised(dir: string): boolean {
 }
 
 /**
+ * Pure decision: a `postmaster.pid` is stale (safe to delete) when the lock
+ * file exists but nothing is actually listening on the PG port — i.e. a
+ * previous run was killed/crashed without cleaning up. If a server IS
+ * listening, the lock is live (another instance) and must NOT be removed.
+ */
+export function shouldRemoveStaleLock(pidFileExists: boolean, serverListening: boolean): boolean {
+  return pidFileExists && !serverListening;
+}
+
+/** Is something accepting TCP connections on host:port right now? */
+function portInUse(port: number, host = '127.0.0.1', timeoutMs = 800): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    const finish = (v: boolean) => { sock.destroy(); resolve(v); };
+    sock.setTimeout(timeoutMs);
+    sock.once('connect', () => finish(true));
+    sock.once('timeout', () => finish(false));
+    sock.once('error', () => finish(false));
+    sock.connect(port, host);
+  });
+}
+
+/**
+ * If a stale postmaster.pid is blocking startup (unclean shutdown), remove it
+ * so the cluster can start. If a server is genuinely live on the port, leave
+ * it — that's a real "already running" situation surfaced to the user.
+ */
+async function clearStaleLockIfAny(dir: string): Promise<void> {
+  const pidFile = path.join(dir, 'postmaster.pid');
+  const exists = fs.existsSync(pidFile);
+  if (!exists) return;
+  const listening = await portInUse(DB_PORT);
+  if (shouldRemoveStaleLock(exists, listening)) {
+    console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
+    try {
+      fs.rmSync(pidFile, { force: true });
+    } catch (e) {
+      console.error('[pg] could not remove stale lock:', e);
+    }
+  } else {
+    console.error('[pg] a Postgres is already listening on', DB_PORT, '— another GroOne may be running');
+  }
+}
+
+/**
  * Initialise (first run only), start the cluster, and ensure the app
  * database exists. Returns the connection params for the backend.
  */
@@ -81,9 +127,22 @@ export async function startPostgres(): Promise<DbConnection> {
   if (!isInitialised(dir)) {
     console.log('[pg] initialising new cluster at', dir);
     await pg.initialise();
+  } else {
+    // Recover from an unclean previous shutdown (crash/kill/forced reinstall
+    // while running) that left a lock file behind.
+    await clearStaleLockIfAny(dir);
   }
 
-  await pg.start();
+  try {
+    await pg.start();
+  } catch (e) {
+    const msg = (e as Error)?.message || String(e);
+    throw new Error(
+      `Embedded database failed to start: ${msg}. ` +
+        `Make sure no other copy of GroOne is running, then try again ` +
+        `(a restart of Windows clears any leftover database process).`,
+    );
+  }
 
   // Ensure the app database exists. createDatabase throws if it already
   // exists, so swallow that specific case.

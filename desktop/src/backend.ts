@@ -58,7 +58,19 @@ function getOrCreateJwtSecret(): string {
   return secret;
 }
 
-function waitForHealth(timeoutMs = 30000): Promise<void> {
+/** Last lines of backend stderr, for surfacing a real cause on failure. */
+const backendErrTail: string[] = [];
+function pushErrTail(chunk: string): void {
+  for (const line of chunk.split('\n')) {
+    const t = line.trim();
+    if (t) {
+      backendErrTail.push(t);
+      if (backendErrTail.length > 40) backendErrTail.shift();
+    }
+  }
+}
+
+function waitForHealth(timeoutMs = 90000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   return new Promise((resolve, reject) => {
     const tick = () => {
@@ -115,13 +127,27 @@ export async function startBackend(db: DbConnection): Promise<string> {
   });
 
   backendProcess.stdout?.on('data', (d) => console.log('[backend]', d.toString().trim()));
-  backendProcess.stderr?.on('data', (d) => console.error('[backend]', d.toString().trim()));
+  backendProcess.stderr?.on('data', (d) => {
+    const s = d.toString();
+    console.error('[backend]', s.trim());
+    pushErrTail(s);
+  });
+  let exitInfo: string | null = null;
   backendProcess.on('exit', (code) => {
-    console.error(`Backend exited with code ${code}`);
+    exitInfo = `backend process exited early with code ${code}`;
+    console.error(exitInfo);
     backendProcess = null;
   });
 
-  await waitForHealth();
+  try {
+    await waitForHealth();
+  } catch {
+    const tail = backendErrTail.slice(-12).join('\n');
+    const hint = backendErrTail.some((l) => /EADDRINUSE/i.test(l))
+      ? 'A previous GroOne backend is still using the port — close any running copy (or restart Windows) and try again.'
+      : exitInfo || 'The backend did not respond in time.';
+    throw new Error(`Backend did not become healthy in time. ${hint}\n${tail}`.trim());
+  }
   return BACKEND_URL;
 }
 
