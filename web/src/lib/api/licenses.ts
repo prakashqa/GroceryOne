@@ -31,7 +31,8 @@ export interface GeneratedLicense {
 export interface GenerateLicenseRequest {
   tenantSlug: string;
   plan: LicensePlan;
-  paymentRef?: string;
+  /** REQUIRED — the UPI transaction ID (each ref can mint exactly one key). */
+  paymentRef: string;
   /** ISO-8601. Defaults server-side to now + 365 days when omitted. */
   expiresAt?: string;
 }

@@ -63,6 +63,7 @@ describe('generateLicense', () => {
     await generateLicense('siri-general-stores', {
       tenantSlug: 'siri-general-stores',
       plan: 'desktop_yearly',
+      paymentRef: 'UPI-TXN-425912345678',
     });
 
     const [url, opts] = fetchMock.mock.calls[0];
@@ -79,6 +80,7 @@ describe('generateLicense', () => {
       generateLicense('siri-general-stores', {
         tenantSlug: 'someone-else',
         plan: 'desktop_yearly',
+        paymentRef: 'UPI-TXN-425912345678',
       }),
     ).rejects.toMatchObject({
       name: 'Error', // LicensesApiError extends Error
@@ -92,6 +94,7 @@ describe('generateLicense', () => {
       await generateLicense('siri-general-stores', {
         tenantSlug: 'someone-else',
         plan: 'desktop_yearly',
+        paymentRef: 'UPI-TXN-425912345678',
       });
       throw new Error('should have thrown');
     } catch (e) {
@@ -107,6 +110,7 @@ describe('generateLicense', () => {
       generateLicense('siri-general-stores', {
         tenantSlug: 'siri-general-stores',
         plan: 'desktop_yearly',
+        paymentRef: 'UPI-TXN-425912345678',
       }),
     ).rejects.toMatchObject({ status: 500, message: 'Request failed with 500' });
   });

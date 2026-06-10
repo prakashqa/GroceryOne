@@ -56,18 +56,41 @@ function AdminLicensesContent() {
   const [minted, setMinted] = useState<GeneratedLicense | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Payment gate (mirrors the backend): a key may only be minted against a
+  // non-trivial payment reference — the UPI transaction id.
+  const refValid = paymentRef.trim().length >= 6;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tenantSlug) return;
     setFormError(null);
     setMinted(null);
 
+    const ref = paymentRef.trim();
+    if (ref.length < 6) {
+      setFormError(
+        t('licenses.errors.refRequired', 'Enter the UPI transaction ID (payment reference) first.'),
+      );
+      return;
+    }
+    // Human gate — staff confirm the money actually landed before minting.
+    if (
+      !window.confirm(
+        t(
+          'licenses.confirmMint',
+          `Confirm ₹2,000 was received (ref: ${ref})? A license key will be minted.`,
+        ),
+      )
+    ) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await generateLicense(tenantSlug, {
         tenantSlug,
         plan: 'desktop_yearly',
-        paymentRef: paymentRef.trim() || undefined,
+        paymentRef: ref,
         // Convert the date-only input to an end-of-day ISO timestamp.
         expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59.000Z`).toISOString() : undefined,
       });
@@ -80,6 +103,13 @@ function AdminLicensesContent() {
           t(
             'licenses.errors.forbidden',
             'You can only mint license keys for your own business.',
+          ),
+        );
+      } else if (e instanceof LicensesApiError && e.status === 409) {
+        setFormError(
+          t(
+            'licenses.errors.refUsed',
+            'This payment reference was already used for another key.',
           ),
         );
       } else {
@@ -139,11 +169,12 @@ function AdminLicensesContent() {
             readOnly
           />
           <EditableField
-            label={t('licenses.paymentRef', 'Payment reference')}
+            label={`${t('licenses.paymentRef', 'Payment reference')} *`}
             value={paymentRef}
             onChange={setPaymentRef}
-            placeholder="manual-UPI-2026-05-15"
+            placeholder="UPI-TXN-425912345678"
             testid="lic-paymentRef"
+            hint={t('licenses.paymentRefHint', 'Enter the UPI transaction ID after the payment is received.')}
           />
           <EditableField
             label={t('licenses.expiresAt', 'Expires on (optional)')}
@@ -164,7 +195,7 @@ function AdminLicensesContent() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={submitting || !tenantSlug}
+            disabled={submitting || !tenantSlug || !refValid}
             className="btn-primary"
             data-testid="lic-submit"
           >
@@ -231,6 +262,7 @@ function EditableField({
   type = 'text',
   placeholder,
   testid,
+  hint,
 }: {
   label: string;
   value: string;
@@ -238,6 +270,7 @@ function EditableField({
   type?: string;
   placeholder?: string;
   testid?: string;
+  hint?: string;
 }) {
   return (
     <div>
@@ -250,6 +283,7 @@ function EditableField({
         data-testid={testid}
         className="input"
       />
+      {hint && <p className="hint">{hint}</p>}
     </div>
   );
 }

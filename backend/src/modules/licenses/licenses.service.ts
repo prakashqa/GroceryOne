@@ -86,6 +86,21 @@ export class LicensesService {
       throw new ForbiddenException("Admin cannot mint a license for a different tenant");
     }
 
+    // Payment gate. A key may only be minted against a non-trivial payment
+    // reference (the UPI transaction id under the manual-verification model).
+    // Belt-and-braces with the DTO validation so a misconfigured pipe can't
+    // bypass it.
+    const paymentRef = dto.paymentRef?.trim();
+    if (!paymentRef || paymentRef.length < 6) {
+      throw new BadRequestException('Payment reference is required (UPI transaction ID)');
+    }
+    // Each reference can fund exactly one key — global check, since all
+    // license fees land in the vendor's single collection account.
+    const refInUse = await this.licenseRepository.findOne({ where: { paymentRef } });
+    if (refInUse) {
+      throw new ConflictException('This payment reference was already used for another license key');
+    }
+
     const now = new Date();
     const expiresAt = dto.expiresAt
       ? new Date(dto.expiresAt)
@@ -107,7 +122,7 @@ export class LicensesService {
       issuedAt: now,
       expiresAt,
       issuedBy: admin.userId,
-      paymentRef: dto.paymentRef,
+      paymentRef,
     });
     const saved = await this.licenseRepository.save(entity);
     this.logger.log(

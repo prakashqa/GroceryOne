@@ -19,15 +19,17 @@ export class GenerateLicenseDto {
   @IsIn(['desktop_yearly'])
   plan: 'desktop_yearly';
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description:
-      'Payment reference. Razorpay payment id (`pay_…`) when auto-issued, or a manual tag like `manual-UPI-2026-05-15`.',
-    example: 'manual-UPI-2026-05-15',
+      'Payment reference — REQUIRED. The UPI transaction ID after the customer pays ' +
+      '(or a Razorpay payment id `pay_…` when auto-issued). Each reference can mint ' +
+      'exactly one key; reuse is rejected with 409.',
+    example: 'UPI-TXN-425912345678',
   })
-  @IsOptional()
   @IsString()
+  @MinLength(6)
   @MaxLength(128)
-  paymentRef?: string;
+  paymentRef: string;
 
   @ApiPropertyOptional({
     description: 'Explicit ISO-8601 expiry. Defaults to now + 365 days.',

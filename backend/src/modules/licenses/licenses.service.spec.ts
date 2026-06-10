@@ -17,6 +17,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   GoneException,
@@ -68,10 +69,12 @@ describe('LicensesService', () => {
   });
 
   describe('generate()', () => {
+    const PAY_REF = 'UPI-TXN-425912345678';
+
     it('mints a key matching GROD-XXXX-XXXX-XXXX-XXXX', async () => {
       tenantRepo.findOne.mockResolvedValue(tenantA);
       const result = await service.generate(
-        { tenantSlug: tenantA.slug, plan: 'desktop_yearly' },
+        { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
         { tenantId: TENANT_A_ID, userId: 'admin-1' },
       );
       expect(result.key).toMatch(/^GROD-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
@@ -84,7 +87,7 @@ describe('LicensesService', () => {
       tenantRepo.findOne.mockResolvedValue(tenantB);
       await expect(
         service.generate(
-          { tenantSlug: tenantB.slug, plan: 'desktop_yearly' },
+          { tenantSlug: tenantB.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
           { tenantId: TENANT_A_ID, userId: 'admin-1' },
         ),
       ).rejects.toThrow(ForbiddenException);
@@ -95,7 +98,7 @@ describe('LicensesService', () => {
       tenantRepo.findOne.mockResolvedValue(tenantA);
       const before = Date.now();
       const result = await service.generate(
-        { tenantSlug: tenantA.slug, plan: 'desktop_yearly' },
+        { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
         { tenantId: TENANT_A_ID, userId: 'admin-1' },
       );
       const after = Date.now();
@@ -103,6 +106,60 @@ describe('LicensesService', () => {
       const oneYearMs = 365 * 24 * 60 * 60 * 1000;
       expect(diff).toBeGreaterThanOrEqual(before + oneYearMs - 1000);
       expect(diff).toBeLessThanOrEqual(after + oneYearMs + 1000);
+    });
+
+    // Payment gate — a key may only be minted against a non-trivial,
+    // never-before-used payment reference (the manual-UPI verification model).
+    it('refuses to mint without a payment reference', async () => {
+      tenantRepo.findOne.mockResolvedValue(tenantA);
+      await expect(
+        service.generate(
+          { tenantSlug: tenantA.slug, plan: 'desktop_yearly' } as never,
+          { tenantId: TENANT_A_ID, userId: 'admin-1' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(licenseRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses a blank/whitespace or too-short payment reference', async () => {
+      tenantRepo.findOne.mockResolvedValue(tenantA);
+      for (const bad of ['   ', 'abc', 'x1 ']) {
+        await expect(
+          service.generate(
+            { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: bad },
+            { tenantId: TENANT_A_ID, userId: 'admin-1' },
+          ),
+        ).rejects.toThrow(BadRequestException);
+      }
+      expect(licenseRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('refuses a payment reference that was already used (409)', async () => {
+      tenantRepo.findOne.mockResolvedValue(tenantA);
+      // Route findOne by `where` shape: dup-check hits {paymentRef}, the
+      // key-collision loop hits {key}.
+      licenseRepo.findOne.mockImplementation(async ({ where }: never) => {
+        if ((where as { paymentRef?: string }).paymentRef) {
+          return { id: 'lk-existing', paymentRef: PAY_REF } as LicenseKey;
+        }
+        return null;
+      });
+      await expect(
+        service.generate(
+          { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: PAY_REF },
+          { tenantId: TENANT_A_ID, userId: 'admin-1' },
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(licenseRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('stores the trimmed payment reference on the minted key', async () => {
+      tenantRepo.findOne.mockResolvedValue(tenantA);
+      const result = await service.generate(
+        { tenantSlug: tenantA.slug, plan: 'desktop_yearly', paymentRef: `  ${PAY_REF}  ` },
+        { tenantId: TENANT_A_ID, userId: 'admin-1' },
+      );
+      expect(result.paymentRef).toBe(PAY_REF);
     });
   });
 
