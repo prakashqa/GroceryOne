@@ -8,6 +8,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException, 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
+import { Item } from '../products/entities/item.entity';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 
 function validateTenantId(tenantId: string | undefined): asserts tenantId is string {
@@ -23,6 +24,8 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Item)
+    private readonly itemRepository: Repository<Item>,
   ) {}
 
   /**
@@ -171,6 +174,17 @@ export class CategoriesService {
     validateTenantId(tenantId);
 
     const category = await this.findOne(id, tenantId);
+
+    // Block deletion while items still reference this category — otherwise the
+    // soft-delete (UPDATE deleted_at) leaves those items orphaned and visible
+    // with no category. Count is tenant-scoped, so other tenants never block.
+    const itemCount = await this.itemRepository.count({ where: { categoryId: id, tenantId } });
+    if (itemCount > 0) {
+      throw new ConflictException(
+        `This category has ${itemCount} item(s). Reassign or delete them first.`,
+      );
+    }
+
     await this.categoryRepository.softDelete(id);
     this.logger.log(`Deleted category: ${category.name} (${category.slug})`);
   }

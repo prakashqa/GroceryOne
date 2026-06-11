@@ -97,6 +97,31 @@ describe('ItemManagementPage - localized names (tenant-scoped)', () => {
   });
 });
 
+describe('ItemManagementPage - orphaned items (deleted category)', () => {
+  beforeEach(() => { jest.clearAllMocks(); mockBarcodeParam = null; });
+
+  it('shows "Uncategorized" on a row whose category was deleted (categoryId not found)', () => {
+    setupMocks('en');
+    const store = require('@groceryone/store');
+    // Item points at a category that no longer exists in the catalog (orphan).
+    store.selectItems = () => [
+      { ...tenantAItems[0], categoryId: 'cat-a-deleted' },
+    ];
+    render(<ItemManagementPage />);
+    expect(screen.getByText('Basmati Rice')).toBeInTheDocument();
+    // Falls back to the localized "Uncategorized" label instead of a blank gap.
+    // The label shares a <p> with the unit/default, so match it as a substring.
+    expect(screen.getByText(/Uncategorized/)).toBeInTheDocument();
+  });
+
+  it('still shows the real category name when the category exists', () => {
+    setupMocks('en');
+    render(<ItemManagementPage />);
+    // Basmati Rice → cat-a-rice ("Rice"); no "Uncategorized" should appear.
+    expect(screen.queryByText(/Uncategorized/)).not.toBeInTheDocument();
+  });
+});
+
 describe('ItemManagementPage - barcode scanning', () => {
   beforeEach(() => { jest.clearAllMocks(); mockBarcodeParam = null; });
 

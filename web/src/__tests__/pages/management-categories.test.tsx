@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // next/navigation
 jest.mock('next/navigation', () => ({
@@ -28,10 +28,11 @@ const tenantACategories = [
   { id: 'cat-a-3', backendId: 'cat-a-3', tenantId: 'tenant-a', slug: 'mystery', name: 'Mystery (no Telugu)', icon: '❓', sortOrder: 3, isActive: true, trackInventory: false },
 ];
 
-function setupMocks(lang: 'en' | 'te' = 'en') {
+function setupMocks(lang: 'en' | 'te' = 'en', items: any[] = []) {
   mockLang = lang;
   const store = require('@groceryone/store');
   store.selectCategories = () => tenantACategories;
+  store.selectItems = () => items;
 }
 
 import CategoryManagementPage from '@/app/(dashboard)/management/categories/page';
@@ -76,5 +77,55 @@ describe('CategoryManagementPage - localized names (tenant-scoped)', () => {
       const expected = mockLang === 'te' && c.nameTe ? c.nameTe : c.name;
       expect(screen.getByText(expected)).toBeInTheDocument();
     });
+  });
+});
+
+describe('CategoryManagementPage - delete guard (block when category has items)', () => {
+  beforeEach(() => { jest.clearAllMocks(); });
+
+  /** Mock the delete mutation and capture the ids it is called with. */
+  function captureDelete() {
+    const calls: any[] = [];
+    const store = require('@groceryone/store');
+    store.useDeleteCategoryMutation = () => [
+      (id: any) => { calls.push(id); return { unwrap: () => Promise.resolve(undefined) }; },
+      {},
+    ];
+    return calls;
+  }
+
+  it('blocks deletion (no confirm, no mutation) and alerts when the category still has items', () => {
+    // Rice (cat-a-1) has one item referencing it.
+    setupMocks('en', [{ id: 'i1', categoryId: 'cat-a-1' }]);
+    const calls = captureDelete();
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<CategoryManagementPage />);
+    fireEvent.click(screen.getAllByLabelText('Delete')[0]); // Rice
+
+    expect(alertSpy).toHaveBeenCalledWith('manageCategories.hasItems');
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+
+    alertSpy.mockRestore();
+    confirmSpy.mockRestore();
+  });
+
+  it('deletes a category that has no items (confirm + mutation by backendId)', async () => {
+    setupMocks('en', [{ id: 'i1', categoryId: 'cat-a-2' }]); // item is in a different category
+    const calls = captureDelete();
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<CategoryManagementPage />);
+    fireEvent.click(screen.getAllByLabelText('Delete')[0]); // Rice (cat-a-1) — has no items
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(calls).toEqual(['cat-a-1']));
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+    confirmSpy.mockRestore();
   });
 });

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { Category } from './entities/category.entity';
+import { Item } from '../products/entities/item.entity';
 import {
   TENANT_A_ID,
   TENANT_B_ID,
@@ -37,6 +38,10 @@ describe('CategoriesService', () => {
     createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
+  const mockItemRepository = {
+    count: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,6 +49,10 @@ describe('CategoriesService', () => {
         {
           provide: getRepositoryToken(Category),
           useValue: mockCategoryRepository,
+        },
+        {
+          provide: getRepositoryToken(Item),
+          useValue: mockItemRepository,
         },
       ],
     }).compile();
@@ -278,12 +287,51 @@ describe('CategoriesService', () => {
   });
 
   describe('remove', () => {
-    it('should delete category when it belongs to the tenant', async () => {
+    it('should delete category when it belongs to the tenant and has no items', async () => {
       queryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+      mockItemRepository.count.mockResolvedValue(0);
       mockCategoryRepository.softDelete.mockResolvedValue({ affected: 1 });
 
       await service.remove('cat-a-uuid', TENANT_A_ID);
 
+      expect(mockCategoryRepository.softDelete).toHaveBeenCalledWith('cat-a-uuid');
+    });
+
+    it('should block deletion with ConflictException when the category still has items', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+      mockItemRepository.count.mockResolvedValue(3);
+
+      await expect(service.remove('cat-a-uuid', TENANT_A_ID))
+        .rejects.toThrow(ConflictException);
+
+      expect(mockCategoryRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('should count items scoped to the same tenant and category', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+      mockItemRepository.count.mockResolvedValue(0);
+
+      await service.remove('cat-a-uuid', TENANT_A_ID);
+
+      expect(mockItemRepository.count).toHaveBeenCalledWith({
+        where: { categoryId: 'cat-a-uuid', tenantId: TENANT_A_ID },
+      });
+    });
+
+    it('should not be blocked by items belonging to a different tenant', async () => {
+      // Tenant A deletes its category; only items where tenantId === TENANT_A_ID
+      // are counted, so a same-categoryId item under tenant B never blocks it.
+      queryBuilderMock.getOne.mockResolvedValue(mockCategoryTenantA);
+      mockItemRepository.count.mockImplementation(({ where }: any) =>
+        Promise.resolve(where.tenantId === TENANT_A_ID ? 0 : 5),
+      );
+      mockCategoryRepository.softDelete.mockResolvedValue({ affected: 1 });
+
+      await service.remove('cat-a-uuid', TENANT_A_ID);
+
+      expect(mockItemRepository.count).toHaveBeenCalledWith({
+        where: { categoryId: 'cat-a-uuid', tenantId: TENANT_A_ID },
+      });
       expect(mockCategoryRepository.softDelete).toHaveBeenCalledWith('cat-a-uuid');
     });
 

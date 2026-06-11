@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/hooks/useAppDispatch';
 import {
   selectCategories,
+  selectItems,
   selectIsAdmin,
   selectTenant,
   useCreateCategoryMutation,
@@ -18,6 +19,7 @@ import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus } from 'lucide-react
 export default function CategoryManagementPage() {
   const { t, i18n } = useTranslation('common');
   const categories = useAppSelector(selectCategories);
+  const items = useAppSelector(selectItems);
   const [createCategory] = useCreateCategoryMutation();
   const [updateCategoryMut] = useUpdateCategoryMutation();
   const [deleteCategoryMut] = useDeleteCategoryMutation();
@@ -85,6 +87,21 @@ export default function CategoryManagementPage() {
   const handleDelete = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     if (!cat?.backendId) return;
+
+    // Block deletion while items still reference this category — otherwise those
+    // items are left orphaned with no category. Pre-check the local catalog for
+    // instant feedback; the backend enforces the same rule as a safety net.
+    const itemCount = items.filter((i) => i.categoryId === cat.id).length;
+    if (itemCount > 0) {
+      alert(
+        t('manageCategories.hasItems', {
+          count: itemCount,
+          defaultValue: 'This category has {{count}} item(s). Reassign or delete them first.',
+        }),
+      );
+      return;
+    }
+
     if (!confirm(t('manageCategories.deleteConfirm', { name: cat.name }))) return;
 
     try {

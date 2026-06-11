@@ -420,6 +420,7 @@
     "deleteCategory": "Delete Category",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"?",
     "itemsInCategory": "This category has {{count}} items",
+    "hasItems": "This category has {{count}} item(s). Reassign or delete them first.",
     "moveItemsTo": "Move items to",
     "deleteItems": "Delete items"
   },
@@ -428,6 +429,7 @@
     "searchItems": "Search items...",
     "items": "Items",
     "all": "All",
+    "uncategorized": "Uncategorized",
     "addItem": "Add Item",
     "generateBarcodes": "Generate test barcodes",
     "generateBarcodesHint": "Assign EAN-13 test barcodes to your items so you can test scanning",

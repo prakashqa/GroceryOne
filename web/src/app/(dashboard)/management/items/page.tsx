@@ -334,14 +334,21 @@ function ItemManagementPageInner() {
           </div>
         ) : (
           <ul className="row-divider">
-            {filteredItems.map((item) => (
+            {filteredItems.map((item) => {
+              // The category may have been deleted while the item lives on (orphan).
+              // Fall back to a clear "Uncategorized" label instead of a blank gap.
+              const itemCategory = categories.find((c) => c.id === item.categoryId);
+              const categoryLabel = itemCategory
+                ? StoreUtils.getLocalizedName(itemCategory, i18n.language)
+                : t('manageItems.uncategorized', 'Uncategorized');
+              return (
               <li key={item.id} className="row group">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
                     {StoreUtils.getLocalizedName(item, i18n.language)}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                    {StoreUtils.getLocalizedName(categories.find((c) => c.id === item.categoryId), i18n.language)}
+                    {categoryLabel}
                     <span className="mx-1.5">·</span>{item.unit}
                     <span className="mx-1.5">·</span>{t('manageItems.default')}: {item.defaultQuantity}
                   </p>
@@ -384,7 +391,8 @@ function ItemManagementPageInner() {
                   </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>
