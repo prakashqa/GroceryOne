@@ -9,20 +9,19 @@
  * backend additionally enforces role='admin' on the endpoints.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
-import { selectTenant } from '@groceryone/store';
+import {
+  selectTenant,
+  useGetEmployeesQuery,
+  useCreateEmployeeMutation,
+  useDeactivateEmployeeMutation,
+  type Employee,
+} from '@groceryone/store';
 import { Plus, Loader2, AlertCircle, Users } from 'lucide-react';
 import { RoleGate } from '@/components/common/RoleGate';
 import { EmptyState } from '@/components/common/EmptyState';
-import {
-  Employee,
-  EmployeesApiError,
-  createEmployee,
-  deactivateEmployee,
-  listEmployees,
-} from '@/lib/api/employees';
 
 export default function EmployeesPage() {
   return (
@@ -37,9 +36,18 @@ function EmployeesPageContent() {
   const tenant = useSelector(selectTenant);
   const tenantSlug = tenant?.slug;
 
-  const [employees, setEmployees] = useState<Employee[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Route through baseApi (RTK Query) so the request carries the in-memory access
+  // token and auto-refreshes on 401 — unlike the old localStorage-based client,
+  // which 401'd on desktop (tokens live only in Redux there).
+  const { data: employees, isLoading: loading, error: loadErrorRaw } =
+    useGetEmployeesQuery(undefined, { skip: !tenantSlug });
+  const [createEmployeeMut, { isLoading: submitting }] = useCreateEmployeeMutation();
+  const [deactivateEmployeeMut] = useDeactivateEmployeeMutation();
+
+  const loadError = loadErrorRaw
+    ? ((loadErrorRaw as any)?.data?.message ||
+        t('employees.errors.loadFailed', 'Could not load employees.'))
+    : null;
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -49,33 +57,10 @@ function EmployeesPageContent() {
     pin: '',
     confirmPin: '',
   });
-  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    if (!tenantSlug) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const data = await listEmployees(tenantSlug);
-      setEmployees(data);
-    } catch (e: any) {
-      setLoadError(
-        e?.message ||
-          t('employees.errors.loadFailed', 'Could not load employees.'),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantSlug, t]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tenantSlug) return;
 
     setFormError(null);
     if (!form.firstName.trim()) {
@@ -99,19 +84,18 @@ function EmployeesPageContent() {
       return;
     }
 
-    setSubmitting(true);
     try {
-      await createEmployee(tenantSlug, {
+      await createEmployeeMut({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim() || undefined,
         phone: form.phone.trim(),
         pin: form.pin,
-      });
+      }).unwrap();
       setForm({ firstName: '', lastName: '', phone: '', pin: '', confirmPin: '' });
       setShowForm(false);
-      await refresh();
+      // The list refreshes automatically via RTK tag invalidation.
     } catch (e: any) {
-      if (e instanceof EmployeesApiError && e.status === 409) {
+      if (e?.status === 409) {
         setFormError(
           t(
             'employees.errors.duplicatePhone',
@@ -120,17 +104,14 @@ function EmployeesPageContent() {
         );
       } else {
         setFormError(
-          e?.message ||
+          e?.data?.message ||
             t('employees.errors.createFailed', 'Could not create employee.'),
         );
       }
-    } finally {
-      setSubmitting(false);
     }
   };
 
   const handleDeactivate = async (emp: Employee) => {
-    if (!tenantSlug) return;
     const label = `${emp.firstName ?? ''} ${emp.lastName ?? ''}`.trim() || emp.phone;
     if (
       !window.confirm(
@@ -143,10 +124,9 @@ function EmployeesPageContent() {
       return;
     }
     try {
-      await deactivateEmployee(tenantSlug, emp.id);
-      await refresh();
+      await deactivateEmployeeMut(emp.id).unwrap();
     } catch (e: any) {
-      alert(e?.message || t('employees.errors.deactivate', 'Could not deactivate.'));
+      alert(e?.data?.message || t('employees.errors.deactivate', 'Could not deactivate.'));
     }
   };
 

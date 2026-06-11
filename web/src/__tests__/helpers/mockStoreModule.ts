@@ -53,6 +53,22 @@ export const useCreateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => P
 export const useUpdateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useDeleteCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useRestoreCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+
+// Employees RTK hooks (owner-only). Default: empty list, no error. Tests that
+// exercise the Employees page override these.
+export type Employee = {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  role: string;
+  status: 'active' | 'inactive' | 'blocked';
+  createdAt: string;
+  lastLoginAt?: string;
+};
+export const useGetEmployeesQuery = () => ({ data: [] as Employee[], isLoading: false, error: undefined });
+export const useCreateEmployeeMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), { isLoading: false }];
+export const useDeactivateEmployeeMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), { isLoading: false }];
 // Default: no recoverable categories, so the recovery card stays hidden. Tests
 // that exercise restore override this to return deleted categories.
 export const useGetDeletedCategoriesQuery = () => ({ data: [] as any[] });

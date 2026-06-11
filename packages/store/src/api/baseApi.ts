@@ -172,6 +172,6 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['User', 'Product', 'Category', 'Cart', 'Order', 'Address', 'Review', 'Wishlist', 'Tenant', 'Inventory', 'Subscription'],
+  tagTypes: ['User', 'Product', 'Category', 'Cart', 'Order', 'Address', 'Review', 'Wishlist', 'Tenant', 'Inventory', 'Subscription', 'Employee'],
   endpoints: () => ({}),
 });
