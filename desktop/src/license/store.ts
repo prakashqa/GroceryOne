@@ -27,6 +27,8 @@ export interface LicenseBlob {
   plan: string;
   /** ISO expiry, mirrored from the token payload for quick display. */
   expiresAt: string;
+  /** Machine id this key is bound to (for machine-bound keys). */
+  machineId?: string;
 }
 
 const FILE_NAME = 'license.dat';

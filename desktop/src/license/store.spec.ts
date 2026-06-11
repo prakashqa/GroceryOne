@@ -45,6 +45,13 @@ describe('save + load round-trip', () => {
     expect(fs.existsSync(datPath())).toBe(true);
     expect(loadLicense()).toEqual(sample);
   });
+
+  it('round-trips a machine-bound blob (machineId persists)', () => {
+    const bound: LicenseBlob = { ...sample, machineId: 'a1b2c3d4e5f6deadbeef' };
+    saveLicense(bound);
+    expect(loadLicense()).toEqual(bound);
+    expect(loadLicense()?.machineId).toBe('a1b2c3d4e5f6deadbeef');
+  });
 });
 
 describe('loadLicense edge cases', () => {

@@ -28,7 +28,16 @@ function arg(name, def) {
 const customer = arg('customer');
 const years = arg('years');
 const days = arg('days');
+const machineArg = arg('machine'); // full 64-hex or dashed short form, from the customer's app
 const keyPath = path.resolve(arg('key', path.join(__dirname, 'license-private.pem')));
+
+// Normalize a pasted machine id: strip non-hex + lowercase. The app's
+// shortMachineId is just the first 12 hex of the full id, so a short form can
+// only bind if you were given the FULL id — always ask the customer to copy
+// the full Machine ID (the Copy button copies the full value).
+const machineId = machineArg
+  ? String(machineArg).replace(/[^a-fA-F0-9]/g, '').toLowerCase()
+  : undefined;
 
 if (!customer) {
   console.error('Usage: node gen.js --customer "Shop Name" [--years 1 | --days 365] [--key license-private.pem]');
@@ -49,6 +58,7 @@ const payload = {
   plan: 'desktop_yearly',
   issuedAt: now.toISOString(),
   expiresAt: expires.toISOString(),
+  ...(machineId ? { machineId } : {}),
   v: 1,
 };
 
@@ -69,6 +79,7 @@ console.log(`Customer : ${customer}`);
 console.log(`Plan     : desktop_yearly`);
 console.log(`Issued   : ${now.toISOString().slice(0, 10)}`);
 console.log(`Expires  : ${expires.toISOString().slice(0, 10)} (${durationDays} days)`);
+console.log(`Machine  : ${machineId ? machineId + ' (PC-locked)' : 'ANY (unbound)'}`);
 console.log(`\nLicense key (give this to the customer):\n`);
 console.log(token);
 console.log(`\nAlso saved to: ${outFile}`);

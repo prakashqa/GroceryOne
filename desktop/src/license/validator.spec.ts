@@ -110,4 +110,46 @@ describe('verifyLicense', () => {
     const token = mint(validPayload());
     expect(verifyLicense(`\n  ${token}  \n`).customer).toBe('Test Shop');
   });
+
+  describe('machine binding', () => {
+    const bound = (machineId: string) => mint({ ...validPayload(), machineId });
+
+    it('accepts a machine-bound key on the matching machine', () => {
+      const res = verifyLicense(bound('machine-A'), { expectedMachineId: 'machine-A' });
+      expect(res.machineId).toBe('machine-A');
+    });
+
+    it('rejects a machine-bound key on a different machine → WRONG_MACHINE', () => {
+      try {
+        verifyLicense(bound('machine-A'), { expectedMachineId: 'machine-B' });
+        fail('should have thrown');
+      } catch (e) {
+        expect((e as LicenseError).code).toBe('WRONG_MACHINE');
+      }
+    });
+
+    it('rejects a machine-bound key when no expected machine is supplied → WRONG_MACHINE', () => {
+      try {
+        verifyLicense(bound('machine-A'));
+        fail('should have thrown');
+      } catch (e) {
+        expect((e as LicenseError).code).toBe('WRONG_MACHINE');
+      }
+    });
+
+    it('accepts an UNBOUND key with or without an expected machine (back-compat)', () => {
+      expect(verifyLicense(mint(validPayload())).customer).toBe('Test Shop');
+      expect(verifyLicense(mint(validPayload()), { expectedMachineId: 'machine-A' }).customer).toBe('Test Shop');
+    });
+
+    it('expiry is checked before the machine binding', () => {
+      const token = mint({ ...validPayload(), expiresAt: past(), machineId: 'machine-A' });
+      try {
+        verifyLicense(token, { expectedMachineId: 'machine-B' });
+        fail('should have thrown');
+      } catch (e) {
+        expect((e as LicenseError).code).toBe('EXPIRED');
+      }
+    });
+  });
 });

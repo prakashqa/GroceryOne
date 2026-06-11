@@ -22,44 +22,20 @@ import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
 import { initLogger, tailLog, getLogPath, buildErrorDetail } from './log';
 import { isClockRolledBack, readLastSeen, recordSeen, CLOCK_TOLERANCE_MS } from './clockGuard';
-import { loadLicense, saveLicense, clearLicense } from './license/store';
-import { verifyLicense, LicenseError, LicensePayload } from './license/validator';
+import { loadLicense, saveLicense } from './license/store';
+import { verifyLicense, LicenseError } from './license/validator';
+import { getMachineId, shortMachineId } from './machineId';
 import { startLocalWebServer, stopLocalWebServer } from './server';
 import { startPostgres, stopPostgres } from './db';
 import { startBackend, stopBackend } from './backend';
 
 const WEB_URL_OVERRIDE = process.env.GROONE_WEB_URL || ''; // dev-only
 
-let gateWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let mainWindow: BrowserWindow | null = null;
 let started = false; // app stack started (guards double-start)
 
 // ─── Windows ─────────────────────────────────────────────────────────
-
-function openGateWindow(): BrowserWindow {
-  const w = new BrowserWindow({
-    width: 560,
-    height: 600,
-    resizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    title: 'GroOne — License Activation',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  w.removeMenu();
-  w.loadFile(path.join(__dirname, 'windows', 'license-gate.html'));
-  if (process.env.GROONE_DEVTOOLS === '1') w.webContents.openDevTools({ mode: 'detach' });
-  w.on('closed', () => {
-    gateWindow = null;
-    if (!mainWindow && !splashWindow) app.quit();
-  });
-  return w;
-}
 
 function openSplash(): BrowserWindow {
   const w = new BrowserWindow({
@@ -115,7 +91,6 @@ function openMainWindow(url: string): BrowserWindow {
   w.once('ready-to-show', () => {
     w.show();
     splashWindow?.close();
-    gateWindow?.close();
   });
   w.on('closed', () => {
     mainWindow = null;
@@ -147,7 +122,7 @@ async function startApp(): Promise<void> {
 
   started = true;
   recordSeen(now);
-  if (!gateWindow) splashWindow = openSplash();
+  splashWindow = openSplash();
   try {
     const db = await startPostgres();
     await startBackend(db);
@@ -168,44 +143,41 @@ async function startApp(): Promise<void> {
 
 // ─── Boot ────────────────────────────────────────────────────────────
 
-function verifyStored(): LicensePayload | null {
-  const blob = loadLicense();
-  if (!blob?.token) return null;
-  try {
-    return verifyLicense(blob.token);
-  } catch {
-    clearLicense();
-    return null;
-  }
-}
-
 async function bootSequence(): Promise<void> {
-  const valid = verifyStored();
-  if (valid) {
-    await startApp();
-  } else {
-    gateWindow = openGateWindow();
-  }
+  // License entry now lives inside the web UI (machine-bound key on the signup
+  // form for new accounts; the renewal screen for expired/missing). So always
+  // start the stack; the web DesktopLicenseGuard enforces validity at runtime.
+  await startApp();
 }
 
-// ─── IPC (license gate) ──────────────────────────────────────────────
+// ─── IPC (license: machine binding + activation) ─────────────────────
 
+/** This machine's id { full, short } for the signup/renewal Machine-ID display. */
+ipcMain.handle('groone:machineId', () => {
+  const full = getMachineId();
+  return { full, short: shortMachineId(full) };
+});
+
+/**
+ * Verify a pasted key OFFLINE against THIS machine + expiry; on success persist
+ * it (machine-bound). Does NOT start the app (it's already running).
+ */
 ipcMain.handle(
-  'groone:license:submit',
+  'groone:license:activate',
   async (
     _e,
-    token: string,
+    key: string,
   ): Promise<{ ok: true; customer: string; expiresAt: string } | { ok: false; code: string; message: string }> => {
     try {
-      const payload = verifyLicense(token);
+      const expectedMachineId = getMachineId();
+      const payload = verifyLicense(key, { expectedMachineId });
       saveLicense({
-        token: token.trim(),
+        token: (key || '').trim(),
         customer: payload.customer,
         plan: payload.plan,
         expiresAt: payload.expiresAt,
+        machineId: expectedMachineId,
       });
-      // Boot the app stack (gate window stays until the main window is ready).
-      startApp();
       return { ok: true, customer: payload.customer, expiresAt: payload.expiresAt };
     } catch (e) {
       const err = e as LicenseError;
@@ -213,6 +185,21 @@ ipcMain.handle(
     }
   },
 );
+
+/**
+ * Runtime license status — re-verifies the stored token against the CURRENT
+ * machine + expiry (the guard's single source of truth, not just stored expiry).
+ */
+ipcMain.handle('groone:license:status', () => {
+  const blob = loadLicense();
+  if (!blob?.token) return { state: 'missing' as const };
+  try {
+    const p = verifyLicense(blob.token, { expectedMachineId: getMachineId() });
+    return { state: 'valid' as const, customer: p.customer, expiresAt: p.expiresAt };
+  } catch (e) {
+    return { state: 'invalid' as const, code: (e as LicenseError).code || 'UNKNOWN' };
+  }
+});
 
 ipcMain.handle('groone:license:importFile', async (): Promise<string | null> => {
   const res = await dialog.showOpenDialog({
@@ -251,7 +238,7 @@ if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    const win = mainWindow || gateWindow || splashWindow;
+    const win = mainWindow || splashWindow;
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();

@@ -18,6 +18,8 @@ export interface LicenseTokenPayload {
   plan: string;
   issuedAt: string;
   expiresAt: string;
+  /** Optional: bind the key to one machine (offline PC-lock). */
+  machineId?: string;
   v: 1;
 }
 

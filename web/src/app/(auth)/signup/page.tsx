@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
 import { setCredentials, setTenant } from '@groceryone/store';
 import { useTranslation } from 'react-i18next';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, KeyRound, Copy, Check } from 'lucide-react';
 import { savePersistedTokens, saveLastIdentifier } from '@/lib/auth/authStorage';
 import { saveLastLogin } from '@/lib/auth/lastLogin';
+import { getDesktopBridge, friendlyLicenseError } from '@/lib/desktopLicense';
+import { SUPPORT_WHATSAPP_NUMBER } from '@/components/common/WhatsappSupport';
 
 interface FormData {
   businessName: string;
@@ -34,6 +36,23 @@ export default function SignupPage() {
   const dispatch = useAppDispatch();
   const { t } = useTranslation('auth');
 
+  // Desktop build requires a machine-bound license key to register.
+  const isDesktop = process.env.NEXT_PUBLIC_DESKTOP_BUILD === '1' && !!getDesktopBridge();
+  const [licenseKey, setLicenseKey] = useState('');
+  const [machine, setMachine] = useState<{ full: string; short: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const bridge = getDesktopBridge();
+    if (!bridge) return;
+    bridge.machineId().then(setMachine).catch(() => {});
+  }, []);
+
+  const copyMachine = async () => {
+    if (!machine) return;
+    try { await navigator.clipboard.writeText(machine.full); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* ignore */ }
+  };
+
   const updateField = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -58,11 +77,27 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+    if (isDesktop && !licenseKey.trim()) {
+      setApiError('Enter your license key to register this computer.');
+      return;
+    }
 
     setLoading(true);
     setApiError(null);
 
     try {
+      // Desktop: verify + bind the machine-locked key OFFLINE before creating
+      // the account. A bad/expired/wrong-machine key blocks signup entirely.
+      if (isDesktop) {
+        const bridge = getDesktopBridge();
+        const r = await bridge!.license.activate(licenseKey.trim());
+        if (!r.ok) {
+          setApiError(friendlyLicenseError(r.code));
+          setLoading(false);
+          return;
+        }
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
       const res = await fetch(`${apiUrl}/auth/signup`, {
         method: 'POST',
@@ -151,6 +186,37 @@ export default function SignupPage() {
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {isDesktop && (
+          <div className="card p-4 border-primary/30 bg-primary/[0.03] dark:bg-primary/[0.06] space-y-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <KeyRound size={16} className="text-primary dark:text-primary-light" /> Activate this computer
+            </div>
+            <div>
+              <label className="label">Your Machine ID</label>
+              <div className="flex items-center gap-2">
+                <code className="input font-mono text-sm flex-1 select-all" data-testid="signup-machine-id">{machine?.short || '…'}</code>
+                <button type="button" onClick={copyMachine} className="btn-secondary btn-sm" aria-label="Copy Machine ID">
+                  {copied ? <Check size={15} /> : <Copy size={15} />}
+                </button>
+              </div>
+              <p className="hint">Send this to GroOne support on WhatsApp {SUPPORT_WHATSAPP_NUMBER} to get your yearly license key.</p>
+            </div>
+            <div>
+              <label className="label" htmlFor="signup-license-key">License key *</label>
+              <textarea
+                id="signup-license-key"
+                data-testid="signup-license-key"
+                value={licenseKey}
+                onChange={(e) => { setLicenseKey(e.target.value); setApiError(null); }}
+                rows={3}
+                className="input font-mono text-xs break-all"
+                placeholder="Paste the license key from GroOne support"
+                disabled={loading}
+              />
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="label">Business Name *</label>
           <input value={form.businessName} onChange={(e) => updateField('businessName', e.target.value)} className={inputClass('businessName')} placeholder="My Grocery Store" disabled={loading} />

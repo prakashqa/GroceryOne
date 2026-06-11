@@ -18,12 +18,19 @@ export interface LicensePayload {
   plan: string;
   issuedAt: string;
   expiresAt: string;
+  /** When present, the key is bound to this machine id (offline PC-lock). */
+  machineId?: string;
   v?: number;
 }
 
 export interface LicenseError {
-  code: 'MALFORMED' | 'BAD_SIGNATURE' | 'EXPIRED';
+  code: 'MALFORMED' | 'BAD_SIGNATURE' | 'EXPIRED' | 'WRONG_MACHINE';
   message: string;
+}
+
+export interface VerifyOptions {
+  /** This machine's id; required to validate a machine-bound key. */
+  expectedMachineId?: string;
 }
 
 function fail(code: LicenseError['code'], message: string): never {
@@ -42,7 +49,7 @@ function fromB64url(s: string): Buffer {
  * Verify a pasted/imported license token. Returns the validated payload or
  * throws a typed LicenseError.
  */
-export function verifyLicense(rawToken: string): LicensePayload {
+export function verifyLicense(rawToken: string, opts: VerifyOptions = {}): LicensePayload {
   const token = (rawToken || '').trim();
   const parts = token.split('.');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
@@ -84,6 +91,13 @@ export function verifyLicense(rawToken: string): LicensePayload {
   }
   if (expiresAt <= Date.now()) {
     fail('EXPIRED', 'License has expired.');
+  }
+
+  // Machine binding: a key carrying a machineId only works on that exact PC.
+  if (payload.machineId) {
+    if (!opts.expectedMachineId || payload.machineId !== opts.expectedMachineId) {
+      fail('WRONG_MACHINE', 'This license key is for a different computer.');
+    }
   }
 
   return payload;

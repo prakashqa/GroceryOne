@@ -33,3 +33,14 @@ export function licenseWarning(
   const expired = exp <= now;
   return { show: expired || days <= warnWithinDays, days, expired };
 }
+
+/** Runtime license status returned by the desktop `groone.license.status()`. */
+export type DesktopLicenseStatus =
+  | { state: 'valid'; customer?: string; expiresAt?: string }
+  | { state: 'missing' }
+  | { state: 'invalid'; code?: string };
+
+/** Pure: should the desktop guard allow the app, or block (route to renewal)? */
+export function licenseGuardAction(status: DesktopLicenseStatus): 'allow' | 'block' {
+  return status.state === 'valid' ? 'allow' : 'block';
+}
