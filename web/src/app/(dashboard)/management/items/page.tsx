@@ -8,16 +8,14 @@ import {
   selectCategories,
   selectItems,
   selectIsAdmin,
-  selectTenant,
   useCreateItemMutation,
   useUpdateItemMutation,
   useDeleteItemMutation,
-  useSeedSampleDataMutation,
   useAssignTestBarcodesMutation,
   StoreUtils,
   type TestBarcodeResult,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Search, Loader2, Sparkles, PackagePlus, ScanLine, Barcode, Copy, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Loader2, PackagePlus, ScanLine, Barcode, Copy, X } from 'lucide-react';
 import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { BarcodeScannerModal } from '@/components/barcode/BarcodeScannerModal';
 
@@ -72,23 +70,6 @@ function ItemManagementPageInner() {
   }, [incomingBarcode]);
 
   const isAdmin = useAppSelector(selectIsAdmin);
-  const tenant = useAppSelector(selectTenant);
-  const [seedSample, { isLoading: seeding }] = useSeedSampleDataMutation();
-  const [seedError, setSeedError] = useState<string | null>(null);
-  const handleSeedSample = async () => {
-    setSeedError(null);
-    try {
-      const res = await seedSample().unwrap();
-      if (res.alreadySeeded) {
-        setSeedError(t('manageItems.alreadySeeded', 'Sample data is already loaded.'));
-      }
-      // On success RTK Query invalidates the Product/Category LIST → the
-      // catalog re-fetches and re-hydrates automatically (no full reload).
-    } catch (e: any) {
-      const msg = e?.data?.message || e?.data?.error?.message || (e as Error)?.message;
-      setSeedError(typeof msg === 'string' ? msg : t('error', 'Something went wrong'));
-    }
-  };
 
   // Test tooling: assign EAN-13 barcodes to existing items, then show the
   // item→code list. Rides baseApi (JWT from Redux + auto-refresh), so it keeps
@@ -304,32 +285,16 @@ function ItemManagementPageInner() {
             <p className="empty-state-hint">
               {t(
                 'manageItems.emptyHint',
-                'Add your first product, or load a sample catalog with starter categories and ~113 items.',
+                'Add your first product to begin building your catalog.',
               )}
             </p>
-            {isAdmin && tenant?.slug && allItems.length === 0 && (
-              <div className="flex flex-col items-center gap-2 mt-2">
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <button
-                    onClick={() => { setForm((f) => ({ ...f, categoryId: categories[0]?.id || '' })); setError(null); setShowForm(true); }}
-                    className="btn-primary"
-                  >
-                    <Plus size={16} /> {t('manageItems.addItem')}
-                  </button>
-                  <button
-                    onClick={handleSeedSample}
-                    disabled={seeding}
-                    className="btn-secondary"
-                    data-testid="seed-sample-data"
-                  >
-                    {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    {seeding
-                      ? t('manageItems.loadingSample', 'Loading sample data…')
-                      : t('manageItems.loadSample', 'Load sample data')}
-                  </button>
-                </div>
-                {seedError && <p className="error-text">{seedError}</p>}
-              </div>
+            {isAdmin && allItems.length === 0 && (
+              <button
+                onClick={() => { setForm((f) => ({ ...f, categoryId: categories[0]?.id || '' })); setError(null); setShowForm(true); }}
+                className="btn-primary mt-2"
+              >
+                <Plus size={16} /> {t('manageItems.addItem')}
+              </button>
             )}
           </div>
         ) : (

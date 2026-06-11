@@ -286,60 +286,6 @@ export class SeedService {
   }
 
   /**
-   * Seed FreshMart sample catalog into a SPECIFIC tenant (used by
-   * `POST /admin/seeds/sample`).
-   *
-   * - Idempotent: returns `alreadySeeded: true` when the tenant already has
-   *   at least one category, without touching anything.
-   * - Tenant-scoped: every write carries the supplied tenantId via the
-   *   existing private seedCategories/seedItems helpers. No cross-tenant
-   *   contamination (callers should source tenantId from the JWT, not from
-   *   the request body).
-   */
-  async seedSampleDataForTenant(
-    tenantId: string,
-  ): Promise<{ alreadySeeded: boolean; categories: number; items: number }> {
-    if (!tenantId) {
-      throw new Error('tenantId is required to seed sample data');
-    }
-
-    const existing = await this.categoryRepository.count({ where: { tenantId } });
-    if (existing > 0) {
-      this.logger.log(`Sample-data seed skipped for tenant ${tenantId} — already has ${existing} categories`);
-      return { alreadySeeded: true, categories: 0, items: 0 };
-    }
-
-    // FreshMart catalog: groceries + Telugu names — best default for kirana shops.
-    const { categories, items } = getTenantSeedData('freshmart');
-
-    // Reuse the existing tenant-aware helpers. They write report.*Created
-    // counters which we then return to the caller.
-    const report: SeedReport = {
-      categoriesBefore: 0,
-      categoriesAfter: 0,
-      categoriesCreated: 0,
-      itemsBefore: 0,
-      itemsAfter: 0,
-      itemsCreated: 0,
-      errors: [],
-      timestamp: new Date(),
-    };
-
-    const categoryMap = await this.seedCategories(categories, report, tenantId);
-    await this.seedItems(items, categoryMap, report, tenantId, categories);
-
-    this.logger.log(
-      `Sample-data seed for tenant ${tenantId}: ${report.categoriesCreated} categories, ${report.itemsCreated} items`,
-    );
-
-    return {
-      alreadySeeded: false,
-      categories: report.categoriesCreated,
-      items: report.itemsCreated,
-    };
-  }
-
-  /**
    * Assign deterministic, valid EAN-13 *test* barcodes to the caller-tenant's
    * existing items that don't have one yet — so barcode scanning can be tested
    * end-to-end without re-creating the catalog.

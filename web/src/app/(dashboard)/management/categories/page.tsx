@@ -13,10 +13,9 @@ import {
   useDeleteCategoryMutation,
   useGetDeletedCategoriesQuery,
   useRestoreCategoryMutation,
-  useSeedSampleDataMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus, RotateCcw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, FolderPlus, RotateCcw } from 'lucide-react';
 
 export default function CategoryManagementPage() {
   const { t, i18n } = useTranslation('common');
@@ -35,8 +34,6 @@ export default function CategoryManagementPage() {
 
   const isAdmin = useAppSelector(selectIsAdmin);
   const tenant = useAppSelector(selectTenant);
-  const [seedSample, { isLoading: seeding }] = useSeedSampleDataMutation();
-  const [seedError, setSeedError] = useState<string | null>(null);
 
   // Recoverable (soft-deleted) categories — restoring one re-links its orphaned items.
   const { data: deletedCategories = [] } = useGetDeletedCategoriesQuery(
@@ -61,21 +58,6 @@ export default function CategoryManagementPage() {
       } catch {
         /* keep going; a slug clash on one shouldn't block the rest */
       }
-    }
-  };
-
-  const handleSeedSample = async () => {
-    setSeedError(null);
-    try {
-      const res = await seedSample().unwrap();
-      if (res.alreadySeeded) {
-        setSeedError(t('manageCategories.alreadySeeded', 'Sample data is already loaded.'));
-      }
-      // On success RTK Query invalidates Product/Category LIST → the catalog
-      // re-fetches and re-hydrates automatically (no full reload needed).
-    } catch (e: any) {
-      const msg = e?.data?.message || e?.data?.error?.message || (e as Error)?.message;
-      setSeedError(typeof msg === 'string' ? msg : t('error', 'Something went wrong'));
     }
   };
 
@@ -218,38 +200,16 @@ export default function CategoryManagementPage() {
             <p className="empty-state-hint">
               {t(
                 'manageCategories.emptyHint',
-                'Start organising your shop. Add your first category, or load a sample catalog to explore the app.',
+                'Start organising your shop. Add your first category to begin.',
               )}
             </p>
-            {isAdmin && tenant?.slug && (
-              <div className="flex flex-col items-center gap-2 mt-2">
-                <div className="flex flex-col sm:flex-row items-center gap-2">
-                  <button
-                    onClick={() => { setError(null); setShowForm(true); }}
-                    className="btn-primary"
-                  >
-                    <Plus size={16} /> {t('manageCategories.addCategory')}
-                  </button>
-                  <button
-                    onClick={handleSeedSample}
-                    disabled={seeding}
-                    className="btn-secondary"
-                    data-testid="seed-sample-data"
-                  >
-                    {seeding ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    {seeding
-                      ? t('manageCategories.loadingSample', 'Loading sample data…')
-                      : t('manageCategories.loadSample', 'Load sample data')}
-                  </button>
-                </div>
-                <p className="hint text-center max-w-md">
-                  {t(
-                    'manageCategories.loadSampleHint',
-                    'Sample data: 9 starter categories and ~113 items with Telugu names. You can edit or delete anything later.',
-                  )}
-                </p>
-                {seedError && <p className="error-text">{seedError}</p>}
-              </div>
+            {isAdmin && (
+              <button
+                onClick={() => { setError(null); setShowForm(true); }}
+                className="btn-primary mt-2"
+              >
+                <Plus size={16} /> {t('manageCategories.addCategory')}
+              </button>
             )}
           </div>
         ) : (

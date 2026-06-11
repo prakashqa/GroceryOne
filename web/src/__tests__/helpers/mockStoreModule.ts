@@ -68,17 +68,13 @@ export const useLazyGetItemByBarcodeQuery = () => [
 ];
 export const selectItemByBarcode = () => null;
 
-// Seed/test-tool mutations (route through baseApi). Tests that drive the
-// "Load sample data" / "Generate test barcodes" buttons override these.
+// Test-tool mutation (routes through baseApi). Tests that drive the
+// "Generate test barcodes" button override this.
 export type TestBarcodeResult = {
   updated: number;
   skipped: number;
   assignments: { name: string; barcode: string }[];
 };
-export const useSeedSampleDataMutation = () => [
-  jest.fn(() => ({ unwrap: () => Promise.resolve({ alreadySeeded: false, categories: 0, items: 0 }) })),
-  { isLoading: false },
-];
 export const useAssignTestBarcodesMutation = () => [
   jest.fn(() => ({ unwrap: () => Promise.resolve({ updated: 0, skipped: 0, assignments: [] }) })),
   { isLoading: false },

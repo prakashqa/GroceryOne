@@ -5,3 +5,6 @@ build/
 
 web-bundle/
 backend-bundle/
+
+# Generated at build time by scripts/write-build-flags.js (build artifact, not source)
+src/buildFlags.ts

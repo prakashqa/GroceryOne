@@ -13,6 +13,7 @@
 import { app, safeStorage } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
+import { TEST_TOOLS_ENABLED } from './buildFlags';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as crypto from 'crypto';
@@ -115,9 +116,10 @@ export async function startBackend(db: DbConnection): Promise<string> {
       DB_SYNCHRONIZE: 'true',
       REDIS_DISABLED: 'true',
       SUBSCRIPTION_ENFORCED: 'false',
-      // Offline desktop is a single-operator test/sales tool: enable the
-      // "Generate test barcodes" admin helper (gated off in the cloud product).
-      TEST_TOOLS_ENABLED: 'true',
+      // Test tooling (the "Generate test barcodes" admin helper) is enabled only
+      // in the internal build (`npm run dist`); the customer build
+      // (`npm run dist:prod`) ships with it OFF. Baked at build time.
+      TEST_TOOLS_ENABLED: String(TEST_TOOLS_ENABLED),
       // Auth
       JWT_SECRET: getOrCreateJwtSecret(),
       // Desktop renderer is the only client; allow it.

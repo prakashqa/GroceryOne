@@ -833,69 +833,6 @@ describe('SeedService', () => {
     });
   });
 
-  describe('seedSampleDataForTenant', () => {
-    // Used by POST /admin/seeds/sample to populate a freshly-created tenant
-    // with starter data (FreshMart catalog). Every test asserts tenant
-    // scoping — the seed must NEVER write to a different tenant_id, even
-    // though the underlying repos are mocks.
-    const TENANT_A = 'tenant-aaa';
-    const TENANT_B = 'tenant-bbb';
-
-    it('seeds categories + items for ONLY the supplied tenant', async () => {
-      categoryRepo.count.mockResolvedValue(0);
-      const createdCategoryTenants: string[] = [];
-      const createdItemTenants: string[] = [];
-      categoryRepo.create.mockImplementation((data: any) => {
-        createdCategoryTenants.push(data.tenantId);
-        return data as Category;
-      });
-      itemRepo.create.mockImplementation((data: any) => {
-        createdItemTenants.push(data.tenantId);
-        return data as Item;
-      });
-
-      const result = await service.seedSampleDataForTenant(TENANT_A);
-
-      expect(result.alreadySeeded).toBe(false);
-      expect(result.categories).toBe(FRESHMART_CATEGORIES.length);
-      expect(result.items).toBe(FRESHMART_ITEMS.length);
-
-      // Every single create() saw TENANT_A — no cross-tenant writes.
-      expect(createdCategoryTenants.length).toBe(FRESHMART_CATEGORIES.length);
-      for (const t of createdCategoryTenants) expect(t).toBe(TENANT_A);
-      for (const t of createdItemTenants) expect(t).toBe(TENANT_A);
-    });
-
-    it('is idempotent: returns alreadySeeded:true when the tenant already has categories', async () => {
-      categoryRepo.count.mockResolvedValue(9);
-
-      const result = await service.seedSampleDataForTenant(TENANT_A);
-
-      expect(result).toEqual({ alreadySeeded: true, categories: 0, items: 0 });
-      // No new categories or items were created.
-      expect(categoryRepo.create).not.toHaveBeenCalled();
-      expect(itemRepo.create).not.toHaveBeenCalled();
-    });
-
-    it("scopes the existence check by tenant — count() is called WITH a tenantId filter", async () => {
-      categoryRepo.count.mockResolvedValue(0);
-
-      await service.seedSampleDataForTenant(TENANT_B);
-
-      // count() received a WHERE clause containing tenantId=TENANT_B — so
-      // tenant A's pre-existing categories would NOT block tenant B's seed.
-      const firstCall = categoryRepo.count.mock.calls[0]?.[0] as any;
-      expect(firstCall?.where?.tenantId).toBe(TENANT_B);
-    });
-
-    it('throws when tenantId is missing (defensive)', async () => {
-      await expect(service.seedSampleDataForTenant('')).rejects.toThrow();
-      // and no writes happened
-      expect(categoryRepo.create).not.toHaveBeenCalled();
-      expect(itemRepo.create).not.toHaveBeenCalled();
-    });
-  });
-
   describe('clearSeedData', () => {
     it('should scope delete queries by tenantId when provided', async () => {
       const tenantId = 'tenant-aaa';

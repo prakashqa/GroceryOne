@@ -39,9 +39,8 @@ describe('seedApi', () => {
     jest.restoreAllMocks();
   });
 
-  it('exposes assignTestBarcodes + seedSampleData mutation hooks', () => {
+  it('exposes the assignTestBarcodes mutation hook', () => {
     expect(typeof seedApi.useAssignTestBarcodesMutation).toBe('function');
-    expect(typeof seedApi.useSeedSampleDataMutation).toBe('function');
   });
 
   it('assignTestBarcodes POSTs /admin/seeds/test-barcodes through baseApi (auto-refresh auth)', async () => {
@@ -59,20 +58,5 @@ describe('seedApi', () => {
     const method = typeof req === 'string' ? fetchMock.mock.calls[0][1]?.method : req.method;
     expect(url).toContain('/admin/seeds/test-barcodes');
     expect(method).toBe('POST');
-  });
-
-  it('seedSampleData POSTs /admin/seeds/sample through baseApi', async () => {
-    const fetchMock = jest.fn().mockResolvedValue(
-      mockResponse({ success: true, data: { alreadySeeded: false, categories: 9, items: 88 } }),
-    );
-    (global as any).fetch = fetchMock;
-    const store = makeStore();
-
-    const res: any = await store.dispatch(seedApi.endpoints.seedSampleData.initiate());
-
-    expect(res.data).toEqual({ alreadySeeded: false, categories: 9, items: 88 });
-    const req = fetchMock.mock.calls[0][0];
-    const url = typeof req === 'string' ? req : req.url;
-    expect(url).toContain('/admin/seeds/sample');
   });
 });

@@ -15,12 +15,6 @@
 
 import { baseApi } from './baseApi';
 
-export interface SeedSampleResult {
-  alreadySeeded: boolean;
-  categories: number;
-  items: number;
-}
-
 export interface TestBarcodeResult {
   updated: number;
   skipped: number;
@@ -29,13 +23,6 @@ export interface TestBarcodeResult {
 
 export const seedApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    seedSampleData: builder.mutation<SeedSampleResult, void>({
-      query: () => ({ url: '/admin/seeds/sample', method: 'POST' }),
-      invalidatesTags: [
-        { type: 'Product', id: 'LIST' },
-        { type: 'Category', id: 'LIST' },
-      ],
-    }),
     assignTestBarcodes: builder.mutation<TestBarcodeResult, void>({
       query: () => ({ url: '/admin/seeds/test-barcodes', method: 'POST' }),
       invalidatesTags: [{ type: 'Product', id: 'LIST' }],
@@ -44,4 +31,4 @@ export const seedApi = baseApi.injectEndpoints({
   overrideExisting: false,
 });
 
-export const { useSeedSampleDataMutation, useAssignTestBarcodesMutation } = seedApi;
+export const { useAssignTestBarcodesMutation } = seedApi;
