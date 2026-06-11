@@ -84,4 +84,23 @@ export function installAsarSpawnFix(): void {
   replace('execFileSync', function patchedExecFileSync(this: unknown, cmd: string, ...rest: unknown[]) {
     return origExecFileSync.call(this, rewriteIfNeeded(cmd), ...rest);
   });
+
+  // embedded-postgres also `chmod`s its binary (via fs.promises.chmod) before
+  // spawning it. That path still points inside app.asar, so the chmod hits a
+  // non-existent virtual file → ENOENT (a harmless but noisy unhandled
+  // rejection). Steer chmod to the same unpacked binary the spawn uses.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs: any = require('fs');
+  const origChmodSync = fs.chmodSync;
+  if (typeof origChmodSync === 'function') {
+    fs.chmodSync = function patchedChmodSync(this: unknown, p: string, ...rest: unknown[]) {
+      return origChmodSync.call(this, rewriteIfNeeded(p), ...rest);
+    };
+  }
+  if (fs.promises && typeof fs.promises.chmod === 'function') {
+    const origChmod = fs.promises.chmod;
+    fs.promises.chmod = function patchedChmod(this: unknown, p: string, ...rest: unknown[]) {
+      return origChmod.call(this, rewriteIfNeeded(p), ...rest);
+    };
+  }
 }

@@ -19,7 +19,6 @@ installAsarSpawnFix();
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import { autoUpdater } from 'electron-updater';
 import { initLogger, tailLog, getLogPath, buildErrorDetail } from './log';
 import { isClockRolledBack, readLastSeen, recordSeen, CLOCK_TOLERANCE_MS } from './clockGuard';
 import { loadLicense, saveLicense } from './license/store';
@@ -245,12 +244,18 @@ if (!gotSingleInstanceLock) {
     }
   });
 
+  // Known-benign async noise (e.g. embedded-postgres chmod'ing its binary on
+  // Windows) must never crash startup or surface as a scary unhandled rejection.
+  // Real DB/backend failures are caught explicitly in startApp().
+  process.on('unhandledRejection', (reason) => console.error('[unhandledRejection]', reason));
+  process.on('uncaughtException', (err) => console.error('[uncaughtException]', err));
+
   app.whenReady().then(() => {
     initLogger();
     console.log('[app] starting GroOne', app.getVersion());
-    if (app.isPackaged) {
-      autoUpdater.checkForUpdatesAndNotify().catch((e) => console.error('Auto-update check failed:', e));
-    }
+    // No auto-update: GroOne is distributed as a manually-installed offline
+    // build (no GitHub releases feed), so electron-updater is intentionally
+    // not wired in.
     bootSequence().catch((e) => {
       console.error('Boot sequence failed:', e);
       app.quit();

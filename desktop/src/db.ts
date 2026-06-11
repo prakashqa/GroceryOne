@@ -77,25 +77,85 @@ function portInUse(port: number, host = '127.0.0.1', timeoutMs = 800): Promise<b
   });
 }
 
-/**
- * If a stale postmaster.pid is blocking startup (unclean shutdown), remove it
- * so the cluster can start. If a server is genuinely live on the port, leave
- * it — that's a real "already running" situation surfaced to the user.
- */
-async function clearStaleLockIfAny(dir: string): Promise<void> {
-  const pidFile = path.join(dir, 'postmaster.pid');
-  const exists = fs.existsSync(pidFile);
-  if (!exists) return;
-  const listening = await portInUse(DB_PORT);
-  if (shouldRemoveStaleLock(exists, listening)) {
-    console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
-    try {
-      fs.rmSync(pidFile, { force: true });
-    } catch (e) {
-      console.error('[pg] could not remove stale lock:', e);
+/** Parse the postmaster PID from a pgdata lock file's first line. Pure. */
+export function parsePostmasterPid(contents: string | null | undefined): number | null {
+  if (!contents) return null;
+  const first = contents.split(/\r?\n/)[0]?.trim();
+  const pid = Number(first);
+  return Number.isInteger(pid) && pid > 0 ? pid : null;
+}
+
+function readPostmasterPid(dir: string): number | null {
+  try {
+    return parsePostmasterPid(fs.readFileSync(path.join(dir, 'postmaster.pid'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Force-terminate a process tree (Windows taskkill /T; POSIX SIGKILL). */
+function killProcessTree(pid: number): void {
+  try {
+    if (process.platform === 'win32') {
+      // /T also kills the child postgres workers; /F forces it.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' });
+    } else {
+      process.kill(pid, 'SIGKILL');
     }
-  } else {
+  } catch (e) {
+    console.error('[pg] failed to terminate orphaned process', pid, e);
+  }
+}
+
+/** Poll until nothing is listening on the port (or timeout). */
+async function waitForPortFree(port: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await portInUse(port))) return true;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return !(await portInUse(port));
+}
+
+/**
+ * Recover a data dir whose previous Postgres didn't shut down cleanly.
+ *
+ * Startup is only reached after acquiring the single-instance APP lock, so any
+ * Postgres still listening on our fixed port is an ORPHAN from a prior run
+ * (e.g. the installer replaced a still-running copy, or the app was killed).
+ * Terminate the cluster our own postmaster.pid points at, wait for the port to
+ * free, then drop the lock so start() can proceed. A stale lock with no live
+ * server is simply removed. We never kill a process we don't own.
+ */
+async function recoverStuckCluster(dir: string): Promise<void> {
+  const pidFile = path.join(dir, 'postmaster.pid');
+  if (!fs.existsSync(pidFile)) return;
+
+  const listening = await portInUse(DB_PORT);
+
+  // Stale lock from a crash/kill — nothing live on the port. Safe to remove.
+  if (shouldRemoveStaleLock(true, listening)) {
+    console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
+    try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
+    return;
+  }
+
+  // A server is live on our port. Because we hold the single-instance lock it
+  // must be our own orphan — terminate it and wait for the port to clear.
+  const pid = readPostmasterPid(dir);
+  if (!pid) {
     console.error('[pg] a Postgres is already listening on', DB_PORT, '— another GroOne may be running');
+    return; // leave the lock; start() surfaces a clear error
+  }
+  console.warn('[pg] orphaned Postgres on', DB_PORT, '(pid', pid, ') — terminating to recover');
+  killProcessTree(pid);
+  if (await waitForPortFree(DB_PORT, 8000)) {
+    try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ }
+    console.log('[pg] orphaned cluster cleared; continuing startup');
+  } else {
+    console.error('[pg] port', DB_PORT, 'still busy after terminating pid', pid);
+    // leave the lock in place; start() will throw the clear "already running" error
   }
 }
 
@@ -129,8 +189,8 @@ export async function startPostgres(): Promise<DbConnection> {
     await pg.initialise();
   } else {
     // Recover from an unclean previous shutdown (crash/kill/forced reinstall
-    // while running) that left a lock file behind.
-    await clearStaleLockIfAny(dir);
+    // while running) — including an orphaned Postgres still holding our port.
+    await recoverStuckCluster(dir);
   }
 
   try {

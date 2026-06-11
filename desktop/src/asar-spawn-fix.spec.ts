@@ -64,10 +64,13 @@ describe('installAsarSpawnFix', () => {
   // which has only a getter" because tsc had compiled `import * as
   // child_process` to a getter-only namespace.
   const cp = require('child_process');
+  const fs = require('fs');
   const realSpawn = cp.spawn;
   const realSpawnSync = cp.spawnSync;
   const realExecFile = cp.execFile;
   const realExecFileSync = cp.execFileSync;
+  const realChmod = fs.promises.chmod;
+  const realChmodSync = fs.chmodSync;
 
   afterEach(() => {
     // Restore the originals so a later test isn't poisoned by our patch.
@@ -75,6 +78,8 @@ describe('installAsarSpawnFix', () => {
     Object.defineProperty(cp, 'spawnSync', { value: realSpawnSync, configurable: true, writable: true });
     Object.defineProperty(cp, 'execFile', { value: realExecFile, configurable: true, writable: true });
     Object.defineProperty(cp, 'execFileSync', { value: realExecFileSync, configurable: true, writable: true });
+    fs.promises.chmod = realChmod;
+    fs.chmodSync = realChmodSync;
   });
 
   it('does not throw (regression for getter-only namespace bug)', () => {
@@ -121,5 +126,17 @@ describe('installAsarSpawnFix', () => {
     installAsarSpawnFix();
     (cp.spawn as Function)('node');
     expect(calls[0]).toBe('node');
+  });
+
+  it('rewrites fs.promises.chmod paths to the unpacked binary (kills the ENOENT)', async () => {
+    const calls: string[] = [];
+    fs.promises.chmod = (p: string) => { calls.push(p); return Promise.resolve(); };
+    installAsarSpawnFix();
+    await (fs.promises.chmod as Function)(
+      'C:\\app.asar\\node_modules\\@embedded-postgres\\windows-x64\\bin\\postgres.exe',
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain('app.asar.unpacked');
+    expect(calls[0]).not.toMatch(/app\.asar\\node_modules/);
   });
 });
