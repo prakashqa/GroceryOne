@@ -86,21 +86,30 @@ export function installAsarSpawnFix(): void {
   });
 
   // embedded-postgres also `chmod`s its binary (via fs.promises.chmod) before
-  // spawning it. That path still points inside app.asar, so the chmod hits a
-  // non-existent virtual file → ENOENT (a harmless but noisy unhandled
-  // rejection). Steer chmod to the same unpacked binary the spawn uses.
+  // spawning it. On Windows that is meaningless for our packaged .exe, and the
+  // path either points inside app.asar (→ ENOENT) or into read-only
+  // C:\Program Files after unpacking (→ EPERM) — either way a noisy unhandled
+  // rejection. So make chmod a no-op for OUR bundled binaries and pass
+  // everything else through untouched.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const fs: any = require('fs');
   const origChmodSync = fs.chmodSync;
   if (typeof origChmodSync === 'function') {
     fs.chmodSync = function patchedChmodSync(this: unknown, p: string, ...rest: unknown[]) {
-      return origChmodSync.call(this, rewriteIfNeeded(p), ...rest);
+      if (isOurBinary(p)) return undefined;
+      return origChmodSync.call(this, p, ...rest);
     };
   }
   if (fs.promises && typeof fs.promises.chmod === 'function') {
     const origChmod = fs.promises.chmod;
     fs.promises.chmod = function patchedChmod(this: unknown, p: string, ...rest: unknown[]) {
-      return origChmod.call(this, rewriteIfNeeded(p), ...rest);
+      if (isOurBinary(p)) return Promise.resolve();
+      return origChmod.call(this, p, ...rest);
     };
   }
+}
+
+/** True for paths that look like our bundled embedded-postgres executables. */
+function isOurBinary(p: unknown): boolean {
+  return typeof p === 'string' && (p.includes('@embedded-postgres') || /\.exe$/i.test(p));
 }

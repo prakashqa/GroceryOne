@@ -128,15 +128,23 @@ describe('installAsarSpawnFix', () => {
     expect(calls[0]).toBe('node');
   });
 
-  it('rewrites fs.promises.chmod paths to the unpacked binary (kills the ENOENT)', async () => {
+  it('no-ops fs.promises.chmod for our bundled postgres binary (avoids ENOENT/EPERM)', async () => {
+    let called = 0;
+    fs.promises.chmod = () => { called++; return Promise.resolve(); };
+    installAsarSpawnFix();
+    await expect(
+      (fs.promises.chmod as Function)(
+        'C:\\Program Files\\GroOne\\resources\\app.asar.unpacked\\node_modules\\@embedded-postgres\\windows-x64\\bin\\postgres.exe',
+      ),
+    ).resolves.toBeUndefined();
+    expect(called).toBe(0); // the real chmod is NOT invoked for our binary
+  });
+
+  it('passes unrelated chmod calls through to the original', async () => {
     const calls: string[] = [];
     fs.promises.chmod = (p: string) => { calls.push(p); return Promise.resolve(); };
     installAsarSpawnFix();
-    await (fs.promises.chmod as Function)(
-      'C:\\app.asar\\node_modules\\@embedded-postgres\\windows-x64\\bin\\postgres.exe',
-    );
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toContain('app.asar.unpacked');
-    expect(calls[0]).not.toMatch(/app\.asar\\node_modules/);
+    await (fs.promises.chmod as Function)('/var/data/some.conf');
+    expect(calls).toEqual(['/var/data/some.conf']);
   });
 });

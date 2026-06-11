@@ -93,6 +93,57 @@ function readPostmasterPid(dir: string): number | null {
   }
 }
 
+/** Run a Windows helper and capture stdout; '' on any failure. */
+function runWin(cmd: string, args: string[]): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const r = require('child_process').spawnSync(cmd, args, { encoding: 'utf8', windowsHide: true });
+    return (r && typeof r.stdout === 'string') ? r.stdout : '';
+  } catch {
+    return '';
+  }
+}
+
+/** Parse `netstat -ano -p tcp` output for PIDs LISTENING on the given port. Pure. */
+export function parseNetstatListenerPids(stdout: string, port: number): number[] {
+  const pids = new Set<number>();
+  for (const raw of (stdout || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!/^TCP/i.test(line) || !/LISTENING/i.test(line)) continue;
+    const cols = line.split(/\s+/);
+    const local = cols[1] || '';
+    const pid = Number(cols[cols.length - 1]);
+    if (local.endsWith(`:${port}`) && Number.isInteger(pid) && pid > 0) pids.add(pid);
+  }
+  return [...pids];
+}
+
+/** Parse a newline-separated list of PIDs (PowerShell output). Pure. */
+export function parsePidList(stdout: string): number[] {
+  const pids = new Set<number>();
+  for (const tok of (stdout || '').split(/\r?\n/)) {
+    const pid = Number(tok.trim());
+    if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+  }
+  return [...pids];
+}
+
+/** PIDs currently LISTENING on the port (Windows). */
+function findListenerPids(port: number): number[] {
+  if (process.platform !== 'win32') return [];
+  return parseNetstatListenerPids(runWin('netstat', ['-ano', '-p', 'tcp']), port);
+}
+
+/** postgres.exe PIDs launched from OUR bundled binary (under @embedded-postgres). */
+function findOurPostgresPids(): number[] {
+  if (process.platform !== 'win32') return [];
+  const ps =
+    "Get-CimInstance Win32_Process -Filter \"Name='postgres.exe'\" | " +
+    "Where-Object { $_.ExecutablePath -like '*@embedded-postgres*' } | " +
+    'ForEach-Object { $_.ProcessId }';
+  return parsePidList(runWin('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps]));
+}
+
 /** Force-terminate a process tree (Windows taskkill /T; POSIX SIGKILL). */
 function killProcessTree(pid: number): void {
   try {
@@ -130,32 +181,46 @@ async function waitForPortFree(port: number, timeoutMs: number): Promise<boolean
  */
 async function recoverStuckCluster(dir: string): Promise<void> {
   const pidFile = path.join(dir, 'postmaster.pid');
-  if (!fs.existsSync(pidFile)) return;
-
+  const hasPidFile = fs.existsSync(pidFile);
   const listening = await portInUse(DB_PORT);
 
   // Stale lock from a crash/kill — nothing live on the port. Safe to remove.
-  if (shouldRemoveStaleLock(true, listening)) {
-    console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
-    try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
+  if (!listening) {
+    if (hasPidFile) {
+      console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
+      try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
+    }
     return;
   }
 
-  // A server is live on our port. Because we hold the single-instance lock it
-  // must be our own orphan — terminate it and wait for the port to clear.
-  const pid = readPostmasterPid(dir);
-  if (!pid) {
-    console.error('[pg] a Postgres is already listening on', DB_PORT, '— another GroOne may be running');
-    return; // leave the lock; start() surfaces a clear error
+  // A server is live on our fixed port. Because we hold the single-instance app
+  // lock, it must be our OWN orphan from a prior run. Terminate it — but don't
+  // trust the lock file's PID alone (it's often stale): kill whatever actually
+  // owns the port (netstat) AND any postgres.exe running from our bundled
+  // binary, plus the lock-file PID. Killing the postmaster tree also releases
+  // the shared-memory segment that otherwise blocks a fresh start.
+  const targets = new Set<number>([
+    ...findListenerPids(DB_PORT),
+    ...findOurPostgresPids(),
+  ]);
+  const pidFromFile = readPostmasterPid(dir);
+  if (pidFromFile) targets.add(pidFromFile);
+
+  if (targets.size === 0) {
+    console.error('[pg] a Postgres is listening on', DB_PORT, 'but its PID could not be found — another app may own the port');
+    return; // leave the lock; the port guard in startPostgres surfaces a clear error
   }
-  console.warn('[pg] orphaned Postgres on', DB_PORT, '(pid', pid, ') — terminating to recover');
-  killProcessTree(pid);
-  if (await waitForPortFree(DB_PORT, 8000)) {
-    try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ }
+
+  for (const pid of targets) {
+    console.warn('[pg] terminating orphaned Postgres pid', pid, 'to free', DB_PORT);
+    killProcessTree(pid);
+  }
+
+  if (await waitForPortFree(DB_PORT, 10000)) {
+    if (hasPidFile) { try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ } }
     console.log('[pg] orphaned cluster cleared; continuing startup');
   } else {
-    console.error('[pg] port', DB_PORT, 'still busy after terminating pid', pid);
-    // leave the lock in place; start() will throw the clear "already running" error
+    console.error('[pg] port', DB_PORT, 'still busy after terminating', [...targets].join(', '));
   }
 }
 
@@ -191,6 +256,16 @@ export async function startPostgres(): Promise<DbConnection> {
     // Recover from an unclean previous shutdown (crash/kill/forced reinstall
     // while running) — including an orphaned Postgres still holding our port.
     await recoverStuckCluster(dir);
+  }
+
+  // If the port is STILL occupied (a process we couldn't terminate, or one we
+  // don't own), fail with an actionable message rather than the cryptic
+  // "shared memory block is still in use" / undefined that initdb returns.
+  if (await portInUse(DB_PORT)) {
+    throw new Error(
+      `the database port ${DB_PORT} is still in use by a leftover process. ` +
+        `Close any other copy of GroOne, or restart Windows to clear it, then open GroOne again.`,
+    );
   }
 
   try {

@@ -1,7 +1,7 @@
 // db.ts imports `electron`; mock it so the pure helper can be required.
 jest.mock('electron', () => ({ app: { getPath: () => require('os').tmpdir() } }));
 
-import { shouldRemoveStaleLock, parsePostmasterPid } from './db';
+import { shouldRemoveStaleLock, parsePostmasterPid, parseNetstatListenerPids, parsePidList } from './db';
 
 describe('shouldRemoveStaleLock', () => {
   it('removes the lock when the pid file exists but nothing is listening (stale)', () => {
@@ -36,5 +36,42 @@ describe('parsePostmasterPid', () => {
     expect(parsePostmasterPid('not-a-pid\n')).toBeNull();
     expect(parsePostmasterPid('0\n')).toBeNull();
     expect(parsePostmasterPid('-5\n')).toBeNull();
+  });
+});
+
+describe('parseNetstatListenerPids', () => {
+  const sample = [
+    'Active Connections',
+    '',
+    '  Proto  Local Address          Foreign Address        State           PID',
+    '  TCP    127.0.0.1:47632        0.0.0.0:0              LISTENING       1596',
+    '  TCP    127.0.0.1:47600        0.0.0.0:0              LISTENING       4242',
+    '  TCP    0.0.0.0:445            0.0.0.0:0              LISTENING       4',
+    '  TCP    127.0.0.1:50312        127.0.0.1:47632        ESTABLISHED     9999',
+  ].join('\r\n');
+
+  it('returns the PID that is LISTENING on the requested port', () => {
+    expect(parseNetstatListenerPids(sample, 47632)).toEqual([1596]);
+  });
+
+  it('ignores other ports and non-LISTENING (e.g. ESTABLISHED) rows', () => {
+    expect(parseNetstatListenerPids(sample, 47600)).toEqual([4242]);
+    // 47632 also appears as a foreign address on an ESTABLISHED row — not matched.
+    expect(parseNetstatListenerPids(sample, 47632)).not.toContain(9999);
+  });
+
+  it('returns [] for empty/garbage input', () => {
+    expect(parseNetstatListenerPids('', 47632)).toEqual([]);
+    expect(parseNetstatListenerPids('nonsense', 47632)).toEqual([]);
+  });
+});
+
+describe('parsePidList', () => {
+  it('parses newline-separated PIDs and de-dupes', () => {
+    expect(parsePidList('1596\r\n4242\r\n1596\n')).toEqual([1596, 4242]);
+  });
+
+  it('skips blank/garbage lines and non-positive values', () => {
+    expect(parsePidList('\n  \nabc\n0\n-1\n777\n')).toEqual([777]);
   });
 });
