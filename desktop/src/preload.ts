@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('groone', {
     /** Open a file picker for a .lic file; resolves to its text (or null). */
     importFile: (): Promise<string | null> =>
       ipcRenderer.invoke('groone:license:importFile'),
+    /** Current stored license info (for the in-app expiry banner). */
+    info: (): Promise<{ customer: string; plan: string; expiresAt: string } | null> =>
+      ipcRenderer.invoke('groone:license:info'),
   },
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke('groone:app:openExternal', url),

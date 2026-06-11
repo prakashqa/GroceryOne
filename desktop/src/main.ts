@@ -21,6 +21,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { autoUpdater } from 'electron-updater';
 import { initLogger, tailLog, getLogPath, buildErrorDetail } from './log';
+import { isClockRolledBack, readLastSeen, recordSeen, CLOCK_TOLERANCE_MS } from './clockGuard';
 import { loadLicense, saveLicense, clearLicense } from './license/store';
 import { verifyLicense, LicenseError, LicensePayload } from './license/validator';
 import { startLocalWebServer, stopLocalWebServer } from './server';
@@ -127,7 +128,25 @@ function openMainWindow(url: string): BrowserWindow {
 /** Start Postgres → backend → UI, then open the main window. */
 async function startApp(): Promise<void> {
   if (started) return;
+
+  // Anti-rollback: offline expiry trusts the system clock, so refuse to start
+  // if the clock was set earlier than the furthest time we've seen (a likely
+  // attempt to outrun a yearly expiry). Recoverable — the user fixes the date.
+  const now = Date.now();
+  if (isClockRolledBack(now, readLastSeen(), CLOCK_TOLERANCE_MS)) {
+    console.error('[clock] system clock is earlier than last-seen high-water mark — refusing to start');
+    dialog.showErrorBox(
+      'Check your computer clock',
+      "GroOne can't start because your computer's date appears to be set earlier than expected.\n\n" +
+        'Please correct the system date & time, then open GroOne again.\n\n' +
+        'If the date is correct and this keeps happening, contact support@groone.in.',
+    );
+    app.quit();
+    return;
+  }
+
   started = true;
+  recordSeen(now);
   if (!gateWindow) splashWindow = openSplash();
   try {
     const db = await startPostgres();
@@ -214,6 +233,13 @@ ipcMain.handle('groone:app:openExternal', async (_e, url: string) => {
   if (/^(https?|mailto):/.test(url)) await shell.openExternal(url);
 });
 
+// Stored license summary for the in-app expiry banner (renderer is the local
+// app origin only). Returns null when no license is stored.
+ipcMain.handle('groone:license:info', () => {
+  const blob = loadLicense();
+  return blob ? { customer: blob.customer, plan: blob.plan, expiresAt: blob.expiresAt } : null;
+});
+
 // ─── Lifecycle ───────────────────────────────────────────────────────
 
 // Single-instance lock: a second copy would collide with the first on the
@@ -248,6 +274,8 @@ if (!gotSingleInstanceLock) {
 // Graceful shutdown: UI → backend → Postgres (data integrity).
 let quitting = false;
 app.on('before-quit', () => {
+  // Capture the latest time this session ran so a later rollback is detected.
+  recordSeen(Date.now());
   stopLocalWebServer();
   stopBackend();
 });

@@ -36,7 +36,7 @@ function friendly(code, message) {
     case 'BAD_SIGNATURE':
       return 'This license key is not valid (signature check failed).';
     case 'EXPIRED':
-      return 'This license has expired. Contact support@groone.in to renew.';
+      return 'This license has expired. To renew, contact GroOne support on WhatsApp 9010888871 or support@groone.in.';
     case 'STARTUP':
       return message || 'The app could not start. Please restart, or contact support.';
     default:

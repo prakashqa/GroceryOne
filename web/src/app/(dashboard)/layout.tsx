@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/common/Sidebar';
 import { Header } from '@/components/common/Header';
 import { ThemeProvider } from '@/lib/theme/provider';
 import { DataHydration } from '@/components/common/DataHydration';
+import { LicenseExpiryBanner } from '@/components/common/LicenseExpiryBanner';
 import { SidebarProvider } from '@/hooks/useSidebar';
 import '@/lib/i18n/config';
 
@@ -21,6 +22,7 @@ export default function DashboardLayout({
             <div className="flex-1 flex flex-col overflow-hidden min-w-0">
               <Header />
               <main className="flex-1 overflow-y-auto bg-background dark:bg-background-dark p-4 md:p-6">
+                <LicenseExpiryBanner />
                 {children}
               </main>
             </div>
