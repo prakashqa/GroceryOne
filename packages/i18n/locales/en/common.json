@@ -421,6 +421,10 @@
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"?",
     "itemsInCategory": "This category has {{count}} items",
     "hasItems": "This category has {{count}} item(s). Reassign or delete them first.",
+    "recoverTitle": "Recover deleted categories",
+    "recoverHint": "These categories were deleted but their items are still here. Restore one to bring its items back under it.",
+    "restore": "Restore",
+    "restoreAll": "Restore all",
     "moveItemsTo": "Move items to",
     "deleteItems": "Delete items"
   },

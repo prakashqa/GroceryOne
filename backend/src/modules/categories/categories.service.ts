@@ -190,6 +190,60 @@ export class CategoriesService {
   }
 
   /**
+   * List soft-deleted categories for this tenant (for recovery).
+   */
+  async findDeleted(tenantId?: string): Promise<Category[]> {
+    validateTenantId(tenantId);
+
+    return this.categoryRepository.createQueryBuilder('category')
+      .withDeleted()
+      .where('category.tenantId = :tenantId', { tenantId })
+      .andWhere('category.deletedAt IS NOT NULL')
+      .orderBy('category.sortOrder', 'ASC')
+      .addOrderBy('category.name', 'ASC')
+      .getMany();
+  }
+
+  /**
+   * Restore a soft-deleted category (un-delete). Re-links any items that still
+   * reference it. Tenant-scoped; refuses if an active category already owns the
+   * slug.
+   */
+  async restore(id: string, tenantId?: string): Promise<Category> {
+    validateTenantId(tenantId);
+
+    const category = await this.categoryRepository.createQueryBuilder('category')
+      .withDeleted()
+      .where('category.id = :id', { id })
+      .andWhere('category.tenantId = :tenantId', { tenantId })
+      .getOne();
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID '${id}' not found`);
+    }
+
+    if (!category.deletedAt) {
+      return category; // already active — nothing to do
+    }
+
+    // An active category may have taken the slug since deletion; restoring would
+    // create a duplicate within the tenant.
+    const activeWithSlug = await this.categoryRepository.findOne({
+      where: { slug: category.slug, tenantId },
+    });
+    if (activeWithSlug) {
+      throw new ConflictException(
+        `An active category with slug '${category.slug}' already exists`,
+      );
+    }
+
+    await this.categoryRepository.restore(id);
+    const restored = await this.findOne(id, tenantId);
+    this.logger.log(`Restored category: ${restored.name} (${restored.slug})`);
+    return restored;
+  }
+
+  /**
    * Get category count
    */
   async count(includeInactive = false, tenantId?: string): Promise<number> {

@@ -35,6 +35,7 @@ describe('CategoriesService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
+    restore: jest.fn(),
     createQueryBuilder: jest.fn(() => queryBuilderMock),
   };
 
@@ -345,6 +346,84 @@ describe('CategoriesService', () => {
     it('should require tenantId parameter', async () => {
       await expect(service.remove('cat-a-uuid', undefined as any))
         .rejects.toThrow();
+    });
+  });
+
+  describe('findDeleted', () => {
+    it('should return soft-deleted categories scoped to the tenant', async () => {
+      const deleted = buildMockCategory({ deletedAt: new Date() });
+      queryBuilderMock.getMany.mockResolvedValue([deleted]);
+
+      const result = await service.findDeleted(TENANT_A_ID);
+
+      expect(queryBuilderMock.withDeleted).toHaveBeenCalled();
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'category.tenantId = :tenantId',
+        { tenantId: TENANT_A_ID },
+      );
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith('category.deletedAt IS NOT NULL');
+      expect(result).toHaveLength(1);
+    });
+
+    it('should require tenantId parameter', async () => {
+      await expect(service.findDeleted(undefined as any)).rejects.toThrow();
+    });
+  });
+
+  describe('restore', () => {
+    it('should restore a soft-deleted category when it belongs to the tenant and no active slug clashes', async () => {
+      const deleted = buildMockCategory({ deletedAt: new Date() });
+      // 1st getOne → withDeleted lookup (deleted row); 2nd getOne → findOne after restore.
+      queryBuilderMock.getOne
+        .mockResolvedValueOnce(deleted)
+        .mockResolvedValueOnce(buildMockCategory());
+      mockCategoryRepository.findOne.mockResolvedValue(null); // no active slug clash
+      mockCategoryRepository.restore.mockResolvedValue({ affected: 1 });
+
+      const result = await service.restore('cat-a-uuid', TENANT_A_ID);
+
+      expect(queryBuilderMock.withDeleted).toHaveBeenCalled();
+      expect(mockCategoryRepository.restore).toHaveBeenCalledWith('cat-a-uuid');
+      expect(result.tenantId).toBe(TENANT_A_ID);
+    });
+
+    it('should throw NotFoundException when the category does not exist for this tenant', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(null);
+
+      await expect(service.restore('cat-a-uuid', TENANT_B_ID))
+        .rejects.toThrow(NotFoundException);
+      expect(mockCategoryRepository.restore).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException when an active category already owns the slug', async () => {
+      const deleted = buildMockCategory({ deletedAt: new Date() });
+      queryBuilderMock.getOne.mockResolvedValue(deleted);
+      mockCategoryRepository.findOne.mockResolvedValue(buildMockCategory()); // active clash
+
+      await expect(service.restore('cat-a-uuid', TENANT_A_ID))
+        .rejects.toThrow(ConflictException);
+      expect(mockCategoryRepository.restore).not.toHaveBeenCalled();
+    });
+
+    it('should be a no-op (no restore call) when the category is already active', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(buildMockCategory()); // deletedAt undefined
+
+      const result = await service.restore('cat-a-uuid', TENANT_A_ID);
+
+      expect(mockCategoryRepository.restore).not.toHaveBeenCalled();
+      expect(result.tenantId).toBe(TENANT_A_ID);
+    });
+
+    it('should prevent Tenant A from restoring Tenant B category', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(null); // tenant filter excludes B's row
+
+      await expect(service.restore(mockCategoryTenantB.id, TENANT_A_ID))
+        .rejects.toThrow(NotFoundException);
+      expect(mockCategoryRepository.restore).not.toHaveBeenCalled();
+    });
+
+    it('should require tenantId parameter', async () => {
+      await expect(service.restore('cat-a-uuid', undefined as any)).rejects.toThrow();
     });
   });
 

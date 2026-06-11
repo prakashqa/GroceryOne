@@ -129,3 +129,56 @@ describe('CategoryManagementPage - delete guard (block when category has items)'
     confirmSpy.mockRestore();
   });
 });
+
+describe('CategoryManagementPage - recover deleted categories', () => {
+  beforeEach(() => { jest.clearAllMocks(); });
+
+  /** Mock the restore mutation and capture the ids it is called with. */
+  function captureRestore(deleted: any[]) {
+    const calls: any[] = [];
+    const store = require('@groceryone/store');
+    store.useGetDeletedCategoriesQuery = () => ({ data: deleted });
+    store.useRestoreCategoryMutation = () => [
+      (id: any) => { calls.push(id); return { unwrap: () => Promise.resolve({}) }; },
+      {},
+    ];
+    return calls;
+  }
+
+  it('hides the recovery card when there are no deleted categories', () => {
+    setupMocks('en');
+    captureRestore([]);
+    render(<CategoryManagementPage />);
+    expect(screen.queryByTestId('recover-deleted')).not.toBeInTheDocument();
+  });
+
+  it('lists deleted categories with item counts and restores by id', async () => {
+    // Two orphaned items point at a now-deleted "Snacks" category.
+    setupMocks('en', [
+      { id: 'i1', categoryId: 'cat-del-1' },
+      { id: 'i2', categoryId: 'cat-del-1' },
+    ]);
+    const calls = captureRestore([
+      { id: 'cat-del-1', name: 'Snacks', icon: '🍪', slug: 'snacks' },
+    ]);
+
+    render(<CategoryManagementPage />);
+    expect(screen.getByTestId('recover-deleted')).toBeInTheDocument();
+    expect(screen.getByText('Snacks')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByLabelText('Restore')[0]);
+    await waitFor(() => expect(calls).toEqual(['cat-del-1']));
+  });
+
+  it('restores every deleted category via Restore all', async () => {
+    setupMocks('en');
+    const calls = captureRestore([
+      { id: 'cat-del-1', name: 'Snacks', icon: '🍪', slug: 'snacks' },
+      { id: 'cat-del-2', name: 'Oils', icon: '🫒', slug: 'oils' },
+    ]);
+
+    render(<CategoryManagementPage />);
+    fireEvent.click(screen.getByText('Restore all'));
+    await waitFor(() => expect(calls).toEqual(['cat-del-1', 'cat-del-2']));
+  });
+});

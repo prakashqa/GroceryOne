@@ -37,6 +37,13 @@ export const categoryApi = baseApi.injectEndpoints({
     getCategoryCount: builder.query<{ count: number }, { includeInactive?: boolean }>({
       query: ({ includeInactive = false }) => ({ url: '/categories/count', params: { includeInactive } }),
     }),
+    getDeletedCategories: builder.query<Category[], { tenantSlug?: string } | void>({
+      query: () => '/categories/deleted',
+      serializeQueryArgs: ({ queryArgs }) => `deleted-categories-${queryArgs?.tenantSlug ?? 'none'}`,
+      providesTags: (result) => result
+        ? [...result.map(({ id }) => ({ type: 'Category' as const, id })), { type: 'Category', id: 'DELETED' }]
+        : [{ type: 'Category', id: 'DELETED' }],
+    }),
     createCategory: builder.mutation<Category, CreateCategoryDto>({
       query: (body) => ({ url: '/categories', method: 'POST', body }),
       invalidatesTags: [{ type: 'Category', id: 'LIST' }],
@@ -47,7 +54,13 @@ export const categoryApi = baseApi.injectEndpoints({
     }),
     deleteCategory: builder.mutation<void, string>({
       query: (id) => ({ url: `/categories/${id}`, method: 'DELETE' }),
-      invalidatesTags: (_r, _e, id) => [{ type: 'Category', id }, { type: 'Category', id: 'LIST' }],
+      // Deleting moves a category into the recoverable (DELETED) set.
+      invalidatesTags: (_r, _e, id) => [{ type: 'Category', id }, { type: 'Category', id: 'LIST' }, { type: 'Category', id: 'DELETED' }],
+    }),
+    restoreCategory: builder.mutation<Category, string>({
+      query: (id) => ({ url: `/categories/${id}/restore`, method: 'POST' }),
+      // Restoring re-links orphaned items, so refresh the active list too.
+      invalidatesTags: (_r, _e, id) => [{ type: 'Category', id }, { type: 'Category', id: 'LIST' }, { type: 'Category', id: 'DELETED' }],
     }),
   }),
   overrideExisting: false,
@@ -55,5 +68,6 @@ export const categoryApi = baseApi.injectEndpoints({
 
 export const {
   useGetCategoriesQuery, useGetCategoryByIdQuery, useGetCategoryBySlugQuery,
-  useGetCategoryCountQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation,
+  useGetCategoryCountQuery, useGetDeletedCategoriesQuery,
+  useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, useRestoreCategoryMutation,
 } = categoryApi;

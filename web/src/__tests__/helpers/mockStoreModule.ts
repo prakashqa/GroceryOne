@@ -52,6 +52,10 @@ export const DomainTypes = {
 export const useCreateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useUpdateCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useDeleteCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+export const useRestoreCategoryMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
+// Default: no recoverable categories, so the recovery card stays hidden. Tests
+// that exercise restore override this to return deleted categories.
+export const useGetDeletedCategoriesQuery = () => ({ data: [] as any[] });
 export const useCreateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useUpdateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useDeleteItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];

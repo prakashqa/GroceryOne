@@ -11,10 +11,12 @@ import {
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
   useDeleteCategoryMutation,
+  useGetDeletedCategoriesQuery,
+  useRestoreCategoryMutation,
   useSeedSampleDataMutation,
   StoreUtils,
 } from '@groceryone/store';
-import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, Sparkles, FolderPlus, RotateCcw } from 'lucide-react';
 
 export default function CategoryManagementPage() {
   const { t, i18n } = useTranslation('common');
@@ -35,6 +37,32 @@ export default function CategoryManagementPage() {
   const tenant = useAppSelector(selectTenant);
   const [seedSample, { isLoading: seeding }] = useSeedSampleDataMutation();
   const [seedError, setSeedError] = useState<string | null>(null);
+
+  // Recoverable (soft-deleted) categories — restoring one re-links its orphaned items.
+  const { data: deletedCategories = [] } = useGetDeletedCategoriesQuery(
+    { tenantSlug: tenant?.slug },
+    { skip: !tenant?.slug },
+  );
+  const [restoreCategoryMut, { isLoading: restoring }] = useRestoreCategoryMutation();
+
+  const handleRestore = async (id: string) => {
+    try {
+      await restoreCategoryMut(id).unwrap();
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.data?.error?.message || t('error');
+      alert(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    }
+  };
+
+  const handleRestoreAll = async () => {
+    for (const c of deletedCategories) {
+      try {
+        await restoreCategoryMut(c.id).unwrap();
+      } catch {
+        /* keep going; a slug clash on one shouldn't block the rest */
+      }
+    }
+  };
 
   const handleSeedSample = async () => {
     setSeedError(null);
@@ -132,6 +160,53 @@ export default function CategoryManagementPage() {
           <Plus size={16} /> {t('manageCategories.addCategory')}
         </button>
       </div>
+
+      {deletedCategories.length > 0 && (
+        <div className="card border-warning/30 bg-warning-bg/40 dark:bg-warning/[0.06] mb-4" data-testid="recover-deleted">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                {t('manageCategories.recoverTitle', 'Recover deleted categories')}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                {t('manageCategories.recoverHint', 'These categories were deleted but their items are still here. Restore one to bring its items back under it.')}
+              </p>
+            </div>
+            <button onClick={handleRestoreAll} disabled={restoring} className="btn-secondary btn-sm flex-shrink-0">
+              {restoring ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              {t('manageCategories.restoreAll', 'Restore all')}
+            </button>
+          </div>
+          <ul className="row-divider">
+            {deletedCategories.map((cat) => {
+              const itemCount = items.filter((i) => i.categoryId === cat.id).length;
+              return (
+                <li key={cat.id} className="row group">
+                  <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/60 dark:bg-white/[0.04] flex items-center justify-center text-lg">
+                    {cat.icon}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                      {StoreUtils.getLocalizedName(cat, i18n.language)}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('manageItems.itemsCount', { count: itemCount })}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRestore(cat.id)}
+                    disabled={restoring}
+                    className="btn-secondary btn-sm flex-shrink-0"
+                    aria-label={t('manageCategories.restore', 'Restore')}
+                  >
+                    <RotateCcw size={14} /> {t('manageCategories.restore', 'Restore')}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="card">
         {categories.length === 0 ? (

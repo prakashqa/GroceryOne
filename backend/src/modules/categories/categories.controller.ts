@@ -74,6 +74,13 @@ export class CategoriesController {
     return { count };
   }
 
+  @Get('deleted')
+  @ApiOperation({ summary: 'List soft-deleted categories (for recovery)' })
+  @ApiResponse({ status: 200, description: 'List of deleted categories', type: [Category] })
+  async findDeleted(@Req() req: Request): Promise<Category[]> {
+    return this.categoriesService.findDeleted(req.tenantId!);
+  }
+
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Get a category by slug' })
   @ApiParam({ name: 'slug', description: 'Category slug' })
@@ -110,6 +117,19 @@ export class CategoriesController {
     @Body() updateCategoryDto: UpdateCategoryDto,
   ): Promise<Category> {
     return this.categoriesService.update(id, updateCategoryDto, req.tenantId!);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted category' })
+  @ApiParam({ name: 'id', description: 'Category UUID' })
+  @ApiResponse({ status: 201, description: 'Category restored', type: Category })
+  @ApiResponse({ status: 404, description: 'Category not found' })
+  @ApiResponse({ status: 409, description: 'An active category with this slug already exists' })
+  async restore(
+    @Req() req: Request,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<Category> {
+    return this.categoriesService.restore(id, req.tenantId!);
   }
 
   @Delete(':id')
