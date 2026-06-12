@@ -144,18 +144,38 @@ function findOurPostgresPids(): number[] {
   return parsePidList(runWin('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps]));
 }
 
-/** Force-terminate a process tree (Windows taskkill /T; POSIX SIGKILL). */
-function killProcessTree(pid: number): void {
+/** ALL postgres.exe PIDs (any path) — last-resort escalation when the targeted
+ *  kill couldn't free our port. Safe on a customer machine (only ours exists). */
+function findAllPostgresPids(): number[] {
+  if (process.platform !== 'win32') return [];
+  const ps =
+    "Get-CimInstance Win32_Process -Filter \"Name='postgres.exe'\" | " +
+    'ForEach-Object { $_.ProcessId }';
+  return parsePidList(runWin('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps]));
+}
+
+/** Force-terminate a process tree (Windows taskkill /T; POSIX SIGKILL). Returns
+ *  false when the kill command reported a failure (e.g. access denied). */
+function killProcessTree(pid: number): boolean {
   try {
     if (process.platform === 'win32') {
       // /T also kills the child postgres workers; /F forces it.
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' });
-    } else {
-      process.kill(pid, 'SIGKILL');
+      const r = require('child_process').spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+        encoding: 'utf8',
+        windowsHide: true,
+      });
+      if (r.status !== 0) {
+        console.warn('[pg] taskkill pid', pid, 'failed (status', r.status + '):', (r.stderr || '').toString().trim());
+        return false;
+      }
+      return true;
     }
+    process.kill(pid, 'SIGKILL');
+    return true;
   } catch (e) {
-    console.error('[pg] failed to terminate orphaned process', pid, e);
+    console.error('[pg] failed to terminate process', pid, e);
+    return false;
   }
 }
 
@@ -242,7 +262,11 @@ function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function recoverStuckCluster(dir: string): Promise<void> {
+/**
+ * Recover a stuck cluster. Returns true if, afterwards, the port is FREE (ready
+ * to start), false if a leftover process still holds it.
+ */
+async function recoverStuckCluster(dir: string): Promise<boolean> {
   const pidFile = path.join(dir, 'postmaster.pid');
   const hasPidFile = fs.existsSync(pidFile);
   const listening = await portInUse(DB_PORT);
@@ -250,39 +274,52 @@ async function recoverStuckCluster(dir: string): Promise<void> {
   // Always probe BOTH signals — even when nothing is listening — so a
   // non-listening zombie still holding the shared-memory segment is found and
   // killed (the "won't open on every restart" case).
-  const plan = planRecovery({
-    hasPidFile,
-    listening,
-    listenerPids: findListenerPids(DB_PORT),
-    ourPids: findOurPostgresPids(),
-    pidFromFile: readPostmasterPid(dir),
-  });
+  const listenerPids = findListenerPids(DB_PORT);
+  const ourPids = findOurPostgresPids();
+  const pidFromFile = readPostmasterPid(dir);
+  console.log(
+    `[pg] recovery probe: listening=${listening} listenerPids=[${listenerPids.join(',')}] ` +
+      `ourPids=[${ourPids.join(',')}] lockPid=${pidFromFile ?? '-'}`,
+  );
+
+  const plan = planRecovery({ hasPidFile, listening, listenerPids, ourPids, pidFromFile });
 
   if (plan.removeLock) {
     console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
     try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
-    return;
+    return !(await portInUse(DB_PORT));
   }
-  if (plan.abortUnknownOwner) {
-    console.error('[pg] a Postgres is listening on', DB_PORT, 'but its PID could not be found — another app may own the port');
-    return; // leave the lock; the port guard in startPostgres surfaces a clear error
-  }
-  if (plan.kill.length === 0) return; // nothing of ours to clean up
 
-  // Leftover Postgres we own (listening orphan and/or a non-listening zombie
-  // holding shared memory). Terminate the whole set; killing the postmaster tree
-  // releases the shared-memory segment that otherwise blocks a fresh start.
+  // Kill everything we attributed to our cluster (listening orphan and/or a
+  // non-listening zombie holding shared memory).
   for (const pid of plan.kill) {
     console.warn('[pg] terminating leftover Postgres pid', pid);
     killProcessTree(pid);
   }
 
-  // Wait for the port to free (if it was held) AND give Windows a moment to
-  // release the shared-memory segment after the kills.
-  await waitForPortFree(DB_PORT, 10000);
+  let freed = await waitForPortFree(DB_PORT, 8000);
+
+  // Escalate: the targeted kills didn't free the port (e.g. taskkill couldn't
+  // reach the real owner, or the listener was a pid our finders missed). As a
+  // last resort, terminate EVERY postgres.exe, then wait again. On a customer
+  // machine ours is the only one; on a dev box this may also stop an unrelated
+  // local Postgres — acceptable to unblock a stuck startup.
+  if (!freed && (plan.abortUnknownOwner || listening || ourPids.length || listenerPids.length)) {
+    const all = findAllPostgresPids();
+    if (all.length) {
+      console.warn('[pg] port still busy — escalating: terminating ALL postgres.exe [', all.join(','), ']');
+      for (const pid of all) killProcessTree(pid);
+      freed = await waitForPortFree(DB_PORT, 8000);
+    }
+  }
+
   await delay(800);
   if (hasPidFile) { try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ } }
-  console.log('[pg] leftover Postgres cleared; continuing startup');
+  freed = freed && !(await portInUse(DB_PORT));
+  console.log(freed
+    ? '[pg] leftover Postgres cleared; continuing startup'
+    : '[pg] WARNING: port ' + DB_PORT + ' still in use after recovery + escalation');
+  return freed;
 }
 
 /**
@@ -319,36 +356,38 @@ export async function startPostgres(): Promise<DbConnection> {
     await recoverStuckCluster(dir);
   }
 
-  // If the port is STILL occupied (a process we couldn't terminate, or one we
-  // don't own), fail with an actionable message rather than the cryptic
-  // "shared memory block is still in use" / undefined that initdb returns.
-  if (await portInUse(DB_PORT)) {
-    throw new Error(
-      `the database port ${DB_PORT} is still in use by a leftover process. ` +
-        `Close any other copy of GroOne, or restart Windows to clear it, then open GroOne again.`,
-    );
-  }
-
-  try {
-    await pg.start();
-  } catch (firstErr) {
-    // A leftover postmaster / shared-memory segment can survive the pre-start
-    // checks (e.g. a zombie that wasn't listening yet). Clear our leftovers
-    // again, let Windows release the segment, and retry once before giving up.
-    const firstMsg = (firstErr as Error)?.message || String(firstErr);
-    console.warn('[pg] first start failed:', firstMsg, '— recovering leftovers and retrying');
-    await recoverStuckCluster(dir);
-    await delay(1200);
+  // Start with retries. A leftover postmaster / shared-memory segment can
+  // survive the first recovery pass (e.g. a kill that needed escalation, or a
+  // listener our finders missed). Each failed attempt re-runs recovery — which
+  // escalates to terminating ALL postgres.exe — then waits and retries, instead
+  // of failing fast on the first stuck port.
+  const MAX_START_ATTEMPTS = 3;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_START_ATTEMPTS; attempt++) {
     try {
       await pg.start();
-    } catch (secondErr) {
-      const msg = (secondErr as Error)?.message || String(secondErr);
-      throw new Error(
-        `Embedded database failed to start: ${msg}. ` +
-          `Make sure no other copy of GroOne is running, then try again ` +
-          `(a restart of Windows clears any leftover database process).`,
-      );
+      lastErr = undefined;
+      break;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < MAX_START_ATTEMPTS) {
+        console.warn(`[pg] start attempt ${attempt}/${MAX_START_ATTEMPTS} failed: ${(e as Error)?.message || e} — recovering and retrying`);
+        await recoverStuckCluster(dir);
+        await delay(1500);
+      }
     }
+  }
+  if (lastErr) {
+    const stillBusy = await portInUse(DB_PORT);
+    const msg = (lastErr as Error)?.message || String(lastErr);
+    throw new Error(
+      stillBusy
+        ? `the database port ${DB_PORT} is still in use by a leftover process. ` +
+            `Close any other copy of GroOne, or restart Windows to clear it, then open GroOne again.`
+        : `Embedded database failed to start: ${msg}. ` +
+            `Make sure no other copy of GroOne is running, then try again ` +
+            `(a restart of Windows clears any leftover database process).`,
+    );
   }
 
   // Ensure the app database exists. createDatabase throws if it already
