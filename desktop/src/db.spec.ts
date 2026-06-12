@@ -120,6 +120,20 @@ describe('planRecovery (pure orphan-recovery decision)', () => {
     expect(planRecovery({ ...base, listening: true, pidFromFile: 1596 }))
       .toEqual({ removeLock: false, kill: [1596], abortUnknownOwner: false });
   });
+
+  it('kills a NON-LISTENING bundled-postgres zombie (the shared-memory / every-restart case)', () => {
+    // Port is free but a leftover postgres.exe from our bundle still holds the
+    // shared-memory segment — it MUST be killed even though nothing is listening.
+    expect(planRecovery({ ...base, listening: false, hasPidFile: true, ourPids: [222] }))
+      .toEqual({ removeLock: false, kill: [222], abortUnknownOwner: false });
+  });
+
+  it('SAFETY: when NOT listening, ignores a lock-file pid we cannot attribute (pid reuse)', () => {
+    // A stale lock file's pid may have been recycled by an unrelated process —
+    // never kill it. Just drop the stale lock.
+    expect(planRecovery({ ...base, listening: false, hasPidFile: true, pidFromFile: 999, ourPids: [] }))
+      .toEqual({ removeLock: true, kill: [], abortUnknownOwner: false });
+  });
 });
 
 describe('parsePidList', () => {

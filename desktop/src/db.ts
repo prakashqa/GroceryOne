@@ -206,22 +206,40 @@ export interface RecoveryPlan {
  * terminate" logic is unit-testable. The imperative wrapper supplies the inputs
  * and performs the side effects.
  *
- * Safety invariant: when the port is held but we cannot attribute ANY pid to our
- * own cluster (no listener pid, no bundled-postgres pid, no lock-file pid), we
- * return `abortUnknownOwner` and an EMPTY kill set — we never kill a process we
- * can't prove is ours.
+ * What we kill:
+ *  - ANY postgres.exe running from our bundled @embedded-postgres binary
+ *    (`ourPids`), even when nothing is LISTENING — a force-killed/zombied
+ *    Postgres keeps a Windows shared-memory segment that makes a fresh start
+ *    fail with "pre-existing shared memory block is still in use". This is the
+ *    "won't open on every restart" case.
+ *  - whatever is LISTENING on our fixed port (`listenerPids`).
+ *  - the lock-file pid, but ONLY when something is actually live — a stale lock
+ *    file's pid may have been reused by an unrelated process (don't kill it).
+ *
+ * Safety invariant: we never kill a pid we can't attribute to our own cluster.
+ * When the port is held but nothing is attributable, return `abortUnknownOwner`
+ * with an EMPTY kill set.
  */
 export function planRecovery(i: RecoveryInputs): RecoveryPlan {
-  if (!i.listening) {
-    // Nothing live on the port: a leftover lock is stale and safe to remove.
-    return { removeLock: i.hasPidFile, kill: [], abortUnknownOwner: false };
+  const targets = new Set<number>([...i.ourPids, ...i.listenerPids]);
+  // Trust the lock-file pid only when a server is genuinely live (avoids pid
+  // reuse: a stale lock can point at an unrelated, recycled pid).
+  if (i.pidFromFile && i.listening) targets.add(i.pidFromFile);
+
+  if (targets.size > 0) {
+    return { removeLock: false, kill: [...targets], abortUnknownOwner: false };
   }
-  const targets = new Set<number>([...i.listenerPids, ...i.ourPids]);
-  if (i.pidFromFile) targets.add(i.pidFromFile);
-  if (targets.size === 0) {
+  if (i.listening) {
+    // Port held by something we can't attribute to us — refuse to kill it.
     return { removeLock: false, kill: [], abortUnknownOwner: true };
   }
-  return { removeLock: false, kill: [...targets], abortUnknownOwner: false };
+  // Nothing live, nothing of ours to kill — just drop a stale lock if present.
+  return { removeLock: i.hasPidFile, kill: [], abortUnknownOwner: false };
+}
+
+/** Promise-based sleep. */
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 async function recoverStuckCluster(dir: string): Promise<void> {
@@ -229,11 +247,14 @@ async function recoverStuckCluster(dir: string): Promise<void> {
   const hasPidFile = fs.existsSync(pidFile);
   const listening = await portInUse(DB_PORT);
 
+  // Always probe BOTH signals — even when nothing is listening — so a
+  // non-listening zombie still holding the shared-memory segment is found and
+  // killed (the "won't open on every restart" case).
   const plan = planRecovery({
     hasPidFile,
     listening,
-    listenerPids: listening ? findListenerPids(DB_PORT) : [],
-    ourPids: listening ? findOurPostgresPids() : [],
+    listenerPids: findListenerPids(DB_PORT),
+    ourPids: findOurPostgresPids(),
     pidFromFile: readPostmasterPid(dir),
   });
 
@@ -246,22 +267,22 @@ async function recoverStuckCluster(dir: string): Promise<void> {
     console.error('[pg] a Postgres is listening on', DB_PORT, 'but its PID could not be found — another app may own the port');
     return; // leave the lock; the port guard in startPostgres surfaces a clear error
   }
-  if (plan.kill.length === 0) return; // not listening, no lock — nothing to do
+  if (plan.kill.length === 0) return; // nothing of ours to clean up
 
-  // A live orphan we own (we hold the single-instance app lock). Terminate the
-  // whole set; killing the postmaster tree also releases the shared-memory
-  // segment that would otherwise block a fresh start.
+  // Leftover Postgres we own (listening orphan and/or a non-listening zombie
+  // holding shared memory). Terminate the whole set; killing the postmaster tree
+  // releases the shared-memory segment that otherwise blocks a fresh start.
   for (const pid of plan.kill) {
-    console.warn('[pg] terminating orphaned Postgres pid', pid, 'to free', DB_PORT);
+    console.warn('[pg] terminating leftover Postgres pid', pid);
     killProcessTree(pid);
   }
 
-  if (await waitForPortFree(DB_PORT, 10000)) {
-    if (hasPidFile) { try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ } }
-    console.log('[pg] orphaned cluster cleared; continuing startup');
-  } else {
-    console.error('[pg] port', DB_PORT, 'still busy after terminating', plan.kill.join(', '));
-  }
+  // Wait for the port to free (if it was held) AND give Windows a moment to
+  // release the shared-memory segment after the kills.
+  await waitForPortFree(DB_PORT, 10000);
+  await delay(800);
+  if (hasPidFile) { try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ } }
+  console.log('[pg] leftover Postgres cleared; continuing startup');
 }
 
 /**
@@ -310,13 +331,24 @@ export async function startPostgres(): Promise<DbConnection> {
 
   try {
     await pg.start();
-  } catch (e) {
-    const msg = (e as Error)?.message || String(e);
-    throw new Error(
-      `Embedded database failed to start: ${msg}. ` +
-        `Make sure no other copy of GroOne is running, then try again ` +
-        `(a restart of Windows clears any leftover database process).`,
-    );
+  } catch (firstErr) {
+    // A leftover postmaster / shared-memory segment can survive the pre-start
+    // checks (e.g. a zombie that wasn't listening yet). Clear our leftovers
+    // again, let Windows release the segment, and retry once before giving up.
+    const firstMsg = (firstErr as Error)?.message || String(firstErr);
+    console.warn('[pg] first start failed:', firstMsg, '— recovering leftovers and retrying');
+    await recoverStuckCluster(dir);
+    await delay(1200);
+    try {
+      await pg.start();
+    } catch (secondErr) {
+      const msg = (secondErr as Error)?.message || String(secondErr);
+      throw new Error(
+        `Embedded database failed to start: ${msg}. ` +
+          `Make sure no other copy of GroOne is running, then try again ` +
+          `(a restart of Windows clears any leftover database process).`,
+      );
+    }
   }
 
   // Ensure the app database exists. createDatabase throws if it already
@@ -396,4 +428,13 @@ export async function stopPostgres(): Promise<void> {
       pg = null;
     }
   }
+  // Defense in depth: ensure no bundled postgres.exe survives the app. A
+  // surviving child would keep the shared-memory segment and block the next
+  // launch ("won't open on every restart"). Best-effort; never throws.
+  try {
+    for (const pid of findOurPostgresPids()) {
+      console.warn('[pg] reaping leftover Postgres pid', pid, 'on shutdown');
+      killProcessTree(pid);
+    }
+  } catch { /* ignore */ }
 }
