@@ -98,6 +98,20 @@ describe('mapApiItemsToStore', () => {
     expect(mapped[0].barcode).toBeUndefined();
   });
 
+  it('preserves price + mrp (the backend compareAtPrice→mrp transform is load-bearing)', () => {
+    // productApi.getItems runs a transformResponse that copies compareAtPrice→mrp
+    // BEFORE this mapping runs; if anyone drops that transform, MRP silently
+    // vanishes from the catalog. This pins the field at the mapping boundary.
+    const mapped = mapApiItemsToStore([
+      {
+        id: 'i4', slug: 'oil', name: 'Sunflower Oil', unit: 'L', defaultQuantity: 1,
+        price: 145, mrp: 160, category: { slug: 'oils' },
+      } as any,
+    ]);
+    expect(mapped[0].price).toBe(145);
+    expect(mapped[0].mrp).toBe(160);
+  });
+
   it('preserves stock fields (stockQuantity, lowStockThreshold, trackInventory, costPrice)', () => {
     // costPrice was being dropped (same bug class as barcode) — the Stock tab
     // and Inventory page need it.

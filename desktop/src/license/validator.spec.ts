@@ -71,6 +71,22 @@ describe('verifyLicense', () => {
     }
   });
 
+  it('checks the signature BEFORE expiry: a tampered AND expired token → BAD_SIGNATURE (not EXPIRED)', () => {
+    // Security ordering: a forged token must always report the forgery, never
+    // leak that it "would have been expired anyway". Sign a valid (but expired)
+    // payload, then tamper the payload while keeping the original signature.
+    const token = mint({ ...validPayload(), expiresAt: past() });
+    const [, sig] = token.split('.');
+    const tamperedExpired =
+      b64url(JSON.stringify({ ...validPayload(), expiresAt: past(), customer: 'Forger' })) + '.' + sig;
+    expect.assertions(1);
+    try {
+      verifyLicense(tamperedExpired);
+    } catch (e) {
+      expect((e as LicenseError).code).toBe('BAD_SIGNATURE');
+    }
+  });
+
   it('rejects a token signed by a DIFFERENT private key → BAD_SIGNATURE', () => {
     const other = crypto.generateKeyPairSync('ed25519').privateKey;
     const token = mint(validPayload(), other);

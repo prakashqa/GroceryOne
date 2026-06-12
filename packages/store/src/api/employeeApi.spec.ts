@@ -46,7 +46,7 @@ describe('employeeApi', () => {
     expect(typeof employeeApi.useDeactivateEmployeeMutation).toBe('function');
   });
 
-  it('getEmployees GETs /auth/employees with the in-memory bearer token (no localStorage)', async () => {
+  it('getEmployees GETs /auth/employees with the in-memory bearer token + tenant header (no localStorage)', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       mockResponse({ success: true, data: [{ id: 'e1', role: 'cashier', status: 'active', createdAt: '', phone: '999' }] }),
     );
@@ -62,10 +62,39 @@ describe('employeeApi', () => {
     const url = typeof req === 'string' ? req : req.url;
     const headers = typeof req === 'string' ? fetchMock.mock.calls[0][1]?.headers : req.headers;
     const auth = headers?.get ? headers.get('authorization') : headers?.Authorization;
+    const tenant = headers?.get ? headers.get('x-tenant-id') : headers?.['X-Tenant-ID'];
     expect(url).toContain('/auth/employees');
     // The bearer token comes from Redux (in-memory), so the request is authorized
     // even when localStorage is empty (the desktop case).
     expect(auth).toBe('Bearer tok');
+    // Tenant scoping is carried by the X-Tenant-ID header (from Redux tenant),
+    // never the request body — the backend derives tenantId from the JWT.
+    expect(tenant).toBe('shop');
+  });
+
+  it('scopes by the CALLER tenant header only — never sends a tenant id in the body (cross-tenant isolation)', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(mockResponse({ success: true, data: [] }));
+    (global as any).fetch = fetchMock;
+    // A store whose Redux tenant is "tenant-b" must produce a tenant-b header and
+    // NO body — proving a tenant-A admin can't ask for tenant-B employees by body.
+    setApiConfig({ baseUrl: 'http://test.local/api/v1', version: '1.0' });
+    const store = configureStore({
+      reducer: {
+        [baseApi.reducerPath]: baseApi.reducer,
+        auth: (s: any = { accessToken: 'tok' }) => s,
+        tenant: (s: any = { tenant: { slug: 'tenant-b' }, currentLanguage: 'en' }) => s,
+      },
+      middleware: (gdm) => gdm().concat(baseApi.middleware),
+    });
+
+    await store.dispatch(employeeApi.endpoints.getEmployees.initiate());
+
+    const req = fetchMock.mock.calls[0][0];
+    const headers = typeof req === 'string' ? fetchMock.mock.calls[0][1]?.headers : req.headers;
+    const tenant = headers?.get ? headers.get('x-tenant-id') : headers?.['X-Tenant-ID'];
+    const body = typeof req === 'string' ? fetchMock.mock.calls[0][1]?.body : req.body;
+    expect(tenant).toBe('tenant-b');
+    expect(body == null || body === undefined).toBe(true); // GET carries no body
   });
 
   it('createEmployee POSTs /auth/employees with the payload body', async () => {

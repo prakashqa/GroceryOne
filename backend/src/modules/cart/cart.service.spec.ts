@@ -363,6 +363,22 @@ describe('CartService', () => {
       expect(result).toEqual(newCartItem);
     });
 
+    it('should scope the existing-item dedup lookup by tenantId (like update/remove)', async () => {
+      const addItemDto = { itemId: 'item-uuid', quantity: 2 };
+      const newCartItem = { id: 'cart-item-uuid', cartId: 'cart-a-uuid', ...addItemDto };
+
+      mockCartRepository.findOne.mockResolvedValue(mockCartTenantA);
+      mockCartItemRepository.findOne.mockResolvedValue(null);
+      mockCartItemRepository.create.mockReturnValue(newCartItem);
+      mockCartItemRepository.save.mockResolvedValue(newCartItem);
+
+      await service.addItem('cart-a-uuid', addItemDto, TENANT_A_ID);
+
+      expect(mockCartItemRepository.findOne).toHaveBeenCalledWith({
+        where: { cartId: 'cart-a-uuid', itemId: 'item-uuid', tenantId: TENANT_A_ID },
+      });
+    });
+
     it('should validate itemId belongs to same tenant', async () => {
       const addItemDto = { itemId: 'item-a-uuid', quantity: 2 };
       const mockItem = buildMockItem();

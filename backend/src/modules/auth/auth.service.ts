@@ -485,9 +485,9 @@ export class AuthService {
   }
 
   /**
-   * List all employees in the caller's tenant.
-   * Excludes the caller themselves (an admin doesn't manage themselves here)
-   * and excludes soft-deleted rows.
+   * List all users in the caller's tenant (the owner/admin included — the UI
+   * tags them as "Owner"). TypeORM's default find() already excludes
+   * soft-deleted rows. Tenant-scoped; never returns another tenant's users.
    */
   async listEmployees(callerTenantId: string): Promise<EmployeeView[]> {
     const rows = await this.userRepository.find({

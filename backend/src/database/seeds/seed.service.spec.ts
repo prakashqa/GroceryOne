@@ -1067,12 +1067,17 @@ describe('Seed Data Isolation', () => {
       }
     });
 
-    it('FreshMart and QuickBasket categories should all default to trackInventory true', () => {
+    it('FreshMart and QuickBasket categories leave trackInventory unset (the applied default is exercised via the service, not here)', () => {
+      // These seed datasets intentionally OMIT trackInventory; the column default
+      // is applied at persist time (see the "defaults FreshMart items to
+      // trackInventory=false" service test above). Asserting the raw value is
+      // undefined keeps this honest — the previous `?? true` assertion was
+      // vacuously true and contradicted the service's actual default.
       for (const cat of FRESHMART_CATEGORIES) {
-        expect(cat.trackInventory ?? true).toBe(true);
+        expect(cat.trackInventory).toBeUndefined();
       }
       for (const cat of QUICKBASKET_CATEGORIES) {
-        expect(cat.trackInventory ?? true).toBe(true);
+        expect(cat.trackInventory).toBeUndefined();
       }
     });
   });

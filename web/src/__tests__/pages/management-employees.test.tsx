@@ -30,7 +30,20 @@ describe('EmployeesPage (RTK — no manual localStorage fetch)', () => {
     expect(screen.getByText('Asha K')).toBeInTheDocument();
   });
 
-  it('surfaces a query error (e.g. 401) as a message instead of crashing', () => {
+  it('surfaces a backend error from the real { data: { error: { message } } } envelope', () => {
+    // baseApi wraps backend errors as { error: { code, message } } — the page
+    // must read data.error.message, not just data.message.
+    const store = require('@groceryone/store');
+    store.useGetEmployeesQuery = () => ({
+      data: undefined,
+      isLoading: false,
+      error: { status: 400, data: { success: false, error: { code: 'TENANT_NOT_FOUND', message: 'Tenant context not available.' } } },
+    });
+    render(<EmployeesPage />);
+    expect(screen.getByText('Tenant context not available.')).toBeInTheDocument();
+  });
+
+  it('also surfaces a top-level { data: { message } } error shape', () => {
     const store = require('@groceryone/store');
     store.useGetEmployeesQuery = () => ({
       data: undefined, isLoading: false, error: { status: 401, data: { message: 'Unauthorized' } },

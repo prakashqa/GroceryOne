@@ -179,39 +179,79 @@ async function waitForPortFree(port: number, timeoutMs: number): Promise<boolean
  * free, then drop the lock so start() can proceed. A stale lock with no live
  * server is simply removed. We never kill a process we don't own.
  */
+export interface RecoveryInputs {
+  /** A postmaster.pid lock file exists in the data dir. */
+  hasPidFile: boolean;
+  /** Something is currently accepting connections on DB_PORT. */
+  listening: boolean;
+  /** PIDs found LISTENING on DB_PORT (netstat). */
+  listenerPids: number[];
+  /** postgres.exe PIDs running from our bundled @embedded-postgres binary. */
+  ourPids: number[];
+  /** PID recorded in our postmaster.pid (may be stale). */
+  pidFromFile: number | null;
+}
+
+export interface RecoveryPlan {
+  /** Remove a stale lock file (only when nothing is live on the port). */
+  removeLock: boolean;
+  /** Distinct PIDs to force-terminate to free the port. */
+  kill: number[];
+  /** Port is held but no PID is attributable to us — refuse to kill anything. */
+  abortUnknownOwner: boolean;
+}
+
+/**
+ * Pure recovery decision (no fs / no process kills) so the dangerous "what do we
+ * terminate" logic is unit-testable. The imperative wrapper supplies the inputs
+ * and performs the side effects.
+ *
+ * Safety invariant: when the port is held but we cannot attribute ANY pid to our
+ * own cluster (no listener pid, no bundled-postgres pid, no lock-file pid), we
+ * return `abortUnknownOwner` and an EMPTY kill set — we never kill a process we
+ * can't prove is ours.
+ */
+export function planRecovery(i: RecoveryInputs): RecoveryPlan {
+  if (!i.listening) {
+    // Nothing live on the port: a leftover lock is stale and safe to remove.
+    return { removeLock: i.hasPidFile, kill: [], abortUnknownOwner: false };
+  }
+  const targets = new Set<number>([...i.listenerPids, ...i.ourPids]);
+  if (i.pidFromFile) targets.add(i.pidFromFile);
+  if (targets.size === 0) {
+    return { removeLock: false, kill: [], abortUnknownOwner: true };
+  }
+  return { removeLock: false, kill: [...targets], abortUnknownOwner: false };
+}
+
 async function recoverStuckCluster(dir: string): Promise<void> {
   const pidFile = path.join(dir, 'postmaster.pid');
   const hasPidFile = fs.existsSync(pidFile);
   const listening = await portInUse(DB_PORT);
 
-  // Stale lock from a crash/kill — nothing live on the port. Safe to remove.
-  if (!listening) {
-    if (hasPidFile) {
-      console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
-      try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
-    }
+  const plan = planRecovery({
+    hasPidFile,
+    listening,
+    listenerPids: listening ? findListenerPids(DB_PORT) : [],
+    ourPids: listening ? findOurPostgresPids() : [],
+    pidFromFile: readPostmasterPid(dir),
+  });
+
+  if (plan.removeLock) {
+    console.warn('[pg] stale postmaster.pid (no live server on', DB_PORT, ') — removing to recover');
+    try { fs.rmSync(pidFile, { force: true }); } catch (e) { console.error('[pg] could not remove stale lock:', e); }
     return;
   }
-
-  // A server is live on our fixed port. Because we hold the single-instance app
-  // lock, it must be our OWN orphan from a prior run. Terminate it — but don't
-  // trust the lock file's PID alone (it's often stale): kill whatever actually
-  // owns the port (netstat) AND any postgres.exe running from our bundled
-  // binary, plus the lock-file PID. Killing the postmaster tree also releases
-  // the shared-memory segment that otherwise blocks a fresh start.
-  const targets = new Set<number>([
-    ...findListenerPids(DB_PORT),
-    ...findOurPostgresPids(),
-  ]);
-  const pidFromFile = readPostmasterPid(dir);
-  if (pidFromFile) targets.add(pidFromFile);
-
-  if (targets.size === 0) {
+  if (plan.abortUnknownOwner) {
     console.error('[pg] a Postgres is listening on', DB_PORT, 'but its PID could not be found — another app may own the port');
     return; // leave the lock; the port guard in startPostgres surfaces a clear error
   }
+  if (plan.kill.length === 0) return; // not listening, no lock — nothing to do
 
-  for (const pid of targets) {
+  // A live orphan we own (we hold the single-instance app lock). Terminate the
+  // whole set; killing the postmaster tree also releases the shared-memory
+  // segment that would otherwise block a fresh start.
+  for (const pid of plan.kill) {
     console.warn('[pg] terminating orphaned Postgres pid', pid, 'to free', DB_PORT);
     killProcessTree(pid);
   }
@@ -220,7 +260,7 @@ async function recoverStuckCluster(dir: string): Promise<void> {
     if (hasPidFile) { try { fs.rmSync(pidFile, { force: true }); } catch { /* ignore */ } }
     console.log('[pg] orphaned cluster cleared; continuing startup');
   } else {
-    console.error('[pg] port', DB_PORT, 'still busy after terminating', [...targets].join(', '));
+    console.error('[pg] port', DB_PORT, 'still busy after terminating', plan.kill.join(', '));
   }
 }
 

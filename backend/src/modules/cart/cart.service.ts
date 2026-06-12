@@ -200,9 +200,9 @@ export class CartService {
     // Validate item belongs to the same tenant
     await this.productsService.findOne(addCartItemDto.itemId, tenantId);
 
-    // Check if item already exists in cart
+    // Check if item already exists in cart (tenant-scoped, like update/remove)
     const existingItem = await this.cartItemRepository.findOne({
-      where: { cartId, itemId: addCartItemDto.itemId },
+      where: { cartId, itemId: addCartItemDto.itemId, tenantId },
     });
 
     if (existingItem) {

@@ -44,8 +44,11 @@ function EmployeesPageContent() {
   const [createEmployeeMut, { isLoading: submitting }] = useCreateEmployeeMutation();
   const [deactivateEmployeeMut] = useDeactivateEmployeeMutation();
 
+  // baseApi surfaces backend errors as { data: { error: { message } } } (and some
+  // as { data: { message } }); read both, like the Categories/Items pages do.
   const loadError = loadErrorRaw
     ? ((loadErrorRaw as any)?.data?.message ||
+        (loadErrorRaw as any)?.data?.error?.message ||
         t('employees.errors.loadFailed', 'Could not load employees.'))
     : null;
 
@@ -105,6 +108,7 @@ function EmployeesPageContent() {
       } else {
         setFormError(
           e?.data?.message ||
+            e?.data?.error?.message ||
             t('employees.errors.createFailed', 'Could not create employee.'),
         );
       }
@@ -126,7 +130,7 @@ function EmployeesPageContent() {
     try {
       await deactivateEmployeeMut(emp.id).unwrap();
     } catch (e: any) {
-      alert(e?.data?.message || t('employees.errors.deactivate', 'Could not deactivate.'));
+      alert(e?.data?.message || e?.data?.error?.message || t('employees.errors.deactivate', 'Could not deactivate.'));
     }
   };
 

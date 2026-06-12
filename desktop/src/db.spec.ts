@@ -1,7 +1,7 @@
 // db.ts imports `electron`; mock it so the pure helper can be required.
 jest.mock('electron', () => ({ app: { getPath: () => require('os').tmpdir() } }));
 
-import { shouldRemoveStaleLock, parsePostmasterPid, parseNetstatListenerPids, parsePidList } from './db';
+import { shouldRemoveStaleLock, parsePostmasterPid, parseNetstatListenerPids, parsePidList, planRecovery } from './db';
 
 describe('shouldRemoveStaleLock', () => {
   it('removes the lock when the pid file exists but nothing is listening (stale)', () => {
@@ -60,9 +60,65 @@ describe('parseNetstatListenerPids', () => {
     expect(parseNetstatListenerPids(sample, 47632)).not.toContain(9999);
   });
 
+  it('matches IPv6 listener rows ([::] / [::1]) and de-dupes the same PID across v4/v6', () => {
+    const s = [
+      '  TCP    0.0.0.0:47632    0.0.0.0:0    LISTENING    1596',
+      '  TCP    [::]:47632       [::]:0       LISTENING    1596',
+      '  TCP    [::1]:47632      [::]:0       LISTENING    1596',
+    ].join('\r\n');
+    expect(parseNetstatListenerPids(s, 47632)).toEqual([1596]);
+  });
+
+  it('returns every DISTINCT pid listening on the port (recovery kills them all)', () => {
+    const s = [
+      '  TCP    0.0.0.0:47632    0.0.0.0:0    LISTENING    111',
+      '  TCP    [::]:47632       [::]:0       LISTENING    222',
+    ].join('\n');
+    expect(parseNetstatListenerPids(s, 47632).sort((a, b) => a - b)).toEqual([111, 222]);
+  });
+
+  it('does not confuse a longer port that merely ends with the digits (632 vs 47632)', () => {
+    const s = '  TCP    127.0.0.1:47632    0.0.0.0:0    LISTENING    1596';
+    expect(parseNetstatListenerPids(s, 632)).toEqual([]); // ':632' !== ':47632'
+  });
+
   it('returns [] for empty/garbage input', () => {
     expect(parseNetstatListenerPids('', 47632)).toEqual([]);
     expect(parseNetstatListenerPids('nonsense', 47632)).toEqual([]);
+  });
+});
+
+describe('planRecovery (pure orphan-recovery decision)', () => {
+  const base = { hasPidFile: false, listening: false, listenerPids: [] as number[], ourPids: [] as number[], pidFromFile: null as number | null };
+
+  it('removes a stale lock when nothing is listening', () => {
+    expect(planRecovery({ ...base, hasPidFile: true, listening: false }))
+      .toEqual({ removeLock: true, kill: [], abortUnknownOwner: false });
+  });
+
+  it('is a no-op when not listening and no lock file', () => {
+    expect(planRecovery({ ...base }))
+      .toEqual({ removeLock: false, kill: [], abortUnknownOwner: false });
+  });
+
+  it('kills the de-duped union of listener + bundled-postgres + lock-file pids', () => {
+    const plan = planRecovery({
+      hasPidFile: true, listening: true,
+      listenerPids: [1596], ourPids: [1596, 222], pidFromFile: 1596,
+    });
+    expect(plan.abortUnknownOwner).toBe(false);
+    expect(plan.removeLock).toBe(false);
+    expect(plan.kill.sort((a, b) => a - b)).toEqual([222, 1596]);
+  });
+
+  it('SAFETY: when the port is held but no pid is attributable to us, abort and kill NOTHING', () => {
+    expect(planRecovery({ ...base, listening: true, listenerPids: [], ourPids: [], pidFromFile: null }))
+      .toEqual({ removeLock: false, kill: [], abortUnknownOwner: true });
+  });
+
+  it('still trusts our own lock-file pid even if netstat/CIM found nothing', () => {
+    expect(planRecovery({ ...base, listening: true, pidFromFile: 1596 }))
+      .toEqual({ removeLock: false, kill: [1596], abortUnknownOwner: false });
   });
 });
 
