@@ -28,8 +28,12 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
+import { CreateOrderDto, CheckoutDto, UpdateOrderStatusDto, CancelOrderDto } from './dto';
 import { Order } from './entities/order.entity';
+
+interface JwtUser {
+  userId?: string;
+}
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -51,6 +55,22 @@ export class OrdersController {
       createOrderDto.cartId,
       req.tenantId!,
       createOrderDto.notes,
+    );
+  }
+
+  @Post('checkout')
+  @ApiOperation({ summary: 'Create a paid order directly from POS items (deducts stock)' })
+  @ApiResponse({ status: 201, description: 'Order created + stock deducted', type: Order })
+  @ApiResponse({ status: 400, description: 'Insufficient stock for one or more items' })
+  @ApiResponse({ status: 404, description: 'An item was not found in this tenant' })
+  async checkout(
+    @Req() req: Request,
+    @Body() checkoutDto: CheckoutDto,
+  ): Promise<Order> {
+    return this.ordersService.checkout(
+      req.tenantId!,
+      checkoutDto,
+      (req.user as JwtUser | undefined)?.userId,
     );
   }
 

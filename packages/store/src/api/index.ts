@@ -4,6 +4,7 @@ export * from './categoryApi';
 export * from './employeeApi';
 export * from './productApi';
 export * from './inventoryApi';
+export * from './ordersApi';
 export * from './seedApi';
 export * from './subscriptionApi';
 export * from './userSettingsApi';

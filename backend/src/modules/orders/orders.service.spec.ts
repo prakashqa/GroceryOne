@@ -10,6 +10,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Item } from '../products/entities/item.entity';
 import { CartService } from '../cart/cart.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { Cart } from '../cart/entities/cart.entity';
@@ -95,6 +96,10 @@ describe('OrdersService', () => {
     save: jest.fn(),
   };
 
+  const mockItemRepository = {
+    findOne: jest.fn(),
+  };
+
   const mockCartService = {
     findOne: jest.fn(),
     update: jest.fn(),
@@ -117,6 +122,10 @@ describe('OrdersService', () => {
         {
           provide: getRepositoryToken(OrderItem),
           useValue: mockOrderItemRepository,
+        },
+        {
+          provide: getRepositoryToken(Item),
+          useValue: mockItemRepository,
         },
         {
           provide: CartService,
@@ -557,6 +566,84 @@ describe('OrdersService', () => {
       expect(mockOrderRepository.save).not.toHaveBeenCalled();
       expect(mockOrderItemRepository.save).not.toHaveBeenCalled();
       expect(mockCartService.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('checkout (direct POS — deducts stock)', () => {
+    const potato = buildMockItem({
+      id: 'item-1-uuid', name: 'Potato', slug: 'potato', price: 40,
+      stockQuantity: 100, trackInventory: true,
+    });
+
+    it('deducts stock and creates a PAID order, pricing each line from the catalog', async () => {
+      mockItemRepository.findOne.mockResolvedValue(potato);
+      mockOrderRepository.create.mockImplementation((d: any) => d);
+      mockOrderRepository.save.mockImplementation((o: any) => Promise.resolve({ ...o, id: o.id ?? 'new-order-uuid' }));
+      mockOrderItemRepository.create.mockImplementation((d: any) => d);
+      mockOrderItemRepository.save.mockResolvedValue([]);
+      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, items: [] }); // final return (no clientRef → no idempotency lookup)
+
+      await service.checkout(TENANT_A_ID, { items: [{ itemId: 'item-1-uuid', quantity: 10 }], paymentMethod: 'cash' });
+
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-1-uuid', 10, TENANT_A_ID);
+      expect(mockInventoryService.deductStockForOrder).toHaveBeenCalledWith(
+        [{ itemId: 'item-1-uuid', quantity: 10 }],
+        expect.any(String),
+        TENANT_A_ID,
+      );
+      // Price comes from the Item (40), not the client. 10 × 40 = 400.
+      expect(mockOrderItemRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: 'item-1-uuid', productName: 'Potato', unitPrice: 40, totalPrice: 400, tenantId: TENANT_A_ID }),
+      );
+      expect(mockOrderRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentStatus: 'paid', paymentMethod: 'cash', tenantId: TENANT_A_ID }),
+      );
+    });
+
+    it('BLOCKS the sale (no order persisted) when stock is insufficient', async () => {
+      mockItemRepository.findOne.mockResolvedValue(potato);
+      mockInventoryService.validateStock.mockRejectedValue(new BadRequestException('Insufficient stock'));
+
+      await expect(
+        service.checkout(TENANT_A_ID, { items: [{ itemId: 'item-1-uuid', quantity: 200 }] }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockInventoryService.deductStockForOrder).not.toHaveBeenCalled();
+      expect(mockOrderRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent on clientRef — a retry returns the existing order without deducting again', async () => {
+      const existing = { ...mockOrder, id: 'existing-order-uuid' };
+      mockOrderRepository.findOne
+        .mockResolvedValueOnce(existing) // idempotency lookup finds the prior order
+        .mockResolvedValueOnce({ ...existing, items: [] }); // this.findOne(existing.id)
+
+      const res = await service.checkout(TENANT_A_ID, {
+        items: [{ itemId: 'item-1-uuid', quantity: 10 }],
+        clientRef: 'cart-123',
+      });
+
+      expect(res.id).toBe('existing-order-uuid');
+      expect(mockItemRepository.findOne).not.toHaveBeenCalled();
+      expect(mockInventoryService.deductStockForOrder).not.toHaveBeenCalled();
+      expect(mockOrderRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('cross-tenant: an item not in the caller tenant is NOT found → NotFound, nothing deducted', async () => {
+      mockItemRepository.findOne.mockResolvedValue(null); // tenant-scoped lookup misses
+
+      await expect(
+        service.checkout(TENANT_A_ID, { items: [{ itemId: 'item-b-uuid', quantity: 1 }] }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockInventoryService.deductStockForOrder).not.toHaveBeenCalled();
+      expect(mockOrderRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('requires tenantId', async () => {
+      await expect(
+        service.checkout(undefined as any, { items: [{ itemId: 'x', quantity: 1 }] }),
+      ).rejects.toThrow();
     });
   });
 

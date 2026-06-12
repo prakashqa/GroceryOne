@@ -76,6 +76,14 @@ export const useCreateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promi
 export const useUpdateItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 export const useDeleteItemMutation = () => [jest.fn(() => ({ unwrap: () => Promise.resolve({}) })), {}];
 
+// POS checkout (deducts stock on a paid sale). Default: resolves successfully.
+// The order-detail/payment tests override this to assert the call payload and
+// to exercise the insufficient-stock rejection path.
+export const useCheckoutMutation = () => [
+  jest.fn(() => ({ unwrap: () => Promise.resolve({ id: 'order-1', orderNumber: 'ORD-1' }) })),
+  { isLoading: false },
+];
+
 // RTK Query lazy barcode lookup — default resolves to "no item". Tests that
 // exercise the backend-fallback path override this export.
 export const useLazyGetItemByBarcodeQuery = () => [

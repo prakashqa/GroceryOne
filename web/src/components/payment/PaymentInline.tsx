@@ -13,11 +13,18 @@ type PaymentMethod = 'cash' | 'upi' | 'card';
 
 interface PaymentInlineProps {
   grandTotal: number;
-  onConfirm: (paymentInfo: DomainTypes.PaymentInfo) => void;
+  /**
+   * Commit the payment. May be async (e.g. a backend checkout that deducts
+   * stock). If it rejects, the success banner is NOT shown and the thrown
+   * message is surfaced inline so the cashier can retry.
+   */
+  onConfirm: (paymentInfo: DomainTypes.PaymentInfo) => void | Promise<void>;
   onCancel?: () => void;
+  /** External in-flight flag (the checkout mutation's isLoading). */
+  isProcessing?: boolean;
 }
 
-export function PaymentInline({ grandTotal, onConfirm, onCancel }: PaymentInlineProps) {
+export function PaymentInline({ grandTotal, onConfirm, onCancel, isProcessing = false }: PaymentInlineProps) {
   const { t } = useTranslation('common');
   const merchantUpiId = useAppSelector(selectMerchantUpiId);
   const merchantName = useAppSelector(selectMerchantName);
@@ -30,6 +37,8 @@ export function PaymentInline({ grandTotal, onConfirm, onCancel }: PaymentInline
 
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [receivedAmount, setReceivedAmount] = useState('');
   const [transactionRef, setTransactionRef] = useState('');
@@ -38,7 +47,7 @@ export function PaymentInline({ grandTotal, onConfirm, onCancel }: PaymentInline
 
   const isUpiDisabled = selectedMethod === 'upi' && !merchantUpiId;
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     let paymentInfo: DomainTypes.PaymentInfo;
 
     switch (selectedMethod) {
@@ -64,9 +73,21 @@ export function PaymentInline({ grandTotal, onConfirm, onCancel }: PaymentInline
         return;
     }
 
-    onConfirm(paymentInfo);
-    setShowSuccess(true);
-  }, [selectedMethod, receivedAmount, grandTotal, merchantUpiId, transactionRef, lastFourDigits, onConfirm]);
+    // Await the commit — if it rejects (e.g. backend "insufficient stock"),
+    // keep the form open, show the message, and do NOT show success.
+    setErrorMsg(null);
+    setSubmitting(true);
+    try {
+      await onConfirm(paymentInfo);
+      setShowSuccess(true);
+    } catch (e: unknown) {
+      setErrorMsg(e instanceof Error ? e.message : t('payment.checkoutFailed'));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [selectedMethod, receivedAmount, grandTotal, merchantUpiId, transactionRef, lastFourDigits, onConfirm, t]);
+
+  const busy = submitting || isProcessing;
 
   // Success banner
   if (showSuccess) {
@@ -139,19 +160,30 @@ export function PaymentInline({ grandTotal, onConfirm, onCancel }: PaymentInline
         )}
       </div>
 
+      {/* Error banner — surfaced when the backend checkout rejects (e.g. stock) */}
+      {errorMsg && (
+        <div
+          className="px-6 py-3 bg-red-50 dark:bg-red-900/20 border-t border-red-100 dark:border-red-900/40 text-sm text-red-700 dark:text-red-400"
+          role="alert"
+          data-testid="payment-error"
+        >
+          {errorMsg}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/30">
         {onCancel && (
-          <button onClick={onCancel} className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium hover:bg-white dark:hover:bg-gray-800 transition-colors">
+          <button onClick={onCancel} disabled={busy} className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             {t('cancel')}
           </button>
         )}
         <button
           onClick={handleConfirm}
-          disabled={isUpiDisabled}
+          disabled={isUpiDisabled || busy}
           className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {t('payment.confirmPayment')} &middot; ₹{grandTotal.toFixed(0)}
+          {busy ? t('payment.processing') : `${t('payment.confirmPayment')} · ₹${grandTotal.toFixed(0)}`}
         </button>
       </div>
     </div>

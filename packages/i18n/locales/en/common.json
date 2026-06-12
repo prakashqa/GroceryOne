@@ -310,7 +310,9 @@
     "upiNotConfigured": "UPI Not Configured",
     "upiNotConfiguredDesc": "Please configure your merchant UPI ID in Settings to enable QR code payments.",
     "paymentSuccessful": "Payment Successful",
-    "returnChange": "Return Change"
+    "returnChange": "Return Change",
+    "processing": "Processing…",
+    "checkoutFailed": "Could not complete the sale. Please try again."
   },
   "scan": {
     "title": "Scan Order",

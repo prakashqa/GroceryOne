@@ -43,6 +43,7 @@ describe('InventoryService', () => {
     set: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
     execute: jest.fn(),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
@@ -173,8 +174,11 @@ describe('InventoryService', () => {
       expect(whereArg).toContain('stock_quantity >= :decQty');
       expect(whereArg).toContain('tenant_id = :tenantId');
       expect(itemQueryBuilder.where.mock.calls[0]?.[1]).toEqual(
-        expect.objectContaining({ itemId: mockItemA.id, tenantId: TENANT_A_ID, decQty: 20 }),
+        expect.objectContaining({ itemId: mockItemA.id, tenantId: TENANT_A_ID }),
       );
+      // :decQty is bound explicitly (not via the where params) so it isn't left
+      // unbound inside the .set() raw expression.
+      expect(itemQueryBuilder.setParameter).toHaveBeenCalledWith('decQty', 20);
     });
 
     it('should reject when insufficient stock (UPDATE affected 0, item exists)', async () => {

@@ -42,8 +42,16 @@ export class Order {
   @Index()
   userId?: string;
 
-  @Column({ name: 'cart_id', type: 'uuid' })
-  cartId: string;
+  // Nullable: a direct POS checkout (POST /orders/checkout) has no backend cart.
+  @Column({ name: 'cart_id', type: 'uuid', nullable: true })
+  cartId?: string;
+
+  // Client-supplied idempotency key (the local POS cart id) so a retried/
+  // double-submitted checkout returns the same order instead of double-deducting
+  // stock. Unique only WITHIN a tenant.
+  @Column({ name: 'client_ref', type: 'varchar', length: 100, nullable: true })
+  @Index()
+  clientRef?: string;
 
   @Column({
     type: 'varchar',

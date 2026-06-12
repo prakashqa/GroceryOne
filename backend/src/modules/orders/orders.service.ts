@@ -7,10 +7,22 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Item } from '../products/entities/item.entity';
+import { CheckoutDto } from './dto';
 import { CartService } from '../cart/cart.service';
 import { InventoryService } from '../inventory/inventory.service';
+
+/** Snapshot of one line item used to build an order + deduct stock. */
+interface OrderLine {
+  itemId: string;
+  productName: string;
+  productSlug: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
 
 /**
  * Validates that tenantId is provided
@@ -44,9 +56,130 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(Item)
+    private readonly itemRepository: Repository<Item>,
     private readonly cartService: CartService,
     private readonly inventoryService: InventoryService,
   ) {}
+
+  /**
+   * Shared order-creation core (used by createFromCart + checkout):
+   * validate stock for ALL lines → deduct → persist order + items. Deducting
+   * BEFORE persisting means a stock failure leaves NO phantom order. Returns the
+   * persisted order (with items).
+   */
+  private async buildAndPersistOrder(params: {
+    tenantId: string;
+    lines: OrderLine[];
+    paymentStatus: PaymentStatus;
+    paymentMethod: string;
+    userId?: string;
+    cartId?: string;
+    clientRef?: string;
+    notes?: string;
+    paidAt?: Date;
+    paidAmount?: number;
+  }): Promise<Order> {
+    const { tenantId, lines } = params;
+
+    // Block oversell: validate every line up front (throws BadRequestException).
+    for (const line of lines) {
+      await this.inventoryService.validateStock(line.itemId, line.quantity, tenantId);
+    }
+
+    const subtotal = lines.reduce((sum, l) => sum + l.totalPrice, 0);
+    const orderId = randomUUID();
+
+    // Deduct stock FIRST — if this throws, no order row is written.
+    await this.inventoryService.deductStockForOrder(
+      lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity })),
+      orderId,
+      tenantId,
+    );
+
+    const order = this.orderRepository.create({
+      id: orderId,
+      orderNumber: this.generateOrderNumber(),
+      tenantId,
+      userId: params.userId,
+      cartId: params.cartId,
+      clientRef: params.clientRef,
+      status: 'pending' as OrderStatus,
+      paymentStatus: params.paymentStatus,
+      paymentMethod: params.paymentMethod,
+      subtotal,
+      taxAmount: 0,
+      deliveryFee: 0,
+      discountAmount: 0,
+      totalAmount: subtotal,
+      notes: params.notes,
+      paidAt: params.paidAt,
+      paidAmount: params.paidAmount,
+    });
+    const savedOrder = await this.orderRepository.save(order);
+
+    const orderItems = lines.map((line) =>
+      this.orderItemRepository.create({ ...line, orderId: savedOrder.id, tenantId }),
+    );
+    await this.orderItemRepository.save(orderItems);
+
+    return this.findOne(savedOrder.id, tenantId);
+  }
+
+  /**
+   * Direct POS checkout — create an order from a client-supplied item list +
+   * payment, with NO backend cart. Prices are re-derived from the catalog
+   * (never trusted from the client), stock is deducted, and the call is
+   * idempotent on `clientRef`. All lookups are tenant-scoped.
+   */
+  async checkout(tenantId: string, dto: CheckoutDto, userId?: string): Promise<Order> {
+    validateTenantId(tenantId);
+
+    // Idempotency: a retried checkout (same client cart) returns the existing
+    // order instead of deducting stock again.
+    if (dto.clientRef) {
+      const existing = await this.orderRepository.findOne({
+        where: { tenantId, clientRef: dto.clientRef },
+      });
+      if (existing) {
+        return this.findOne(existing.id, tenantId);
+      }
+    }
+
+    // Re-derive each line from the catalog (server-authoritative price/name).
+    const lines: OrderLine[] = [];
+    for (const it of dto.items) {
+      const item = await this.itemRepository.findOne({ where: { id: it.itemId, tenantId } });
+      if (!item) {
+        throw new NotFoundException(`Item with ID '${it.itemId}' not found`);
+      }
+      const quantity = Number(it.quantity);
+      const unitPrice = Number(item.price) || 0;
+      lines.push({
+        itemId: item.id,
+        productName: item.name,
+        productSlug: item.slug,
+        quantity,
+        unitPrice,
+        totalPrice: quantity * unitPrice,
+      });
+    }
+
+    const order = await this.buildAndPersistOrder({
+      tenantId,
+      lines,
+      paymentStatus: 'paid',
+      paymentMethod: dto.paymentMethod ?? 'cash',
+      userId,
+      clientRef: dto.clientRef,
+      notes: dto.notes,
+      paidAt: new Date(),
+      paidAmount: dto.paidAmount,
+    });
+
+    this.logger.log(`Checkout created order ${order.orderNumber} (${lines.length} lines) for tenant ${tenantId}`);
+    return order;
+  }
 
   /**
    * Create an order from a paid/completed cart
@@ -64,90 +197,41 @@ export class OrdersService {
       );
     }
 
-    // Build order items from cart items (snapshot)
-    const orderItemsData = (cart.items || []).map((cartItem) => {
+    // Build order lines from cart items (snapshot).
+    const lines: OrderLine[] = (cart.items || []).map((cartItem) => {
       const unitPrice = cartItem.priceSnapshot ?? cartItem.item?.price ?? 0;
       const quantity = Number(cartItem.quantity);
-      const totalPrice = quantity * unitPrice;
-
       return {
         itemId: cartItem.itemId,
         productName: cartItem.item?.name ?? 'Unknown Product',
         productSlug: cartItem.item?.slug ?? 'unknown',
         quantity,
         unitPrice,
-        totalPrice,
+        totalPrice: quantity * unitPrice,
       };
     });
 
-    // Calculate subtotal
-    const subtotal = orderItemsData.reduce((sum, item) => sum + item.totalPrice, 0);
-    const totalAmount = subtotal; // No tax/delivery for POS
+    const paymentStatus: PaymentStatus =
+      (cart.status === 'paid' || cart.status === 'completed') ? 'paid' : 'pending';
 
-    // Generate order number
-    const orderNumber = this.generateOrderNumber();
-
-    // Determine payment status from cart
-    const paymentStatus = (cart.status === 'paid' || cart.status === 'completed') ? 'paid' : 'pending';
-
-    // Pre-flight: validate stock for ALL items up front so we fail BEFORE
-    // writing anything — this prevents a phantom order being persisted (and the
-    // cart left active) when stock later turns out to be insufficient.
-    for (const oi of orderItemsData) {
-      await this.inventoryService.validateStock(oi.itemId, oi.quantity, tenantId);
-    }
-
-    // Pre-generate the order id so stock movements can reference it and the
-    // order is only persisted AFTER stock has been successfully deducted.
-    const orderId = randomUUID();
-
-    // Deduct stock FIRST. If this throws (e.g. a race slipped past validation),
-    // no order row is created and the cart stays active for a retry.
-    await this.inventoryService.deductStockForOrder(
-      orderItemsData.map((oi) => ({ itemId: oi.itemId, quantity: oi.quantity })),
-      orderId,
+    // Validate → deduct stock → persist (shared with checkout).
+    const order = await this.buildAndPersistOrder({
       tenantId,
-    );
-
-    // Create + persist the order entity (with the pre-generated id).
-    const order = this.orderRepository.create({
-      id: orderId,
-      orderNumber,
-      tenantId,
-      userId: cart.userId,
-      cartId: cart.id,
-      status: 'pending' as OrderStatus,
+      lines,
       paymentStatus,
       paymentMethod: 'cod',
-      subtotal,
-      taxAmount: 0,
-      deliveryFee: 0,
-      discountAmount: 0,
-      totalAmount,
+      userId: cart.userId,
+      cartId: cart.id,
       notes,
       paidAt: cart.paidAt,
       paidAmount: cart.paidAmount,
     });
 
-    const savedOrder = await this.orderRepository.save(order);
-
-    // Create order items
-    const orderItems = orderItemsData.map((itemData) =>
-      this.orderItemRepository.create({
-        ...itemData,
-        orderId: savedOrder.id,
-        tenantId,
-      }),
-    );
-    await this.orderItemRepository.save(orderItems);
-
-    // Deactivate the cart
+    // Deactivate the cart now that the order is committed.
     await this.cartService.update(cartId, { isActive: false }, tenantId);
 
-    this.logger.log(`Created order ${savedOrder.orderNumber} from cart ${cartId} for tenant ${tenantId}`);
-
-    // Return with items
-    return this.findOne(savedOrder.id, tenantId);
+    this.logger.log(`Created order ${order.orderNumber} from cart ${cartId} for tenant ${tenantId}`);
+    return order;
   }
 
   /**

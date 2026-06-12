@@ -98,8 +98,10 @@ export class InventoryService {
       .where('id = :itemId AND tenant_id = :tenantId AND stock_quantity >= :decQty', {
         itemId,
         tenantId,
-        decQty: quantity,
       })
+      // Bind :decQty explicitly — a parameter referenced inside the .set() raw
+      // expression is NOT reliably bound from the .where() params object alone.
+      .setParameter('decQty', quantity)
       .execute();
 
     if (!result.affected) {

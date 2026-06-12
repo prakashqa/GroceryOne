@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Mock next/link
 jest.mock('next/link', () => {
@@ -202,6 +202,78 @@ describe('OrderDetailPage - Side-by-Side Layout', () => {
       expect(screen.getByText(/Vegetables/)).toBeInTheDocument();
       expect(screen.getByText('Tea')).toBeInTheDocument();
       expect(screen.getByText('Potato')).toBeInTheDocument();
+    });
+  });
+
+  // The web/desktop POS is local-only, so confirming payment MUST first commit
+  // the sale to the backend (which deducts stock) and only mark the cart paid on
+  // success. These tests pin that contract: payload shape, success→markPaid,
+  // failure→error + stay-unpaid, and the in-flight disabled state.
+  describe('Checkout on payment (stock deduction)', () => {
+    function setCheckoutMock(impl: () => any, opts: { isLoading?: boolean } = {}) {
+      const store = require('@groceryone/store');
+      const fn = jest.fn(() => ({ unwrap: impl }));
+      store.useCheckoutMutation = () => [fn, { isLoading: opts.isLoading ?? false }];
+      return fn;
+    }
+
+    function confirmButton() {
+      return screen.getByRole('button', { name: /payment\.confirmPayment/ });
+    }
+
+    it('confirming payment posts the cart line items + clientRef, then marks paid on success', async () => {
+      setupMocks({ isDesktop: true });
+      const checkout = setCheckoutMock(() => Promise.resolve({ id: 'o1' }));
+
+      render(<OrderDetailPage />);
+      fireEvent.click(confirmButton());
+
+      await waitFor(() => expect(checkout).toHaveBeenCalledTimes(1));
+      // Server re-derives prices — the client only sends {itemId, quantity}.
+      expect(checkout).toHaveBeenCalledWith({
+        items: [
+          { itemId: 'item-1', quantity: 500 },
+          { itemId: 'item-2', quantity: 2 },
+        ],
+        paymentMethod: 'cash',
+        paidAmount: 220070,
+        clientRef: 'cart-1', // idempotency key = local cart id
+      });
+      // Only AFTER the backend commit do we mark the local cart paid.
+      await waitFor(() =>
+        expect(mockDispatch).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'cart/markPaid' }),
+        ),
+      );
+    });
+
+    it('blocks the sale on backend rejection (insufficient stock): shows the error and does NOT mark paid', async () => {
+      setupMocks({ isDesktop: true });
+      setCheckoutMock(() =>
+        Promise.reject({ data: { message: 'Insufficient stock for Potato' } }),
+      );
+
+      render(<OrderDetailPage />);
+      fireEvent.click(confirmButton());
+
+      // The backend message is surfaced inline…
+      expect(await screen.findByTestId('payment-error')).toHaveTextContent(
+        'Insufficient stock for Potato',
+      );
+      // …and the cart is NEVER marked paid.
+      expect(mockDispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'cart/markPaid' }),
+      );
+    });
+
+    it('disables the confirm button while the checkout is in flight', () => {
+      setupMocks({ isDesktop: true });
+      setCheckoutMock(() => new Promise(() => {}), { isLoading: true });
+
+      render(<OrderDetailPage />);
+      // While busy the label switches to the "processing" state and the button
+      // is disabled so a cashier can't double-submit.
+      expect(screen.getByRole('button', { name: /payment\.processing/ })).toBeDisabled();
     });
   });
 });

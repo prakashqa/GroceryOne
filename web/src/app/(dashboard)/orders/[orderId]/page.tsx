@@ -9,6 +9,7 @@ import {
   selectCanMarkPayment, selectCategories,
   incrementItemInActiveCart, decrementItemInActiveCart, removeItemFromActiveCart,
   clearActiveCart, markActiveCartAsPaid,
+  useCheckoutMutation,
 } from '@groceryone/store';
 import { DomainTypes } from '@groceryone/store';
 import { Plus, Minus, Trash2, ArrowLeft, CreditCard, Printer, ShoppingCart, CheckCircle2 } from 'lucide-react';
@@ -31,6 +32,7 @@ export default function OrderDetailPage() {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const [showPayment, setShowPayment] = useState(false);
+  const [checkout, { isLoading: isCheckingOut }] = useCheckoutMutation();
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, DomainTypes.CartItemState[]>();
@@ -47,9 +49,28 @@ export default function OrderDetailPage() {
     return cat ? `${cat.icon} ${cat.name}` : catId;
   };
 
-  const handleConfirmPayment = useCallback((paymentInfo: DomainTypes.PaymentInfo) => {
+  // Confirm payment = commit the sale to the backend FIRST (deduct stock),
+  // THEN mark the local cart paid. The web/desktop POS is otherwise local-only,
+  // so this checkout call is the single path that actually moves inventory.
+  // If the backend rejects (e.g. insufficient stock), we throw so PaymentInline
+  // surfaces the message and does NOT show success — the cart stays unpaid.
+  // `clientRef = activeCart.id` makes a retry idempotent (no double-deduction).
+  const handleConfirmPayment = useCallback(async (paymentInfo: DomainTypes.PaymentInfo) => {
+    try {
+      await checkout({
+        items: cartItems.map((ci) => ({ itemId: ci.item.id, quantity: ci.quantity })),
+        paymentMethod: paymentInfo.method,
+        paidAmount: grandTotal,
+        clientRef: activeCart?.id,
+      }).unwrap();
+    } catch (err: unknown) {
+      const e = err as { data?: { message?: string; error?: { message?: string } } };
+      throw new Error(
+        e?.data?.message || e?.data?.error?.message || t('payment.checkoutFailed'),
+      );
+    }
     dispatch(markActiveCartAsPaid({ amount: grandTotal, paymentInfo }));
-  }, [dispatch, grandTotal]);
+  }, [checkout, cartItems, grandTotal, activeCart?.id, dispatch, t]);
 
   if (!activeCart) {
     return (
@@ -166,6 +187,7 @@ export default function OrderDetailPage() {
                   grandTotal={grandTotal}
                   onConfirm={handleConfirmPayment}
                   onCancel={() => setShowPayment(false)}
+                  isProcessing={isCheckingOut}
                 />
               </div>
             )}
@@ -206,6 +228,7 @@ export default function OrderDetailPage() {
                 <PaymentInline
                   grandTotal={grandTotal}
                   onConfirm={handleConfirmPayment}
+                  isProcessing={isCheckingOut}
                 />
               ) : (
                 /* Paid confirmation card */

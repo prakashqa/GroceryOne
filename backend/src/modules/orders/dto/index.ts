@@ -1,3 +1,4 @@
 export * from './create-order.dto';
+export * from './checkout.dto';
 export * from './update-order-status.dto';
 export * from './cancel-order.dto';
