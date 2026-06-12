@@ -36,21 +36,25 @@ describe('InventoryService', () => {
 
   const txnQueryBuilder = createMockQueryBuilder();
 
+  // Shared so tests can configure .execute() (the atomic stock UPDATE) and
+  // assert against the update/set/where calls.
+  const itemQueryBuilder = {
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    execute: jest.fn(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    getMany: jest.fn(),
+    getRawOne: jest.fn(),
+  };
+
   const mockItemRepository = {
     findOne: jest.fn(),
     save: jest.fn(),
-    createQueryBuilder: jest.fn(() => ({
-      update: jest.fn().mockReturnThis(),
-      set: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      execute: jest.fn(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn(),
-      getRawOne: jest.fn(),
-    })),
+    createQueryBuilder: jest.fn(() => itemQueryBuilder),
   };
 
   const mockTxnRepository = {
@@ -143,46 +147,59 @@ describe('InventoryService', () => {
   // ── removeStock ───────────────────────────────────────────────────────
 
   describe('removeStock', () => {
-    it('should decrease stock and record transaction', async () => {
-      mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 100 });
-      mockItemRepository.save.mockResolvedValue({ ...mockItemA, stockQuantity: 80 });
+    it('should decrease stock atomically and record transaction', async () => {
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 1 }); // decrement succeeded
+      mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 80 }); // re-read
 
-      const result = await service.removeStock(
+      await service.removeStock(
         mockItemA.id, 20, 'damage', TENANT_A_ID, 'Damaged goods',
       );
 
-      expect(mockItemRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ stockQuantity: 80 }),
-      );
+      // No read-modify-write: the row is changed by a conditional UPDATE, not save().
+      expect(mockItemRepository.save).not.toHaveBeenCalled();
+      expect(itemQueryBuilder.update).toHaveBeenCalled();
       expect(mockTxnRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'damage',
-          quantity: -20,
-          stockAfter: 80,
-        }),
+        expect.objectContaining({ type: 'damage', quantity: -20, stockAfter: 80 }),
       );
     });
 
-    it('should reject when insufficient stock', async () => {
+    it('uses an atomic conditional UPDATE guarded by stock_quantity >= qty (lost-update safe)', async () => {
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 1 });
+      mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 80 });
+
+      await service.removeStock(mockItemA.id, 20, 'sale', TENANT_A_ID);
+
+      const whereArg = itemQueryBuilder.where.mock.calls[0]?.[0];
+      expect(whereArg).toContain('stock_quantity >= :decQty');
+      expect(whereArg).toContain('tenant_id = :tenantId');
+      expect(itemQueryBuilder.where.mock.calls[0]?.[1]).toEqual(
+        expect.objectContaining({ itemId: mockItemA.id, tenantId: TENANT_A_ID, decQty: 20 }),
+      );
+    });
+
+    it('should reject when insufficient stock (UPDATE affected 0, item exists)', async () => {
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 0 });
       mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 5 });
 
       await expect(
         service.removeStock(mockItemA.id, 20, 'damage', TENANT_A_ID),
       ).rejects.toThrow(BadRequestException);
+      expect(mockTxnRepository.save).not.toHaveBeenCalled();
     });
 
     it('should allow removing exact remaining stock (stock goes to 0)', async () => {
-      mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 20 });
-      mockItemRepository.save.mockResolvedValue({ ...mockItemA, stockQuantity: 0 });
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 1 });
+      mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 0 });
 
       await service.removeStock(mockItemA.id, 20, 'sale', TENANT_A_ID);
 
-      expect(mockItemRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ stockQuantity: 0 }),
+      expect(mockTxnRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ stockAfter: 0 }),
       );
     });
 
-    it('should reject cross-tenant access', async () => {
+    it('should reject cross-tenant access (UPDATE affected 0, item not found)', async () => {
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 0 });
       mockItemRepository.findOne.mockResolvedValue(null);
 
       await expect(
@@ -272,14 +289,14 @@ describe('InventoryService', () => {
       const item1 = { ...mockItemA, id: 'item-1', stockQuantity: 100 };
       const item2 = { ...mockItemA, id: 'item-2', stockQuantity: 200 };
 
+      // The atomic decrement succeeds for each item.
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 1 });
+      // findOne is hit twice per item: once for the trackInventory check, once
+      // as the post-decrement re-read inside removeStock.
       mockItemRepository.findOne
         .mockResolvedValueOnce(item1)
-        .mockResolvedValueOnce({ ...item1, stockQuantity: 90 }) // for the reload
-        .mockResolvedValueOnce(item2)
-        .mockResolvedValueOnce({ ...item2, stockQuantity: 195 });
-
-      mockItemRepository.save
         .mockResolvedValueOnce({ ...item1, stockQuantity: 90 })
+        .mockResolvedValueOnce(item2)
         .mockResolvedValueOnce({ ...item2, stockQuantity: 195 });
 
       await service.deductStockForOrder(
@@ -302,6 +319,7 @@ describe('InventoryService', () => {
     });
 
     it('should throw if any item has insufficient stock', async () => {
+      itemQueryBuilder.execute.mockResolvedValue({ affected: 0 }); // decrement blocked by guard
       mockItemRepository.findOne.mockResolvedValue({ ...mockItemA, stockQuantity: 2 });
 
       await expect(

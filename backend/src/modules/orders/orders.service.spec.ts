@@ -515,28 +515,48 @@ describe('OrdersService', () => {
 
       await service.createFromCart('cart-uuid', TENANT_A_ID);
 
+      // Stock is deducted BEFORE the order is persisted, referencing a
+      // pre-generated order id (so a stock failure never leaves a phantom order).
       expect(mockInventoryService.deductStockForOrder).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({ itemId: 'item-1-uuid', quantity: 2 }),
           expect.objectContaining({ itemId: 'item-2-uuid', quantity: 3 }),
         ]),
-        'new-order-uuid',
+        expect.any(String),
         TENANT_A_ID,
       );
     });
 
-    it('should fail order creation if stock deduction fails', async () => {
+    it('validates stock for every item before creating the order', async () => {
       mockCartService.findOne.mockResolvedValue(mockCartWithItems);
       mockOrderRepository.create.mockReturnValue(mockOrder);
       mockOrderRepository.save.mockResolvedValue({ ...mockOrder, id: 'new-order-uuid' });
       mockOrderItemRepository.create.mockImplementation((dto) => dto);
       mockOrderItemRepository.save.mockResolvedValue([]);
+      mockCartService.update.mockResolvedValue({});
+      mockOrderRepository.findOne.mockResolvedValue({ ...mockOrder, items: [] });
+
+      await service.createFromCart('cart-uuid', TENANT_A_ID);
+
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-1-uuid', 2, TENANT_A_ID);
+      expect(mockInventoryService.validateStock).toHaveBeenCalledWith('item-2-uuid', 3, TENANT_A_ID);
+    });
+
+    it('fails order creation WITHOUT persisting a phantom order when stock deduction fails', async () => {
+      mockCartService.findOne.mockResolvedValue(mockCartWithItems);
+      mockOrderRepository.create.mockReturnValue(mockOrder);
       mockInventoryService.deductStockForOrder.mockRejectedValue(
         new BadRequestException('Insufficient stock'),
       );
 
       await expect(service.createFromCart('cart-uuid', TENANT_A_ID))
         .rejects.toThrow(BadRequestException);
+
+      // The order is persisted only AFTER stock is deducted, so a deduction
+      // failure must leave NO order row and the cart still active.
+      expect(mockOrderRepository.save).not.toHaveBeenCalled();
+      expect(mockOrderItemRepository.save).not.toHaveBeenCalled();
+      expect(mockCartService.update).not.toHaveBeenCalled();
     });
   });
 

@@ -84,23 +84,43 @@ export class InventoryService {
   ): Promise<InventoryTransaction> {
     validateTenantId(tenantId);
 
-    const item = await this.findItemOrFail(itemId, tenantId);
+    // Atomic conditional decrement: a single
+    //   UPDATE items SET stock_quantity = stock_quantity - q
+    //   WHERE id = … AND tenant_id = … AND stock_quantity >= q
+    // prevents the lost-update race where two concurrent sales both read the
+    // same starting stock and oversell. `affected === 0` means the row didn't
+    // satisfy the guard — either it doesn't exist for this tenant, or there
+    // wasn't enough stock.
+    const result = await this.itemRepository
+      .createQueryBuilder()
+      .update(Item)
+      .set({ stockQuantity: () => 'stock_quantity - :decQty' })
+      .where('id = :itemId AND tenant_id = :tenantId AND stock_quantity >= :decQty', {
+        itemId,
+        tenantId,
+        decQty: quantity,
+      })
+      .execute();
 
-    if (Number(item.stockQuantity) < quantity) {
+    if (!result.affected) {
+      const existing = await this.itemRepository.findOne({ where: { id: itemId, tenantId } });
+      if (!existing) {
+        throw new NotFoundException(`Item with ID '${itemId}' not found`);
+      }
       throw new BadRequestException(
-        `Insufficient stock for item '${item.name}'. Available: ${item.stockQuantity}, Requested: ${quantity}`,
+        `Insufficient stock for item '${existing.name}'. Available: ${existing.stockQuantity}, Requested: ${quantity}`,
       );
     }
 
-    item.stockQuantity = Number(item.stockQuantity) - quantity;
-    const saved = await this.itemRepository.save(item);
+    // Re-read to record the post-decrement level + name in the audit row.
+    const item = await this.findItemOrFail(itemId, tenantId);
 
     const txn = this.txnRepository.create({
       tenantId,
       itemId,
       type,
       quantity: -quantity,
-      stockAfter: Number(saved.stockQuantity),
+      stockAfter: Number(item.stockQuantity),
       reason,
       referenceType,
       referenceId,

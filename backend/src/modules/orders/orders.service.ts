@@ -6,6 +6,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CartService } from '../cart/cart.service';
@@ -89,8 +90,28 @@ export class OrdersService {
     // Determine payment status from cart
     const paymentStatus = (cart.status === 'paid' || cart.status === 'completed') ? 'paid' : 'pending';
 
-    // Create order entity
+    // Pre-flight: validate stock for ALL items up front so we fail BEFORE
+    // writing anything — this prevents a phantom order being persisted (and the
+    // cart left active) when stock later turns out to be insufficient.
+    for (const oi of orderItemsData) {
+      await this.inventoryService.validateStock(oi.itemId, oi.quantity, tenantId);
+    }
+
+    // Pre-generate the order id so stock movements can reference it and the
+    // order is only persisted AFTER stock has been successfully deducted.
+    const orderId = randomUUID();
+
+    // Deduct stock FIRST. If this throws (e.g. a race slipped past validation),
+    // no order row is created and the cart stays active for a retry.
+    await this.inventoryService.deductStockForOrder(
+      orderItemsData.map((oi) => ({ itemId: oi.itemId, quantity: oi.quantity })),
+      orderId,
+      tenantId,
+    );
+
+    // Create + persist the order entity (with the pre-generated id).
     const order = this.orderRepository.create({
+      id: orderId,
       orderNumber,
       tenantId,
       userId: cart.userId,
@@ -119,13 +140,6 @@ export class OrdersService {
       }),
     );
     await this.orderItemRepository.save(orderItems);
-
-    // Deduct stock for all order items
-    await this.inventoryService.deductStockForOrder(
-      orderItemsData.map((oi) => ({ itemId: oi.itemId, quantity: oi.quantity })),
-      savedOrder.id,
-      tenantId,
-    );
 
     // Deactivate the cart
     await this.cartService.update(cartId, { isActive: false }, tenantId);
